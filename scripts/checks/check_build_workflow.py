@@ -191,7 +191,7 @@ for expected in (
     'git -C $root checkout --detach "refs/tags/$version"',
     "$actualCommit = git -C $root rev-parse HEAD",
     "$actualCommit -ne $expectedCommit",
-    r'$versionOutput = & "$root\bin\flutter.bat" --version --machine',
+    '$versionOutput = & $flutterCommand --version --machine',
     "$reportedVersion -ne $version",
 ):
     require(

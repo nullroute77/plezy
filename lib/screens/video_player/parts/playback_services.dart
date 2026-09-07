@@ -149,7 +149,17 @@ extension _VideoPlayerPlaybackServiceMethods on VideoPlayerScreenState {
       _playerStreamSubscriptions.add(
         currentPlayer.streams.sourceReady.listen((source) {
           if (!mounted || player != currentPlayer) return;
-          if (_live.calibrateClockSource(source)) {
+          final previousAnchor = _live.streamStartEpoch;
+          final calibrated = _live.calibrateClockSource(source);
+          if (_liveSeekDiagnostics) {
+            appLogger.d(
+              '[LiveSeekDiag] ready generation=${_live.streamGeneration} source=${source.sourceId} '
+              'firstFrameMs=${source.position.inMilliseconds} calibrated=$calibrated '
+              'previousAnchor=$previousAnchor anchor=${_live.streamStartEpoch} '
+              'activeSource=${_live.activeClockSourceId} pending=${_live.pendingStreamEpoch}',
+            );
+          }
+          if (calibrated) {
             _setPlayerState(() {});
           }
         }),
@@ -158,6 +168,9 @@ extension _VideoPlayerPlaybackServiceMethods on VideoPlayerScreenState {
         currentPlayer.streams.sourceFailed.listen((source) {
           if (!mounted || player != currentPlayer) return;
           _live.failClockSource(source);
+          if (_liveSeekDiagnostics) {
+            appLogger.d('[LiveSeekDiag] failed generation=${_live.streamGeneration} source=${source.sourceId}');
+          }
           _setPlayerState(() {});
         }),
       );

@@ -1,6 +1,7 @@
 part of '../../video_player_screen.dart';
 
 const _liveClockReadyTimeout = Duration(seconds: 15);
+const _liveSeekDiagnostics = bool.fromEnvironment('PLEX_LIVE_SEEK_DIAGNOSTICS');
 
 extension _VideoPlayerLiveTvMethods on VideoPlayerScreenState {
   /// Start periodic timeline heartbeats for live TV transcode session.
@@ -108,6 +109,14 @@ extension _VideoPlayerLiveTvMethods on VideoPlayerScreenState {
           isMounted: () => mounted,
           commit: (update) {
             _setPlayerState(() {
+              if (_liveSeekDiagnostics) {
+                appLogger.d(
+                  '[LiveSeekDiag] heartbeat requestGeneration=$requestStreamGeneration '
+                  'generation=${_live.streamGeneration} playerMs=${player?.currentPosition.inMilliseconds} '
+                  'anchor=${_live.streamStartEpoch} pending=${_live.pendingStreamEpoch} '
+                  'capture=${update.captureBuffer} playback=${update.playbackStream}',
+                );
+              }
               final playbackStream = update.playbackStream;
               if (playbackStream != null &&
                   _live.adoptPlaybackStreamOrigin(playbackStream, generation: requestStreamGeneration)) {
@@ -256,6 +265,12 @@ extension _VideoPlayerLiveTvMethods on VideoPlayerScreenState {
   }) async {
     if (_shuttingDown) return false;
     _live.streamGeneration++;
+    if (_liveSeekDiagnostics) {
+      appLogger.d(
+        '[LiveSeekDiag] open generation=${_live.streamGeneration} target=$targetEpoch '
+        'playerMs=${player.currentPosition.inMilliseconds} anchor=${_live.streamStartEpoch}',
+      );
+    }
     final media = Media(streamUrl, headers: const {'Accept-Language': 'en'});
     final playNow = play ?? automotivePlaybackAllowedNow();
     if (targetEpoch == null || player is! PlayerNative) {
@@ -283,6 +298,14 @@ extension _VideoPlayerLiveTvMethods on VideoPlayerScreenState {
       return false;
     }
     _live.bindClockOpen(clockGeneration, sourceId);
+    if (_liveSeekDiagnostics) {
+      appLogger.d(
+        '[LiveSeekDiag] bind generation=${_live.streamGeneration} clockGeneration=$clockGeneration '
+        'source=$sourceId activeSource=${_live.activeClockSourceId} '
+        'playerMs=${player.currentPosition.inMilliseconds} anchor=${_live.streamStartEpoch} '
+        'pending=${_live.pendingStreamEpoch}',
+      );
+    }
 
     if (!awaitClock) {
       unawaited(clockResult);
@@ -334,6 +357,14 @@ extension _VideoPlayerLiveTvMethods on VideoPlayerScreenState {
 
     final clamped = targetEpochSeconds.clamp(buffer.seekableStartEpoch, buffer.seekableEndEpoch);
     final offsetSeconds = clamped - buffer.startedAt.round();
+    if (_liveSeekDiagnostics) {
+      appLogger.d(
+        '[LiveSeekDiag] seek generation=${_live.streamGeneration} target=$targetEpochSeconds '
+        'clamped=$clamped offset=$offsetSeconds playerMs=${currentPlayer.currentPosition.inMilliseconds} '
+        'anchor=${_live.streamStartEpoch} rawEpoch=$_rawPositionEpoch '
+        'pending=${_liveSeek.pendingEpoch} atLive=${_live.atLiveEdge} capture=$buffer',
+      );
+    }
 
     final streamUrl = await session.streamUrlAt(offsetSeconds: offsetSeconds, subtitleTrack: _live.selectedSubtitle);
     if (streamUrl == null || !mounted || _shuttingDown || player != currentPlayer) return false;
@@ -351,6 +382,13 @@ extension _VideoPlayerLiveTvMethods on VideoPlayerScreenState {
       awaitClock: currentPlayer is PlayerNative,
     );
     if (!mounted || player != currentPlayer) return false;
+    if (_liveSeekDiagnostics) {
+      appLogger.d(
+        '[LiveSeekDiag] seekFinished generation=${_live.streamGeneration} target=$clamped '
+        'opened=$opened activeSource=${_live.activeClockSourceId} '
+        'playerMs=${currentPlayer.currentPosition.inMilliseconds} anchor=${_live.streamStartEpoch}',
+      );
+    }
     _setPlayerState(() {});
     return opened;
   }
@@ -420,6 +458,13 @@ extension _VideoPlayerLiveTvMethods on VideoPlayerScreenState {
     if (!mounted) return;
     final pending = _liveSeek.pendingEpoch;
     final buffer = _live.captureBuffer;
+    if (_liveSeekDiagnostics) {
+      appLogger.d(
+        '[LiveSeekDiag] pending generation=${_live.streamGeneration} target=$pending '
+        'playerMs=${player?.currentPosition.inMilliseconds} anchor=${_live.streamStartEpoch} '
+        'rawEpoch=$_rawPositionEpoch capture=$buffer',
+      );
+    }
     _setPlayerState(() {
       if (pending != null && buffer != null) {
         _live.atLiveEdge = pending >= buffer.seekableEndEpoch - VideoPlayerScreenState._liveEdgeThresholdSeconds;
