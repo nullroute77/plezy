@@ -184,8 +184,6 @@ class PlayerAndroid extends PlayerBase {
     bool isLive = false,
     List<SubtitleTrack>? externalSubtitles,
     Duration? timelineDuration,
-    bool startLivePlaylistFromBeginning = false,
-    bool liveSeekDiagnostics = false,
   }) async {
     if (disposed) return;
     await _ensureInitialized();
@@ -212,8 +210,6 @@ class PlayerAndroid extends PlayerBase {
         'hasStartPosition': hasStartPosition,
         'autoPlay': play,
         'isLive': isLive,
-        if (isLive && startLivePlaylistFromBeginning) 'startLivePlaylistFromBeginning': true,
-        if (isLive && liveSeekDiagnostics) 'liveSeekDiagnostics': true,
         if (_contentFrameRate != null) 'contentFrameRate': _contentFrameRate,
         if (externalSubtitles != null && externalSubtitles.isNotEmpty)
           'externalSubtitles': externalSubtitles

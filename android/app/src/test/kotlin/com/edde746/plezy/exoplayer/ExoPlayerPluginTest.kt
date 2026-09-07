@@ -32,67 +32,6 @@ import org.robolectric.Shadows.shadowOf
 class ExoPlayerPluginTest {
 
   @Test
-  fun fallbackLiveOffsetOpenStartsAtFirstSegmentWithoutAffectingTheNextOpen() {
-    val activity = Robolectric.buildActivity(Activity::class.java).setup().get()
-    val loads = ConcurrentLinkedQueue<List<String>>()
-    val core = MpvPlayerCore(activity, true, { _, _ -> Unit }, recordingLoads(loads))
-    val plugin = initialFallbackPlugin(activity, core)
-    try {
-      for ((isLive, enabled) in listOf(true to true, true to false, false to true)) {
-        val result = RecordingResult()
-        plugin.onMethodCall(
-          MethodCall("open", mapOf(
-            "uri" to "https://example.test/live.m3u8?offset=30",
-            "isLive" to isLive,
-            "startLivePlaylistFromBeginning" to enabled
-          )),
-          result
-        )
-        awaitCompletion(result)
-        assertNull(result.errorCode)
-        val load = loads.last { it.first() == "loadfile" }
-        assertEquals(isLive && enabled, load[4].contains("demuxer-lavf-o-append=live_start_index=0"))
-      }
-    } finally {
-      val result = RecordingResult()
-      plugin.onMethodCall(MethodCall("dispose", null), result)
-      awaitCompletion(result)
-    }
-  }
-
-  @Test
-  fun initialFormatFallbackRetainsTheLiveOffsetStartPolicy() {
-    val activity = Robolectric.buildActivity(Activity::class.java).setup().get()
-    val loads = ConcurrentLinkedQueue<List<String>>()
-    val core = MpvPlayerCore(activity, true, { _, _ -> Unit }, recordingLoads(loads))
-    val plugin = ExoPlayerPlugin()
-    var initializeCallback: ((Boolean) -> Unit)? = null
-    setField(plugin, "activity", activity)
-    setField(plugin, "playerCore", ExoPlayerCore(activity))
-    setField(plugin, "currentMediaIsLive", true)
-    setField(plugin, "currentStartLivePlaylistFromBeginning", true)
-    plugin.createMpvCore = { core }
-    plugin.initializeMpvCore = { _, callback -> initializeCallback = callback }
-    try {
-      assertTrue(plugin.onFormatUnsupported(0, "https://example.test/live.m3u8", null, 0, true, "unsupported"))
-      shadowOf(Looper.getMainLooper()).idle()
-      initializeCallback!!(true)
-      for (attempt in 0 until 100) {
-        shadowOf(Looper.getMainLooper()).idle()
-        if (loads.any { it.first() == "loadfile" }) break
-        Thread.sleep(10)
-      }
-      val load = loads.single { it.first() == "loadfile" }
-      assertTrue(load[4].contains("demuxer-lavf-o-append=live_start_index=0"))
-    } finally {
-      val result = RecordingResult()
-      plugin.onMethodCall(MethodCall("dispose", null), result)
-      awaitCompletion(result)
-      core.dispose()
-    }
-  }
-
-  @Test
   fun fallbackGetStatsCompletesAfterActivityDetach() {
     val plugin = ExoPlayerPlugin()
     plugin.javaClass.getDeclaredField("usingMpvFallback").apply {

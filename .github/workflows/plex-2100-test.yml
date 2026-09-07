@@ -71,15 +71,7 @@ jobs:
           --dart-define=ENABLE_UPDATE_CHECK=false
           --dart-define=ENABLE_SENTRY=false
           --dart-define=PLEX_LIVE_SEEK_DIAGNOSTICS=true
-          --dart-define=PLEX_LIVE_SEEK_HLS_FROM_START=true
           --dart-define=GIT_COMMIT=${{ github.sha }}
-
-      - name: Test ExoPlayer bridge and fallback
-        working-directory: android
-        run: >-
-          ./gradlew :app:testDebugUnitTest
-          --tests 'com.edde746.plezy.exoplayer.ExoPlayerPluginTest'
-          -x :app:compileFlutterBuildDebug
 
       - name: Verify APK and record build identity
         env:
@@ -107,7 +99,7 @@ jobs:
           Signed with a test key, so it cannot update an official release installation.
           Test updates reuse the signing key while the GitHub Actions cache retains it.
           Automatic update checks and Sentry are disabled.
-          Experimental HLS first-segment seeking is enabled; #2100 still needs runtime verification.
+          MPV first-segment seeking is enabled by default; ExoPlayer is outside this repair.
           EOF
 
       - name: Remove signing configuration
@@ -154,7 +146,6 @@ jobs:
           --dart-define=ENABLE_UPDATE_CHECK=false
           --dart-define=ENABLE_SENTRY=false
           --dart-define=PLEX_LIVE_SEEK_DIAGNOSTICS=true
-          --dart-define=PLEX_LIVE_SEEK_HLS_FROM_START=true
           --dart-define=GIT_COMMIT=${{ github.sha }}
 
       - name: Verify bundle and record build identity
@@ -184,7 +175,7 @@ jobs:
             "Branch: $env:TEST_REF",
             "Extract the complete ZIP and run plezy.exe.",
             "Automatic update checks and Sentry are disabled for this test build.",
-            "Experimental HLS first-segment seeking is enabled; #2100 still needs runtime verification."
+            "MPV first-segment seeking is enabled by default; ExoPlayer is outside this repair."
           ) | Set-Content -LiteralPath (Join-Path $bundle "TEST-BUILD.txt") -Encoding utf8
 
       # GitHub packages the complete folder as a downloadable ZIP artifact.

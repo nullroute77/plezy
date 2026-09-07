@@ -1,5 +1,16 @@
 # Plex #2100: four small rewinds, September 7, 2026
 
+## Final scope: MPV repair
+
+The user confirmed this repair works with MPV on Windows 11 and Android TV.
+They chose to stop the ExoPlayer investigation and retain an MPV-only repair.
+The ExoPlayer follow-up changes have been removed. The first-segment policy is
+now enabled by default for native MPV opens with explicit server offsets; no
+experimental build flag is required. The separate timeline/UI branch is untouched.
+ExoPlayer seeking remains unresolved and outside this change.
+
+The sections below preserve the original evidence and experimental validation.
+
 The new log identifies Plezy 2.19.1 diagnostic commit `1ecca57`. The user
 opened a channel, attempted two small rewinds (both failed), jumped roughly a
 minute backward using the timeline, then attempted two more small rewinds
@@ -81,7 +92,7 @@ it, including the successful final attempt, but the supplied log lacks playlist
 contents, EXTINF durations, program date-times, and unrebased timestamps.
 Do not convert filenames directly into measured seconds or call #2100 fixed.
 
-## Opt-in experiment
+## Original opt-in experiment (now enabled by default for MPV)
 
 `PLEX_LIVE_SEEK_HLS_FROM_START=true` makes native MPV opens with an explicit
 server offset use the file-local `demuxer-lavf-o-append=live_start_index=0` option.
@@ -110,55 +121,13 @@ snapshot/server evidence before changing clock arithmetic or adding delays.
 - Full Flutter analysis passed with no issues; changed Dart formatting and
   `git diff --check` passed.
 - Workflow security guard and its 11 regression tests passed.
-- No live Plex runtime verification of this experiment has occurred yet.
+- Subsequent user runtime verification confirmed the repair with MPV on
+  Windows 11 and Android TV; ExoPlayer was not fixed.
 
-## Follow-up: MPV confirmed; ExoPlayer still fails
+## Final MPV-only validation
 
-The user tested the first-segment build and reports that it fixes MPV rewinds on
-both Windows 11 and Android TV. With ExoPlayer selected on Android TV, a rewind
-still reloads and lands on roughly the same or later content. The user has not
-yet supplied an Android log from that failing run. Treat MPV as runtime-confirmed
-for those two devices; do not extend that confirmation to ExoPlayer.
-
-Code inspection found two distinct Android paths:
-
-1. Actual Media3 ExoPlayer already calls `setMediaSource(source, 0)` (or the
-   equivalent `setMediaItem`) on these new live opens. Its position is relative
-   to its live window. Adding another request to start at zero would not fix
-   a demonstrated gap in this path.
-2. The ExoPlayer plugin can switch internally to MPV for unsupported formats or
-   playback failures. It then opens subsequent streams through its own Kotlin
-   `loadfile` path, bypassing Dart `PlayerNative.open`. That path did not receive
-   the first-segment option. Selecting ExoPlayer does not establish which
-   backend was actually rendering the failed rewind.
-
-The follow-up carries the opt-in first-segment setting through `PlayerAndroid`
-and the Kotlin request queue into MPV fallback. It preserves the setting across
-an initial format handover and scopes it to each live open. Ordinary live opens
-and VOD do not receive it. Actual ExoPlayer seek/clock behavior remains unchanged
-pending runtime evidence.
-
-New opt-in ExoPlayer diagnostics log the requested player start, timeline
-changes, and first-frame events with generation, event playback position,
-window epoch start, window offset within the period, default position, and window
-duration. They contain no stream URLs or tokens and reject events from an older
-media generation. These should expose whether a moving window disagrees with
-the Plex heartbeat origin, without guessing a correction.
-
-[Media3's live-stream documentation](https://developer.android.com/media/media3/exoplayer/live-streaming)
-describes window-relative positions and window start timestamps. Its
-[HLS implementation](https://github.com/androidx/media/blob/1.11.0/libraries/exoplayer_hls/src/main/java/androidx/media3/exoplayer/hls/HlsMediaSource.java)
-is the version pinned by this checkout.
-
-Follow-up local validation: 103 focused Dart tests passed with both flags;
-Flutter analysis, changed Dart formatting, whitespace checks, and the workflow
-security guard plus 11 tests passed. This environment has no JDK/Android SDK;
-the fork Android workflow now runs the ExoPlayer plugin JVM tests before
-publishing the APK. Verify the build and test results before claiming Android
-validation is complete.
-
-Next required evidence: an Android log from the same session as a failed rewind
-with ExoPlayer selected, preferably using the follow-up build for the added
-window diagnostics. Look for backend-switch/fallback events first. If Media3
-remains active, compare `exoTimeline` first-frame/window positions with
-`LiveSeekDiag` seek targets and heartbeat origins before altering clock math.
+After removing the ExoPlayer follow-up and enabling the MPV policy by default,
+102 focused Dart tests passed without experimental build defines. Flutter
+analysis reported no issues; changed formatting, whitespace and workflow
+security checks passed. The Android ExoPlayer implementation and its tests
+match the previously MPV-confirmed revision `4d74500c` exactly.

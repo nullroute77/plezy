@@ -2,9 +2,6 @@ part of '../../video_player_screen.dart';
 
 const _liveClockReadyTimeout = Duration(seconds: 15);
 const _liveSeekDiagnostics = bool.fromEnvironment('PLEX_LIVE_SEEK_DIAGNOSTICS');
-// Investigation switch: validate HLS segment selection independently of the
-// existing clock calibration before making this the production behavior.
-const _liveSeekHlsFromStart = bool.fromEnvironment('PLEX_LIVE_SEEK_HLS_FROM_START');
 
 extension _VideoPlayerLiveTvMethods on VideoPlayerScreenState {
   /// Start periodic timeline heartbeats for live TV transcode session.
@@ -268,7 +265,9 @@ extension _VideoPlayerLiveTvMethods on VideoPlayerScreenState {
   }) async {
     if (_shuttingDown) return false;
     _live.streamGeneration++;
-    final hlsFromStart = _liveSeekHlsFromStart && Uri.parse(streamUrl).queryParameters.containsKey('offset');
+    // Plex has already positioned an offset-specific playlist. MPV must not
+    // skip ahead again using FFmpeg's default live-start policy (#2100).
+    final hlsFromStart = player is PlayerNative && Uri.parse(streamUrl).queryParameters.containsKey('offset');
     if (_liveSeekDiagnostics) {
       appLogger.d(
         '[LiveSeekDiag] open generation=${_live.streamGeneration} target=$targetEpoch '
@@ -281,17 +280,7 @@ extension _VideoPlayerLiveTvMethods on VideoPlayerScreenState {
     if (targetEpoch == null || player is! PlayerNative) {
       if (applyOptions) await _setLiveStreamOptions(player);
       if (_shuttingDown) return false;
-      if (player is PlayerAndroid) {
-        await player.open(
-          media,
-          play: playNow,
-          isLive: true,
-          startLivePlaylistFromBeginning: hlsFromStart,
-          liveSeekDiagnostics: _liveSeekDiagnostics,
-        );
-      } else {
-        await player.open(media, play: playNow, isLive: true);
-      }
+      await player.open(media, play: playNow, isLive: true);
       return true;
     }
 
