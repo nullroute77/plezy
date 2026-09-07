@@ -37,6 +37,14 @@ skipped. Analysis, changed-Dart formatting and code generation passed. Logs are
 `/tmp/plezy-buffer-refresh-*.log`. This reduces stale snapshot delay but does not
 prove an estimated playback position belongs inside the reported capture window.
 
+Hover-seconds revision: the existing clock formatter optionally includes seconds
+for Live TV hover/scrub tooltips; program bounds retain minute labels. The shared
+tooltip accounts for rendered label width so longer clock strings stay inside
+the track. Formatter, Live TV and movie-control tests passed 149 cases, covering
+12/24-hour output, second-by-second hover updates, clamped scrub labels and the
+right edge. The full suite passed 7,078 with 6 skipped; analysis, formatting and
+code generation passed. Logs are `/tmp/plezy-hover-seconds-*.log`.
+
 ## Environment and baseline
 
 Flutter 3.47.1, Dart 3.13.1, Linux/WSL2 (kernel

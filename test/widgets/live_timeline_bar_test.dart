@@ -107,19 +107,30 @@ void main() {
     semantics.dispose();
   });
 
-  testWidgets('hover uses the existing movie tooltip with program clock time', (tester) async {
-    await _pump(tester, timeline: _timeline(estimated: true), seeks: []);
-    final mouse = await tester.createGesture(kind: PointerDeviceKind.mouse);
-    await mouse.addPointer(location: Offset.zero);
-    await mouse.moveTo(tester.getCenter(find.byType(TimelineSlider)));
-    await tester.pump();
-    expect(find.text(_clock(_start + 60)), findsOneWidget);
-    expect(find.textContaining(t.liveTv.timelineEstimated), findsNothing);
-    await mouse.moveTo(Offset.zero);
-    await tester.pump();
-    expect(find.text(_clock(_start + 60)), findsNothing);
-    await mouse.removePointer();
-  });
+  for (final is24Hour in [true, false]) {
+    testWidgets('hover shows and updates seconds with is24Hour=$is24Hour', (tester) async {
+      await _pump(tester, timeline: _timeline(estimated: true), seeks: [], is24Hour: is24Hour);
+      final mouse = await tester.createGesture(kind: PointerDeviceKind.mouse);
+      await mouse.addPointer(location: Offset.zero);
+      final rect = tester.getRect(find.byType(TimelineSlider));
+      for (final second in [45, 46, 119]) {
+        await mouse.moveTo(Offset(rect.left + rect.width * second / 120, rect.center.dy));
+        await tester.pump();
+        expect(find.text(_clock(_start + second, is24Hour: is24Hour, includeSeconds: true)), findsOneWidget);
+        expect(
+          tester.getRect(find.text(_clock(_start + second, is24Hour: is24Hour, includeSeconds: true))).right,
+          lessThanOrEqualTo(rect.right),
+        );
+      }
+      expect(find.text(_clock(_start, is24Hour: is24Hour)), findsOneWidget);
+      expect(find.text(_clock(_start + 120, is24Hour: is24Hour)), findsOneWidget);
+      expect(find.textContaining(t.liveTv.timelineEstimated), findsNothing);
+      await mouse.moveTo(Offset.zero);
+      await tester.pump();
+      expect(find.text(_clock(_start + 119, is24Hour: is24Hour, includeSeconds: true)), findsNothing);
+      await mouse.removePointer();
+    });
+  }
 
   testWidgets('scrubbing retains the same thumb and previews the clamped target', (tester) async {
     final seeks = <double>[];
@@ -129,10 +140,12 @@ void main() {
     final gesture = await tester.startGesture(Offset(rect.left, rect.center.dy));
     await tester.pump();
     expect(_slider(tester).value, 30000);
+    expect(find.text(_clock(_start + 30, includeSeconds: true)), findsOneWidget);
     expect(_thumbSize(tester), initialThumb);
     await gesture.moveTo(Offset(rect.right - 1, rect.center.dy));
     await tester.pump();
     expect(_slider(tester).value, 119000);
+    expect(find.text(_clock(_start + 119, includeSeconds: true)), findsOneWidget);
     expect(_thumbSize(tester), initialThumb);
     await gesture.up();
     await tester.pump();
@@ -237,8 +250,11 @@ Future<void> _tapTrack(WidgetTester tester, double fraction) async {
   await tester.pump();
 }
 
-String _clock(double epoch) =>
-    formatClockTime(DateTime.fromMillisecondsSinceEpoch((epoch * 1000).round()), is24Hour: true);
+String _clock(double epoch, {bool is24Hour = true, bool includeSeconds = false}) => formatClockTime(
+  DateTime.fromMillisecondsSinceEpoch((epoch * 1000).round()),
+  is24Hour: is24Hour,
+  includeSeconds: includeSeconds,
+);
 
 Future<void> _pump(
   WidgetTester tester, {
@@ -247,6 +263,7 @@ Future<void> _pump(
   LiveTvTimeline Function()? timelineBuilder,
   List<int>? relative,
   bool enabled = true,
+  bool is24Hour = true,
   FocusNode? focus,
   KeyEventResult Function(FocusNode, KeyEvent)? onKey,
 }) async {
@@ -256,7 +273,7 @@ Future<void> _pump(
     TranslationProvider(
       child: MaterialApp(
         home: MediaQuery(
-          data: const MediaQueryData(alwaysUse24HourFormat: true),
+          data: MediaQueryData(alwaysUse24HourFormat: is24Hour),
           child: Scaffold(
             backgroundColor: Colors.black,
             body: Center(

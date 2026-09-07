@@ -64,9 +64,10 @@ class _LiveTimelineBarState extends State<LiveTimelineBar> {
 
   LiveTvTimeline get _timeline => widget.timelineForPosition(widget.player.state.position);
 
-  String _clock(double epoch) => formatClockTime(
+  String _clock(double epoch, {bool includeSeconds = false}) => formatClockTime(
     DateTime.fromMillisecondsSinceEpoch((epoch * 1000).round()),
     is24Hour: MediaQuery.alwaysUse24HourFormatOf(context),
+    includeSeconds: includeSeconds,
   );
 
   String _positionValue(LiveTvTimeline timeline) {
@@ -174,7 +175,7 @@ class _LiveTimelineBarState extends State<LiveTimelineBar> {
           showProgress: false,
           positionLabelBuilder: (offset) => timeline.startEpoch == null
               ? t.liveTv.timelineUnavailable
-              : _clock(timeline.startEpoch! + offset.inMilliseconds / 1000),
+              : _clock(timeline.startEpoch! + offset.inMilliseconds / 1000, includeSeconds: true),
           resolveScrubPosition: (offset) {
             final current = _timeline;
             if (!_canScrub(current) || !_sameDragRange(current)) return null;

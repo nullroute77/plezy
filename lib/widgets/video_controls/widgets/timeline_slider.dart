@@ -265,7 +265,23 @@ class _TimelineSliderState extends State<TimelineSlider> {
     final resolvedFrame = frame ?? widget.thumbnailDataBuilder?.call(time);
     final hasThumbnail = resolvedFrame != null;
 
-    final tooltipWidth = hasThumbnail ? _thumbWidth : 64.0;
+    final label = _positionLabel(time);
+    const labelStyle = TextStyle(
+      color: Colors.white,
+      fontSize: 12,
+      height: 1.0,
+      fontFeatures: [FontFeature.tabularFigures()],
+    );
+    // Clock timestamps with seconds can be wider than duration labels. Use
+    // their rendered width when keeping the existing tooltip inside the track.
+    final labelPainter = TextPainter(
+      text: TextSpan(text: label, style: DefaultTextStyle.of(context).style.merge(labelStyle)),
+      textDirection: Directionality.of(context),
+      textScaler: MediaQuery.textScalerOf(context),
+    )..layout();
+    final labelWidth = labelPainter.width + 12; // Horizontal label padding.
+    labelPainter.dispose();
+    final tooltipWidth = hasThumbnail ? _thumbWidth : (labelWidth > 64 ? labelWidth : 64.0);
     final tooltipHeight = hasThumbnail ? _thumbWidth / resolvedFrame.aspectRatio : 26.0;
     final tooltipTop = -(tooltipHeight + 2.0);
 
@@ -278,15 +294,7 @@ class _TimelineSliderState extends State<TimelineSlider> {
         color: Colors.black.withValues(alpha: 0.6),
         borderRadius: const BorderRadius.all(Radius.circular(4)),
       ),
-      child: Text(
-        _positionLabel(time),
-        style: const TextStyle(
-          color: Colors.white,
-          fontSize: 12,
-          height: 1.0,
-          fontFeatures: [FontFeature.tabularFigures()],
-        ),
-      ),
+      child: Text(label, style: labelStyle),
     );
 
     return Positioned(

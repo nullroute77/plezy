@@ -244,7 +244,8 @@ No version or setup is inferred from the older issue report for this branch.
 
 1. Join midway through a long scheduled program. Expect only the program title
    and full start/end labels, the movie timeline's gray buffered intersection,
-   and its rounded white playhead. Hover to see program clock time. Estimates
+   and its rounded white playhead. Hover or scrub to see program clock time with
+   seconds (for example, 2:30:45 PM or 14:30:45); start/end labels remain concise. Estimates
    and pending positions use the same thumb; underlying accuracy is unchanged.
 2. Scrub before/after availability: expect the nearest valid grid point within
    the shown program. At an empty intersection, scrubbing disables. Relative
