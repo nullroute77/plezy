@@ -114,7 +114,7 @@ void main() {
 
       expect(await result, isTrue);
       expect(state.streamStartEpoch, 1046);
-      expect(state.epochForPosition(const Duration(seconds: 52)), 1098);
+      expect(state.playbackPosition(const Duration(seconds: 52)).epoch, 1098);
     });
 
     test('readiness and a differing server origin remain estimates', () {
@@ -156,7 +156,7 @@ void main() {
       state.failClockOpen(replacement);
       expect(state.pendingTargetEpoch, isNull);
       expect(state.seekStatus, LiveTvSeekStatus.failed);
-      expect(state.epochForPosition(Duration.zero), 1098);
+      expect(state.playbackPosition(Duration.zero).epoch, 1098);
     });
 
     test('active source failure loses mapping and late sources cannot restore it', () {
@@ -228,7 +228,7 @@ void main() {
 
       expect(await firstResult, isFalse);
       expect(await secondResult, isTrue);
-      expect(state.epochForPosition(const Duration(seconds: 45)), 1075);
+      expect(state.playbackPosition(const Duration(seconds: 45)).epoch, 1075);
     });
 
     test('readiness that beats the loadfile reply calibrates on bind', () async {
@@ -246,7 +246,7 @@ void main() {
       expect(state.bindClockOpen(generation, 7), isTrue);
       expect(await result, isTrue);
       expect(state.streamStartEpoch, 1046);
-      expect(state.epochForPosition(const Duration(seconds: 52)), 1098);
+      expect(state.playbackPosition(const Duration(seconds: 52)).epoch, 1098);
     });
 
     test('a failure that beats the loadfile reply fails the open on bind', () async {
@@ -283,7 +283,7 @@ void main() {
       expect(state.bindClockOpen(secondGeneration, 12), isTrue);
       expect(await secondResult, isTrue);
       expect(state.streamStartEpoch, 1035);
-      expect(state.epochForPosition(const Duration(seconds: 45)), 1080);
+      expect(state.playbackPosition(const Duration(seconds: 45)).epoch, 1080);
     });
 
     test('an unregistered open on the same player is invisible to clock binding', () async {
@@ -341,7 +341,7 @@ void main() {
       expect(state.pendingTargetEpoch, isNull);
       expect(state.playbackPosition(const Duration(seconds: 52)).epoch, isNull);
       expect(state.calibrateClockSource(const PlayerSourceReady(sourceId: 7, position: Duration(seconds: 47))), isTrue);
-      expect(state.epochForPosition(const Duration(seconds: 52)), 1098);
+      expect(state.playbackPosition(const Duration(seconds: 52)).epoch, 1098);
     });
 
     test('a timed-out open still binds when its loadfile reply arrives late', () async {
@@ -356,7 +356,7 @@ void main() {
       expect(state.playbackPosition(const Duration(seconds: 52)).epoch, isNull);
 
       expect(state.bindClockOpen(generation, 7), isTrue);
-      expect(state.epochForPosition(const Duration(seconds: 52)), 1098);
+      expect(state.playbackPosition(const Duration(seconds: 52)).epoch, 1098);
     });
 
     test('a zero-based source preserves the existing epoch mapping', () async {
@@ -367,7 +367,7 @@ void main() {
       state.calibrateClockSource(const PlayerSourceReady(sourceId: 7, position: Duration.zero));
 
       expect(await result, isTrue);
-      expect(state.epochForPosition(const Duration(seconds: 5)), 1098);
+      expect(state.playbackPosition(const Duration(seconds: 5)).epoch, 1098);
     });
 
     test('two backward skips compound from the calibrated source clock', () {
@@ -408,13 +408,13 @@ void main() {
         async.elapse(Duration.zero);
         async.flushMicrotasks();
         expect(requestedEpochs, [1085]);
-        expect(state.epochForPosition(position), 1090);
+        expect(state.playbackPosition(position).epoch, 1090);
 
         accumulator.seekBy(-15);
         async.elapse(Duration.zero);
         async.flushMicrotasks();
         expect(requestedEpochs, [1085, 1075]);
-        expect(state.epochForPosition(position), 1080);
+        expect(state.playbackPosition(position).epoch, 1080);
 
         accumulator.dispose();
       });
@@ -443,7 +443,7 @@ void main() {
       expect(state.adoptPlaybackStreamOrigin(playback, generation: state.streamGeneration), isTrue);
 
       // Server coordinates change the estimate, without confirming a landing.
-      expect(state.epochForPosition(const Duration(seconds: 20)), 1048);
+      expect(state.playbackPosition(const Duration(seconds: 20)).epoch, 1047.5);
       expect(state.adoptPlaybackStreamOrigin(playback, generation: state.streamGeneration), isFalse);
     });
 
@@ -459,7 +459,7 @@ void main() {
 
       final old = CaptureBuffer(startedAt: 1027.5, seekStartSeconds: 0, seekEndSeconds: 60);
       expect(state.adoptPlaybackStreamOrigin(old, generation: staleGeneration), isFalse);
-      expect(state.epochForPosition(Duration.zero), 990);
+      expect(state.playbackPosition(Duration.zero).epoch, 990);
     });
 
     test('a heartbeat cannot re-anchor while an open is still calibrating', () {

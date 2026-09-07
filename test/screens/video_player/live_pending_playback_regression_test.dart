@@ -8,12 +8,12 @@ void main() {
     final initial = state.beginClockOpen(1000);
     state.bindClockOpen(initial, 1);
     state.calibrateClockSource(const PlayerSourceReady(sourceId: 1, position: Duration(seconds: 52)));
-    expect(state.epochForPosition(const Duration(seconds: 62)), 1010);
+    expect(state.playbackPosition(const Duration(seconds: 62)).epoch, 1010);
 
     final next = state.beginClockOpen(1500);
     // Old-stream position events and pending requests are different facts.
-    expect(state.epochForPosition(const Duration(seconds: 63)), 1010);
+    expect(state.playbackPosition(const Duration(seconds: 63)).epoch, 1010);
     state.failClockOpen(next);
-    expect(state.epochForPosition(const Duration(seconds: 62)), 1010);
+    expect(state.playbackPosition(const Duration(seconds: 62)).epoch, 1010);
   });
 }

@@ -51,7 +51,6 @@ class LiveTvSessionState {
 
   Timer? timelineTimer;
   int timelineGeneration = 0;
-  DateTime? playbackStartTime;
   final Stopwatch playbackElapsed = Stopwatch();
 
   /// Current seekable window. Seeded from [session] on adoption, then
@@ -327,10 +326,6 @@ class LiveTvSessionState {
     pendingStreamEpoch = null;
   }
 
-  int epochForPosition(Duration position) {
-    return playbackPosition(position).epoch?.round() ?? 0;
-  }
-
   /// Adopt a server-origin estimate only for a currently active source.
   /// Server origin alone does not establish its relationship to MPV time-pos.
   bool adoptPlaybackStreamOrigin(CaptureBuffer playbackStream, {required int generation}) {
@@ -378,7 +373,6 @@ class LiveTvSessionState {
   /// Neither this edge nor wall clock establishes the rendered frame's epoch.
   void markStreamRestartedAtLiveEdge(CaptureBuffer? buffer) {
     final now = DateTime.now();
-    playbackStartTime = now;
     playbackElapsed
       ..reset()
       ..start();

@@ -423,11 +423,6 @@ class VideoPlayerScreen extends StatefulWidget {
 }
 
 class VideoPlayerScreenState extends State<VideoPlayerScreen> with WidgetsBindingObserver, MountedSetStateMixin {
-  /// How close to the capture buffer's end counts as "live". A live-edge
-  /// transcode starts behind the buffer's edge by tuner ingest and encoder
-  /// start-up latency (10–20 s observed), so a tighter threshold would flag
-  /// a freshly tuned stream as time-shifted. Matches Plex's own client.
-
   // Track the currently active route target to guard duplicate navigation and
   // project the server-qualified media key to housekeeping consumers.
   static final VideoPlayerActiveRouteGuard _activeRouteGuard = VideoPlayerActiveRouteGuard();

@@ -192,7 +192,7 @@ extension _VideoPlayerLiveTvMethods on VideoPlayerScreenState {
     // video outranks keeping subtitles — a failed burn re-apply drops them.
     MediaSubtitleTrack? recoveredSubtitle;
     CaptureBuffer? recoveredCaptureBuffer;
-    final result = await runLiveStreamRetry<LiveTvPlaybackSession>(
+    await runLiveStreamRetry<LiveTvPlaybackSession>(
       recover: () => session.recover(directStream: ds, directStreamAudio: dsa),
       lookupStreamUrl: (recovered) async {
         recoveredCaptureBuffer = recovered.captureBuffer;
@@ -233,9 +233,6 @@ extension _VideoPlayerLiveTvMethods on VideoPlayerScreenState {
         _live.finishRetry(retryOwner);
       },
     );
-    if (result == LiveStreamRetryResult.succeeded && isCurrent()) {
-      _live.retryFailed = false;
-    }
   }
 
   /// Configure MPV options for live streaming.

@@ -84,13 +84,13 @@ class LiveSeekAccumulator {
     _debounceTimer = Timer(debounce, () => unawaited(_flush()));
   }
 
-  /// Absolute scrubs and return-to-live share pending ownership with skips.
-  void seekTo(double targetEpoch, {bool live = false}) {
+  /// Absolute scrubs share pending ownership with skips and return-to-live.
+  void seekTo(double targetEpoch) {
     final window = bounds();
     if (_disposed || window == null || !window.isValid || !targetEpoch.isFinite) return;
     _intentGeneration++;
     _pendingEpoch = window.target(targetEpoch);
-    _pendingLive = live;
+    _pendingLive = false;
     onChanged?.call();
     unawaited(_flush());
   }
