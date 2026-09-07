@@ -7,6 +7,15 @@ Fork: nullroute77/plezy. Branch: codex/plex-program-timeline.
 Starting SHA: 8238705d3e70add2ed32bbf4ae1af7bf96954e8c.
 Only origin is writable; upstream push URL is disabled.
 
+Presentation revision after user testing: Live TV now reuses the movie
+TimelineSlider, including its rounded white playhead, gray BufferRangePainter
+and hover tooltip (formatted as program clock time). A pending seek uses the
+same preview thumb as movie seeking. Extra fallback/estimated/pending text and
+elapsed/total labels are removed from the visible bar. Timing accuracy and
+fallback metadata remain in the model and accessibility semantics; the uniform
+thumb is not new evidence of confirmed playback. These requested presentation
+changes supersede the initial distinct-marker design recorded below.
+
 ## Living plan
 
 - [x] Fork, ownership, instructions, source and issue discovery.
@@ -101,7 +110,7 @@ Important: this is a tested foundation and safer seek implementation, NOT a
 verified repair of #2100's remaining real-content near-live failure. Neither
 Plex timeStamp nor request-plus-first-position is proven to identify the
 rendered broadcast frame. Both remain estimated. Consequently real Plex
-playback currently uses explicitly marked live-program fallback metadata;
+playback currently uses live-program fallback metadata, identified in semantics;
 confirmed playback-program switching is implemented/tested in the shared
 model but cannot be demonstrated on Plex until a reliable broadcast anchor is
 available. The UI does not falsely claim the fallback is the playback program,
@@ -224,15 +233,15 @@ Before testing, record platform/device, `git rev-parse HEAD`, Plezy version,
 Plex server version, active player/MPV version, source type and stream settings.
 No version or setup is inferred from the older issue report for this branch.
 
-1. Join midway through a long scheduled program. Expect full start/end labels,
-   grey unavailable portions, a highlighted playable intersection, and a hollow
-   estimated position plus explicit live-metadata fallback. Until better timing
-   evidence exists, do not expect a solid confirmed position or confirmed LIVE.
+1. Join midway through a long scheduled program. Expect only the program title
+   and full start/end labels, the movie timeline's gray buffered intersection,
+   and its rounded white playhead. Hover to see program clock time. Estimates
+   and pending positions use the same thumb; underlying accuracy is unchanged.
 2. Scrub before/after availability: expect the nearest valid grid point within
    the shown program. At an empty intersection, scrubbing disables. Relative
    skips use the entire buffer, including across program boundaries.
 3. Repeat small backward/forward skips rapidly while reopening. Expect one
-   pending marker accumulating effective targets, not a moved confirmed thumb;
+   preview thumb accumulating effective targets without changing its shape;
    check actual content, especially 10/15/20/30s rewind near live (#2100).
 4. Return to live from inside and before the current program, including during
    a pending seek. Expect offsetless backend live operation and latest intent
@@ -243,7 +252,7 @@ No version or setup is inferred from the older issue report for this branch.
    controls disable; explicit live operation remains available.
 6. Rewind across an EPG boundary and play forward across it. The confirmed
    shared-model behavior is covered automatically; real Plex will currently
-   identify live-program metadata as fallback because its playback is estimated.
+   use live-program metadata as fallback because its playback is estimated.
    Record this as the known limitation, not a successful program-tracking test.
 7. Change A -> B -> A during a pending seek, and during recovery. Old opens and
    state must not take ownership. Toggle Plex burn subtitles while behind live

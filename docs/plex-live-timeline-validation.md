@@ -13,6 +13,22 @@ This is a development draft for inspection and real-source diagnosis. #2100's
 remaining content-position failure and authoritative Plex broadcast mapping are
 unresolved. Automated success does not make the requested repair complete.
 
+Later presentation revision: user notes requested the existing movie timeline
+styling and removal of visible diagnostic labels. Live TV now uses TimelineSlider
+and BufferRangePainter directly, with a stable rounded thumb for active/pending
+positions and a clock-time hover tooltip. The initial marker assertions described
+below are historical; revised widget tests cover shared styling, hover, clamped
+scrubbing, unchanged playback semantics during pending seeks and cancellation
+when the program changes mid-drag. Model accuracy remains unchanged.
+
+Presentation revision checks: `flutter test -j 4 test/widgets/live_timeline_bar_test.dart
+test/widgets/video_controls_test.dart` passed 114 tests; `bash scripts/run_tests.sh -j 4`
+passed 7,073 with 6 skipped. `flutter analyze`, formatting of the three changed Dart
+files, `bash scripts/codegen.sh --check` and strict translation hygiene all passed.
+Logs for these runs are `/tmp/plezy-timeline-style-*.log`. The preceding x64 portable
+workflow succeeded for `e548622b20046232045531e1c9a8e3d5d4fe08f2`; pushing this
+revision starts a separate build containing the requested presentation changes.
+
 ## Environment and baseline
 
 Flutter 3.47.1, Dart 3.13.1, Linux/WSL2 (kernel

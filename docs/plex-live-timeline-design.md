@@ -36,9 +36,12 @@ tracking and confirmed LIVE presentation.
 
 The deliberate UX change shows the entire scheduled program, unavailable portions
 and the seekable intersection. Relative skips cross program boundaries using the
-whole buffer; scrubbing stays within the displayed intersection. Pending targets
-and estimates have distinct markers. Missing playback metadata explicitly falls
-back to live-program metadata, then a buffer view, then unavailable. Out-of-window
+whole buffer; scrubbing stays within the displayed intersection. Following user
+testing, the bar reuses the movie TimelineSlider, buffer colors and hover tooltip.
+Playback and pending previews share its rounded thumb; extra status and elapsed
+labels are removed. Accuracy remains explicit in state and accessibility semantics.
+Missing playback metadata falls back to live-program metadata, then a buffer
+view, then unavailable. Out-of-window
 playheads are hidden instead of pinned. Existing schedule retrieval is refreshed
 over retained content and cached only for this session; no persistent EPG system
 is added. Real Plex currently uses fallback because its timing remains estimated.

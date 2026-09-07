@@ -1,4 +1,4 @@
-import 'dart:ui' show SemanticsAction, Tristate;
+import 'dart:ui' show PointerDeviceKind, SemanticsAction, Tristate;
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -9,6 +9,8 @@ import 'package:plezy/media/live_tv_timeline.dart';
 import 'package:plezy/models/livetv_program.dart';
 import 'package:plezy/utils/formatters.dart';
 import 'package:plezy/widgets/video_controls/widgets/live_timeline_bar.dart';
+import 'package:plezy/widgets/video_controls/widgets/timeline_slider.dart';
+import 'package:plezy/widgets/video_controls/painters/buffer_range_painter.dart';
 
 import '../test_helpers/watch_together_fakes.dart';
 
@@ -71,32 +73,92 @@ void main() {
     node.owner!.performAction(node.id, SemanticsAction.increase);
     expect(relative, [10]);
     expect(absolute, isEmpty);
-    expect(find.text('${t.liveTv.timelinePending}: ${_clock(_start + 145)}'), findsOneWidget);
+    expect(find.textContaining(t.liveTv.timelinePending), findsNothing);
     semantics.dispose();
   });
 
   testWidgets('out-of-window fallback hides playback without inventing an edge timestamp', (tester) async {
     final semantics = tester.ensureSemantics();
     await _pump(tester, timeline: _timeline(position: -30), seeks: []);
-    expect(find.textContaining(t.liveTv.timelineLiveProgram), findsOneWidget);
+    expect(find.textContaining(t.liveTv.timelineLiveProgram), findsNothing);
     final node = tester.getSemantics(find.bySemanticsLabel(t.videoControls.timelineSlider));
     expect(node.getSemanticsData().value, t.liveTv.timelineUnavailable);
-    final painter = _painter(tester);
-    expect(painter.confirmed, isNull);
-    expect(painter.estimated, isNull);
+    expect(_timelineSlider(tester).showPosition, isFalse);
     semantics.dispose();
   });
 
-  testWidgets('estimated playback is labelled and uses a separate hollow marker', (tester) async {
+  testWidgets('estimated and pending positions reuse the movie playhead without visible status text', (tester) async {
     final semantics = tester.ensureSemantics();
+    await _pump(tester, timeline: _timeline(estimated: true), seeks: []);
+    final initialThumb = _thumbSize(tester);
+    expect(initialThumb, const Size(4, 20));
+    expect(_slider(tester).value, 60000);
+    expect(find.byType(Text), findsNWidgets(3));
+
     await _pump(tester, timeline: _timeline(estimated: true, pending: 90), seeks: []);
+    expect(_thumbSize(tester), initialThumb);
+    expect(_slider(tester).value, 90000);
     final node = tester.getSemantics(find.bySemanticsLabel(t.videoControls.timelineSlider));
     expect(node.getSemanticsData().value, '${t.liveTv.timelineEstimated}: ${_clock(_start + 60)}');
-    final painter = _painter(tester);
-    expect(painter.confirmed, isNull);
-    expect(painter.estimated, 0.5);
-    expect(painter.pending, 0.75);
+    expect(find.textContaining(t.liveTv.timelineEstimated), findsNothing);
+    expect(find.textContaining(t.liveTv.timelinePending), findsNothing);
+    expect(find.textContaining(t.liveTv.timelineLiveProgram), findsNothing);
+    expect(find.byType(Text), findsNWidgets(3));
     semantics.dispose();
+  });
+
+  testWidgets('hover uses the existing movie tooltip with program clock time', (tester) async {
+    await _pump(tester, timeline: _timeline(estimated: true), seeks: []);
+    final mouse = await tester.createGesture(kind: PointerDeviceKind.mouse);
+    await mouse.addPointer(location: Offset.zero);
+    await mouse.moveTo(tester.getCenter(find.byType(TimelineSlider)));
+    await tester.pump();
+    expect(find.text(_clock(_start + 60)), findsOneWidget);
+    expect(find.textContaining(t.liveTv.timelineEstimated), findsNothing);
+    await mouse.moveTo(Offset.zero);
+    await tester.pump();
+    expect(find.text(_clock(_start + 60)), findsNothing);
+    await mouse.removePointer();
+  });
+
+  testWidgets('scrubbing retains the same thumb and previews the clamped target', (tester) async {
+    final seeks = <double>[];
+    await _pump(tester, timeline: _timeline(estimated: true), seeks: seeks);
+    final initialThumb = _thumbSize(tester);
+    final rect = tester.getRect(find.byType(TimelineSlider));
+    final gesture = await tester.startGesture(Offset(rect.left, rect.center.dy));
+    await tester.pump();
+    expect(_slider(tester).value, 30000);
+    expect(_thumbSize(tester), initialThumb);
+    await gesture.moveTo(Offset(rect.right - 1, rect.center.dy));
+    await tester.pump();
+    expect(_slider(tester).value, 119000);
+    expect(_thumbSize(tester), initialThumb);
+    await gesture.up();
+    await tester.pump();
+    expect(seeks, [_start + 119]);
+  });
+
+  testWidgets('retained interval uses the existing movie buffer painter', (tester) async {
+    await _pump(tester, timeline: _timeline(), seeks: []);
+    final painter = _painter(tester);
+    expect(painter.duration, const Duration(seconds: 120));
+    expect(painter.ranges.single.start, const Duration(seconds: 30));
+    expect(painter.ranges.single.end, const Duration(seconds: 120));
+    expect(_slider(tester).activeColor, Colors.transparent);
+    expect(_slider(tester).thumbColor, Colors.white);
+  });
+
+  testWidgets('program changes while dragging cancel the old target', (tester) async {
+    var current = _timeline();
+    final seeks = <double>[];
+    await _pump(tester, timeline: current, timelineBuilder: () => current, seeks: seeks);
+    final gesture = await tester.startGesture(tester.getCenter(find.byType(TimelineSlider)));
+    await tester.pump();
+    current = _timeline(withProgram: false);
+    await gesture.up();
+    await tester.pump();
+    expect(seeks, isEmpty);
   });
 
   testWidgets('unknown and unavailable timelines never paint a playhead or seek', (tester) async {
@@ -106,7 +168,7 @@ void main() {
     final data = tester.getSemantics(find.bySemanticsLabel(t.videoControls.timelineSlider)).getSemanticsData();
     expect(data.flagsCollection.isEnabled, Tristate.isFalse);
     expect(data.hasAction(SemanticsAction.increase), isFalse);
-    expect(_painter(tester).confirmed, isNull);
+    expect(_timelineSlider(tester).showPosition, isFalse);
     await _tapTrack(tester, 0.5);
     expect(seeks, isEmpty);
     semantics.dispose();
@@ -124,7 +186,7 @@ void main() {
     await _pump(tester, timeline: _timeline(bufferStart: 130), seeks: seeks);
     await _tapTrack(tester, 0.5);
     expect(seeks, isEmpty);
-    expect(_painter(tester).seekStart, isNull);
+    expect(_painter(tester).ranges, isEmpty);
   });
 
   testWidgets('disabled controls and desktop focus routing remain intact', (tester) async {
@@ -155,13 +217,20 @@ void main() {
   });
 }
 
-// The painter is private to production; inspect its public presentation fields
-// dynamically so regressions cannot silently clamp an absent thumb to an edge.
-dynamic _painter(WidgetTester tester) => tester.widget<CustomPaint>(_paint).painter;
-Finder get _paint => find.descendant(of: find.byType(LiveTimelineBar), matching: find.byType(CustomPaint));
+TimelineSlider _timelineSlider(WidgetTester tester) => tester.widget<TimelineSlider>(find.byType(TimelineSlider));
+Slider _slider(WidgetTester tester) => tester.widget<Slider>(find.byType(Slider));
+Size? _thumbSize(WidgetTester tester) =>
+    tester.widget<SliderTheme>(find.byType(SliderTheme)).data.thumbSize?.resolve({});
+BufferRangePainter _painter(WidgetTester tester) =>
+    tester
+            .widget<CustomPaint>(
+              find.byWidgetPredicate((widget) => widget is CustomPaint && widget.painter is BufferRangePainter),
+            )
+            .painter!
+        as BufferRangePainter;
 
 Future<void> _tapTrack(WidgetTester tester, double fraction) async {
-  final rect = tester.getRect(_paint);
+  final rect = tester.getRect(find.byType(TimelineSlider));
   final gesture = await tester.startGesture(Offset(rect.left + (rect.width - 1) * fraction, rect.center.dy));
   await tester.pump();
   await gesture.up();
@@ -175,6 +244,7 @@ Future<void> _pump(
   WidgetTester tester, {
   required LiveTvTimeline timeline,
   required List<double> seeks,
+  LiveTvTimeline Function()? timelineBuilder,
   List<int>? relative,
   bool enabled = true,
   FocusNode? focus,
@@ -194,7 +264,7 @@ Future<void> _pump(
                 width: 400,
                 child: LiveTimelineBar(
                   player: player,
-                  timelineForPosition: (_) => timeline,
+                  timelineForPosition: (_) => timelineBuilder?.call() ?? timeline,
                   onSeekEnd: seeks.add,
                   onSeekBy: relative?.add,
                   enabled: enabled,
