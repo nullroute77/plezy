@@ -55,6 +55,28 @@ passed. Logs are `/tmp/plezy-history-program-*.log`. Production changes are conf
 to the timeline selector and its explicit estimated/last-known display modes;
 Plex clock mapping, seek transport and slider rendering are unchanged.
 
+Header presentation revision: the program title moved from the timeline into
+VideoControlsHeader beneath the channel name, followed by the scheduled duration.
+It reuses the episode subtitle layout and existing duration/bullet formatters,
+and follows the same program selection as the timeline on playback updates.
+The 116 focused Live TV/movie-control tests passed, including a position-stream
+boundary transition, pending/failed seek context and missing-guide display.
+The full suite passed 7,081 with 6 skipped. Analysis, changed-Dart formatting,
+generated-code checks and strict translation hygiene passed. Logs are
+`/tmp/plezy-header-*.log`. This revision was initially kept local, with no portable
+Windows build queued at that stage, as requested.
+
+Buffered-progress presentation revision: the existing BufferRangePainter can
+optionally tint retained time before the displayed position. Live TV opts into
+the original Colors.red for that fill and its existing rounded playhead; future
+buffer remains gray. The fill follows the shared slider's scrub/pending position,
+stops at buffer boundaries and preserves gaps and rounded ends. Movie defaults
+remain unchanged. Pixel, Live TV and movie-control tests passed 119 cases;
+the full suite passed 7,084 with 6 skipped. Analysis, changed-Dart formatting,
+code generation and strict translation hygiene passed. Logs are
+`/tmp/plezy-red-buffer-*.log`. The user authorized pushing this revision together
+with the previously local header change and starting a portable Windows build.
+
 ## Environment and baseline
 
 Flutter 3.47.1, Dart 3.13.1, Linux/WSL2 (kernel

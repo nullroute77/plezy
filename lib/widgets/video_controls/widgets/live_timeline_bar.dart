@@ -99,17 +99,12 @@ class _LiveTimelineBarState extends State<LiveTimelineBar> {
     initialData: widget.player.state.position.inSeconds,
     builder: (context, snapshot) {
       final timeline = widget.timelineForPosition(Duration(seconds: snapshot.requireData));
-      final title =
-          timeline.program?.displayTitle ??
-          (timeline.mode == LiveTvTimelineMode.buffer ? t.liveTv.timelineBuffer : t.liveTv.timelineUnavailable);
       return Padding(
         padding: widget.horizontalLayout ? EdgeInsets.zero : const EdgeInsets.all(16),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            Text(title, style: const TextStyle(color: Colors.white70, fontSize: 12)),
-            const SizedBox(height: 4),
             _buildSlider(timeline),
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -146,6 +141,7 @@ class _LiveTimelineBarState extends State<LiveTimelineBar> {
       value: _positionValue(timeline),
       // Keep uncertainty accessible without adding status text to the bar.
       hint: [
+        if (timeline.mode == LiveTvTimelineMode.buffer) t.liveTv.timelineBuffer,
         if (timeline.mode == LiveTvTimelineMode.liveProgramFallback) t.liveTv.timelineLiveProgram,
         if (timeline.programDataStale) t.liveTv.timelineStale,
         if (timeline.playbackOutOfWindow) t.liveTv.unknownProgram,
@@ -173,6 +169,7 @@ class _LiveTimelineBarState extends State<LiveTimelineBar> {
           chaptersLoaded: false,
           showPosition: position != null,
           showProgress: false,
+          bufferedProgressColor: Colors.red,
           positionLabelBuilder: (offset) => timeline.startEpoch == null
               ? t.liveTv.timelineUnavailable
               : _clock(timeline.startEpoch! + offset.inMilliseconds / 1000, includeSeconds: true),

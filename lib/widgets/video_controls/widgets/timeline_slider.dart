@@ -61,6 +61,10 @@ class TimelineSlider extends StatefulWidget {
   /// Live TV uses buffer ranges for availability instead of elapsed progress.
   final bool showProgress;
 
+  /// Tint buffered content before the displayed position and the playhead.
+  /// Use with [showProgress] false to leave unbuffered time unfilled.
+  final Color? bufferedProgressColor;
+
   const TimelineSlider({
     super.key,
     required this.position,
@@ -83,6 +87,7 @@ class TimelineSlider extends StatefulWidget {
     this.resolveScrubPosition,
     this.showPosition = true,
     this.showProgress = true,
+    this.bufferedProgressColor,
   });
 
   @override
@@ -376,6 +381,11 @@ class _TimelineSliderState extends State<TimelineSlider> {
                     painter: BufferRangePainter(
                       ranges: widget.bufferRanges,
                       duration: widget.duration,
+                      progressPosition:
+                          widget.bufferedProgressColor != null && (widget.showPosition || _dragValue != null)
+                          ? displayPosition
+                          : null,
+                      progressColor: widget.bufferedProgressColor ?? Colors.white,
                       chapters: widget.chaptersLoaded && widget.showChapterMarkersOnTimeline
                           ? widget.chapters
                           : const [],
@@ -415,7 +425,7 @@ class _TimelineSliderState extends State<TimelineSlider> {
                       max: max,
                       onChanged: _noopSliderChanged,
                       activeColor: widget.showProgress ? Colors.white : Colors.transparent,
-                      thumbColor: widget.showProgress ? null : Colors.white,
+                      thumbColor: widget.bufferedProgressColor ?? (widget.showProgress ? null : Colors.white),
                       inactiveColor: Colors.transparent,
                     ),
                   ),

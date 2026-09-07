@@ -249,10 +249,14 @@ Before testing, record platform/device, `git rev-parse HEAD`, Plezy version,
 Plex server version, active player/MPV version, source type and stream settings.
 No version or setup is inferred from the older issue report for this branch.
 
-1. Join midway through a long scheduled program. Expect only the program title
-   and full start/end labels, the movie timeline's gray buffered intersection,
-   and its rounded white playhead. Hover or scrub to see program clock time with
-   seconds (for example, 2:30:45 PM or 14:30:45); start/end labels remain concise. Estimates
+1. Join midway through a long scheduled program. Expect the channel name in the
+   player header with the program title and scheduled duration beneath it, using
+   the episode subtitle style. The timeline shows full start/end labels, the
+   movie timeline's buffered intersection, and its rounded playhead in the
+   original Live TV red. Buffered time before the displayed playhead is red;
+   buffered time after it stays gray, and gaps/unavailable time stay unfilled.
+   Hover or scrub to see program clock time with seconds (for example, 2:30:45 PM
+   or 14:30:45); start/end labels remain concise. Estimates
    and pending positions use the same thumb; underlying accuracy is unchanged.
 2. Scrub before/after availability: expect the nearest valid grid point within
    the shown program. At an empty intersection, scrubbing disables. Relative
