@@ -74,6 +74,13 @@ jobs:
           --dart-define=PLEX_LIVE_SEEK_HLS_FROM_START=true
           --dart-define=GIT_COMMIT=${{ github.sha }}
 
+      - name: Test ExoPlayer bridge and fallback
+        working-directory: android
+        run: >-
+          ./gradlew :app:testDebugUnitTest
+          --tests 'com.edde746.plezy.exoplayer.ExoPlayerPluginTest'
+          -x :app:compileFlutterBuildDebug
+
       - name: Verify APK and record build identity
         env:
           TEST_COMMIT: ${{ github.sha }}

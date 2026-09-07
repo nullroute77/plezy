@@ -22,6 +22,49 @@ void main() {
   });
 
   group('player open', () {
+    test('ExoPlayer forwards the live HLS experiment and diagnostics only for live opens', () async {
+      final calls = <MethodCall>[];
+      await withMockPlayerChannels(
+        methodChannelName: 'com.plezy/exo_player',
+        eventChannelName: 'com.plezy/exo_player/events',
+        methodHandler: (call) async {
+          calls.add(call);
+          return call.method == 'initialize' ? true : null;
+        },
+        testBody: () async {
+          final player = PlayerAndroid();
+          try {
+            await player.open(
+              Media('https://example.test/live.m3u8'),
+              isLive: true,
+              startLivePlaylistFromBeginning: true,
+              liveSeekDiagnostics: true,
+            );
+            final live = calls.singleWhere((call) => call.method == 'open').arguments as Map;
+            expect(live['startPositionMs'], 0);
+            expect(live['startLivePlaylistFromBeginning'], isTrue);
+            expect(live['liveSeekDiagnostics'], isTrue);
+            calls.clear();
+            await player.open(Media('https://example.test/live.m3u8'), isLive: true);
+            final ordinary = calls.singleWhere((call) => call.method == 'open').arguments as Map;
+            expect(ordinary.containsKey('startLivePlaylistFromBeginning'), isFalse);
+            expect(ordinary.containsKey('liveSeekDiagnostics'), isFalse);
+            calls.clear();
+            await player.open(
+              Media('https://example.test/movie.mkv'),
+              startLivePlaylistFromBeginning: true,
+              liveSeekDiagnostics: true,
+            );
+            final vod = calls.singleWhere((call) => call.method == 'open').arguments as Map;
+            expect(vod.containsKey('startLivePlaylistFromBeginning'), isFalse);
+            expect(vod.containsKey('liveSeekDiagnostics'), isFalse);
+          } finally {
+            await player.dispose();
+          }
+        },
+      );
+    });
+
     test('ExoPlayer clears stale Dart track state before opening new media', () async {
       await withMockPlayerChannels(
         methodChannelName: 'com.plezy/exo_player',

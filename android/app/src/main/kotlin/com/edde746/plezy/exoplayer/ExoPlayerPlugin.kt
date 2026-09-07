@@ -72,6 +72,7 @@ class ExoPlayerPlugin :
      */
     var autoPlay: Boolean,
     val isLive: Boolean,
+    val startLivePlaylistFromBeginning: Boolean,
     val externalSubtitles: List<Map<String, Any?>>?,
     val contentFrameRate: Float,
     private val result: MethodChannel.Result?
@@ -148,6 +149,8 @@ class ExoPlayerPlugin :
   // last configured value or it loses the fork's P7/P5 handling entirely.
   private var dvConversionMode = "auto"
   private var currentExternalSubtitles: List<Map<String, Any?>>? = null
+  private var currentMediaIsLive = false
+  private var currentStartLivePlaylistFromBeginning = false
 
   // FlutterPlugin
 
@@ -181,6 +184,8 @@ class ExoPlayerPlugin :
     inFlightOpen?.error("NOT_INITIALIZED", "Player session ended before media could open")
     inFlightOpen = null
     currentExternalSubtitles = null
+    currentMediaIsLive = false
+    currentStartLivePlaylistFromBeginning = false
     pendingMpvProperties.clear()
     audioPassthroughRequested = false
     dvConversionMode = "auto"
@@ -395,6 +400,9 @@ class ExoPlayerPlugin :
     val hasStartPosition = call.argument<Boolean>("hasStartPosition") ?: (startPositionMs > 0L)
     val autoPlay = call.argument<Boolean>("autoPlay") ?: true
     val isLive = call.argument<Boolean>("isLive") ?: false
+    val startLivePlaylistFromBeginning = isLive &&
+      (call.argument<Boolean>("startLivePlaylistFromBeginning") == true)
+    val liveSeekDiagnostics = isLive && (call.argument<Boolean>("liveSeekDiagnostics") == true)
     val externalSubtitles = call.argument<List<Map<String, Any?>>>("externalSubtitles")
     // Server-reported frame rate for this item; -1 when the metadata did not carry one.
     val contentFrameRate = call.argument<Number>("contentFrameRate")?.toFloat() ?: -1f
@@ -417,12 +425,15 @@ class ExoPlayerPlugin :
       hasStartPosition = hasStartPosition,
       autoPlay = autoPlay,
       isLive = isLive,
+      startLivePlaylistFromBeginning = startLivePlaylistFromBeginning,
       externalSubtitles = externalSubtitles?.map { it.toMap() },
       contentFrameRate = contentFrameRate,
       result = result
     )
     terminalEventGeneration = null
     currentExternalSubtitles = request.externalSubtitles
+    currentMediaIsLive = request.isLive
+    currentStartLivePlaylistFromBeginning = request.startLivePlaylistFromBeginning
 
     if (fallbackInProgress) {
       pendingOpen?.let(::completeSupersededOpen)
@@ -478,6 +489,7 @@ class ExoPlayerPlugin :
         autoPlay = autoPlay,
         mediaGeneration = request.mediaGeneration,
         isLive = isLive,
+        liveSeekDiagnostics = liveSeekDiagnostics,
         externalSubtitleList = request.externalSubtitles,
         contentFrameRate = request.contentFrameRate
       )
@@ -492,6 +504,7 @@ class ExoPlayerPlugin :
     startPositionMs: Long,
     hasStartPosition: Boolean,
     autoPlay: Boolean,
+    startLivePlaylistFromBeginning: Boolean,
     externalSubtitles: List<Map<String, Any?>>?,
     onComplete: (Boolean) -> Unit
   ) {
@@ -501,6 +514,9 @@ class ExoPlayerPlugin :
     options.add(if (autoPlay) "pause=no" else "pause=yes")
     options.add("sid=no")
     options.add("secondary-sid=no")
+    if (startLivePlaylistFromBeginning) {
+      options.add("demuxer-lavf-o-append=live_start_index=0")
+    }
     appendExternalSubtitleOptions(options, externalSubtitles)
     appendHttpHeaderOptions(options, headers)
     val optionsStr = options.joinToString(",")
@@ -753,6 +769,7 @@ class ExoPlayerPlugin :
         startPositionMs = request.startPositionMs,
         hasStartPosition = request.hasStartPosition,
         autoPlay = request.autoPlay,
+        startLivePlaylistFromBeginning = request.startLivePlaylistFromBeginning,
         externalSubtitles = request.externalSubtitles
       ) { success ->
         if (!settled.compareAndSet(false, true)) {
@@ -1446,7 +1463,8 @@ class ExoPlayerPlugin :
       startPositionMs = positionMs,
       hasStartPosition = positionMs > 0L,
       autoPlay = playWhenReady,
-      isLive = false,
+      isLive = currentMediaIsLive,
+      startLivePlaylistFromBeginning = currentStartLivePlaylistFromBeginning,
       externalSubtitles = currentExternalSubtitles?.map { it.toMap() },
       // The mpv fallback core paces frames itself; the rate only gates ExoPlayer tunneling.
       contentFrameRate = -1f,

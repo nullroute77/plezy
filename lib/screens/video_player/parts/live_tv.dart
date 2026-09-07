@@ -281,7 +281,17 @@ extension _VideoPlayerLiveTvMethods on VideoPlayerScreenState {
     if (targetEpoch == null || player is! PlayerNative) {
       if (applyOptions) await _setLiveStreamOptions(player);
       if (_shuttingDown) return false;
-      await player.open(media, play: playNow, isLive: true);
+      if (player is PlayerAndroid) {
+        await player.open(
+          media,
+          play: playNow,
+          isLive: true,
+          startLivePlaylistFromBeginning: hlsFromStart,
+          liveSeekDiagnostics: _liveSeekDiagnostics,
+        );
+      } else {
+        await player.open(media, play: playNow, isLive: true);
+      }
       return true;
     }
 

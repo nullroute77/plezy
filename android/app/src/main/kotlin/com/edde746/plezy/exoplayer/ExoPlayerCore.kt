@@ -386,6 +386,7 @@ class ExoPlayerCore(private val activity: Activity) :
   private var currentMediaUri: String? = null
   private var currentHeaders: Map<String, String>? = null
   private var currentMediaIsLive: Boolean = false
+  private var liveSeekDiagnostics = false
   private var currentMediaGeneration: Int = 0
   private var terminalErrorGeneration: Int? = null
   private var currentVisible: Boolean = false
@@ -2780,6 +2781,9 @@ class ExoPlayerCore(private val activity: Activity) :
   }
 
   private fun setCurrentMediaSource(player: ExoPlayer, uri: String, positionMs: Long) {
+    if (liveSeekDiagnostics) {
+      emitLog("debug", "LiveSeekDiag", "exoOpen generation=$currentMediaGeneration positionMs=$positionMs")
+    }
     val mediaSource = buildPlaybackMediaSource(uri)
     if (mediaSource == null) {
       player.setMediaItem(buildMediaItem(uri), positionMs)
@@ -2839,6 +2843,18 @@ class ExoPlayerCore(private val activity: Activity) :
     return timeline.getWindow(windowIndex, Timeline.Window()).mediaItem.mediaId.toIntOrNull()
   }
 
+  private fun logLiveTimeline(eventTime: AnalyticsListener.EventTime, event: String) {
+    if (!liveSeekDiagnostics || mediaGenerationAt(eventTime) != currentMediaGeneration) return
+    val window = eventTime.timeline.getWindow(eventTime.windowIndex, Timeline.Window())
+    emitLog(
+      "debug", "LiveSeekDiag",
+      "exoTimeline generation=$currentMediaGeneration event=$event " +
+        "positionMs=${eventTime.eventPlaybackPositionMs} windowStartMs=${window.windowStartTimeMs} " +
+        "windowInPeriodUs=${window.positionInFirstPeriodUs} defaultMs=${window.defaultPositionMs} " +
+        "durationMs=${window.durationMs} live=${window.isLive} dynamic=${window.isDynamic}"
+    )
+  }
+
   private fun requestFallbackForUnsupportedTracks(tracks: Tracks, mediaGeneration: Int) {
     if (mediaGeneration != currentMediaGeneration) return
     val uri = currentMediaUri ?: return
@@ -2865,6 +2881,10 @@ class ExoPlayerCore(private val activity: Activity) :
   }
 
   private val decoderHangListener = object : AnalyticsListener {
+    override fun onTimelineChanged(eventTime: AnalyticsListener.EventTime, reason: Int) {
+      logLiveTimeline(eventTime, "timeline")
+    }
+
     override fun onIsPlayingChanged(eventTime: AnalyticsListener.EventTime, isPlaying: Boolean) {
       if (mediaGenerationAt(eventTime) != currentMediaGeneration) return
       handleIsPlayingChanged(isPlaying)
@@ -3016,6 +3036,7 @@ class ExoPlayerCore(private val activity: Activity) :
     ) {
       val mediaGeneration = mediaGenerationAt(eventTime) ?: return
       if (mediaGeneration != currentMediaGeneration) return
+      logLiveTimeline(eventTime, "first-frame")
       hasRenderedVideoFrameForMedia = true
       if (claimPlaybackOutputReady()) {
         emitLog("debug", "decoder-hang", "First frame rendered — decoder OK")
@@ -3397,7 +3418,8 @@ class ExoPlayerCore(private val activity: Activity) :
     mediaGeneration: Int,
     isLive: Boolean = false,
     externalSubtitleList: List<Map<String, Any?>>? = null,
-    contentFrameRate: Float = -1f
+    contentFrameRate: Float = -1f,
+    liveSeekDiagnostics: Boolean = false
   ) {
     if (!isInitialized) return
 
@@ -3447,6 +3469,7 @@ class ExoPlayerCore(private val activity: Activity) :
     currentMediaUri = uri
     currentHeaders = headers
     currentMediaIsLive = isLive
+    this.liveSeekDiagnostics = isLive && liveSeekDiagnostics
     resetPlaybackProgress(startPositionMs)
 
     // Apply auth/custom headers to the HTTP DataSource for this session
@@ -4379,6 +4402,7 @@ class ExoPlayerCore(private val activity: Activity) :
     pendingStartPositionMs = 0L
     pendingPlayWhenReady = null
     currentMediaIsLive = false
+    liveSeekDiagnostics = false
     currentVisible = false
     emitSeekable(false, force = true)
     selectedAudioTrackId = null
