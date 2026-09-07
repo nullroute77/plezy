@@ -46,6 +46,7 @@ extension _PlexVideoControlsPlaybackInputMethods on _PlexVideoControlsState {
   /// never actually seeks.
   void _seekByWithFeedback(Duration delta) {
     if (!widget.canControl || delta == Duration.zero) return;
+    if (widget.isLive && widget.onLiveSeekBy == null) return;
     final forward = !delta.isNegative;
 
     // Live TV: relative epoch-based skips go through the parent accumulator —
@@ -173,6 +174,7 @@ extension _PlexVideoControlsPlaybackInputMethods on _PlexVideoControlsState {
     // Route relative live-TV skips through the parent accumulator, which
     // coalesces a rapid burst into a single transcode re-open and computes the
     // target from a stable base rather than the laggy live epoch (#1253).
+    if (widget.isLive && widget.onLiveSeekBy == null) return;
     if (widget.isLive && widget.onLiveSeekBy != null) {
       widget.onLiveSeekBy!(delta.inSeconds);
       return;

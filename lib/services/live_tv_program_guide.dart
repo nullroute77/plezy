@@ -42,12 +42,13 @@ class LiveTvProgramGuide {
             program.beginsAt! >= toEpoch) {
           continue;
         }
-        final key =
-            '${program.beginsAt}:${program.endsAt}:${program.ratingKey ?? program.key ?? program.guid ?? program.title}';
+        final key = '${program.beginsAt}:${program.ratingKey ?? program.key ?? program.guid ?? program.title}';
         merged[key] = program;
       }
       programs = merged.values.toList(growable: false);
-      stale = false;
+      // Plex's existing grid API returns empty on provider failures. An
+      // empty channel slice cannot prove retained history was refreshed.
+      stale = !fetched.any((program) => liveTvProgramMatchesChannel(program, channel));
       return true;
     } catch (_) {
       if (!identical(owner, _owner) || generation != _generation) return false;

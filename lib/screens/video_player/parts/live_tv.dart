@@ -10,6 +10,7 @@ extension _VideoPlayerLiveTvMethods on VideoPlayerScreenState {
     unawaited(_refreshLiveGuide());
     _live.timelineTimer = Timer.periodic(const Duration(seconds: 10), (_) {
       if (generation != _live.timelineGeneration) return;
+      if (mounted) _setPlayerState(() {}); // Refresh age-based control availability.
       final state = player?.state.playing == true ? 'playing' : 'paused';
       _sendLiveTimeline(state);
       unawaited(_refreshLiveGuide());
@@ -116,10 +117,8 @@ extension _VideoPlayerLiveTvMethods on VideoPlayerScreenState {
                 ..reset()
                 ..start();
             }
-            final window = _live.captureBuffer;
-            if (window != null) {
-              _live.atLiveEdge = _liveTimelineForPosition(player?.currentPosition ?? Duration.zero).isAtLive;
-            }
+            // Playback estimates cannot confirm live status. The legacy
+            // atLiveEdge field only preserves the last open mode for subtitles.
           });
         },
       );
@@ -170,8 +169,14 @@ extension _VideoPlayerLiveTvMethods on VideoPlayerScreenState {
     final currentPlayer = player;
     if (!mounted || currentPlayer == null) return;
     final generation = _transitionGate.generation;
-    bool isCurrent() => _isCurrentPlaybackGeneration(generation, currentPlayer);
+    final intent = _liveSeek.intentGeneration;
     final session = _live.session;
+    bool isCurrent() =>
+        _isCurrentPlaybackGeneration(generation, currentPlayer) &&
+        identical(_live.session, session) &&
+        intent == _liveSeek.intentGeneration;
+    _live.playbackPosition(currentPlayer.currentPosition);
+    _live.invalidatePlayback();
     if (session == null) {
       _live.retrying = false;
       appLogger.w('Cannot retry live stream — no session');
@@ -212,6 +217,8 @@ extension _VideoPlayerLiveTvMethods on VideoPlayerScreenState {
       adoptSession: (recovered) {
         _live.adoptSession(recovered);
         _live.selectedSubtitle = recoveredSubtitle;
+        _live.retrying = false;
+        _live.retryFailed = false;
       },
       // Jellyfin's recover() returns the receiver, so the recovered object can
       // be the still-current session; the retry helper skips the discard by
@@ -297,6 +304,7 @@ extension _VideoPlayerLiveTvMethods on VideoPlayerScreenState {
       return false;
     }
     _live.bindClockOpen(clockGeneration, sourceId);
+    appLogger.d('Live open stream=$streamGeneration source=$sourceId target=$targetEpoch (estimated)');
 
     if (!awaitClock) {
       unawaited(clockResult);
@@ -402,13 +410,16 @@ extension _VideoPlayerLiveTvMethods on VideoPlayerScreenState {
   /// stream at the target offset. The session returns null when the backend
   /// can't time-shift (Jellyfin), and its capture buffer is null there too,
   /// so both guards cover it. Returns whether the rebuilt stream was opened.
-  Future<bool> _seekLivePosition(double? targetEpochSeconds) async {
+  Future<bool> _seekLivePosition(double? targetEpochSeconds, {PlaybackTransitionLease? sourceLease}) async {
     final currentPlayer = player;
     final session = _live.session;
+    bool ownsTransition() => sourceLease == null
+        ? _transitionGate.transition == PlaybackTransition.idle
+        : _transitionGate.owns(sourceLease, expected: PlaybackTransition.switchingSource);
     if (currentPlayer == null ||
         session == null ||
         session is! LiveTvTimeshiftSession ||
-        _transitionGate.transition != PlaybackTransition.idle ||
+        !ownsTransition() ||
         _live.retrying) {
       return false;
     }
@@ -418,17 +429,22 @@ extension _VideoPlayerLiveTvMethods on VideoPlayerScreenState {
         _isCurrentPlaybackGeneration(generation, currentPlayer) &&
         identical(_live.session, session) &&
         intent == _liveSeek.intentGeneration &&
-        _transitionGate.transition == PlaybackTransition.idle &&
+        ownsTransition() &&
         !_live.retrying;
     _live.seekStatus = LiveTvSeekStatus.pending;
     final result = await runLiveTvSeek(
       session: session as LiveTvTimeshiftSession,
       targetEpoch: targetEpochSeconds,
-      currentBuffer: () => _live.captureBuffer,
+      currentBuffer: () => targetEpochSeconds == null ? _live.captureBuffer : _freshLiveBuffer,
       isCurrent: isCurrent,
       subtitleTrack: _live.selectedSubtitle,
       open: (request) async {
         if (!isCurrent()) return false;
+        appLogger.d(
+          'Live seek intent=$intent requested=$targetEpochSeconds '
+          'effective=${request.effectiveTargetEpoch} captureOrigin=${_live.captureBuffer?.startedAt}',
+        );
+        _live.atLiveEdge = targetEpochSeconds == null;
         _live.playbackElapsed
           ..reset()
           ..start();
@@ -455,7 +471,11 @@ extension _VideoPlayerLiveTvMethods on VideoPlayerScreenState {
   /// the stream and burns it). The live counterpart of the VOD source switch:
   /// same [PlaybackSourceSubtitleChoice], but the restart is the raw
   /// `streamUrlAt → open(isLive: true)` every live URL change uses.
-  Future<PlaybackSourceChangeOutcome> _switchLiveSubtitle(PlaybackSourceSubtitleChoice choice) async {
+  Future<PlaybackSourceChangeOutcome> _switchLiveSubtitle(
+    PlaybackSourceSubtitleChoice choice,
+    PlaybackTransitionLease lease,
+  ) async {
+    _liveSeek.cancel();
     final currentPlayer = player;
     final session = _live.session;
     if (currentPlayer == null || session == null) return PlaybackSourceChangeOutcome.unavailable;
@@ -478,8 +498,11 @@ extension _VideoPlayerLiveTvMethods on VideoPlayerScreenState {
     // Keep the viewer's position: rebuild at the time-shift offset when
     // behind the live edge, otherwise re-open at the edge.
     if (_live.captureBuffer != null && !_live.atLiveEdge) {
-      if (_currentPositionEpoch != null && await _seekLivePosition(_currentPositionEpoch)) {
+      if (_currentPositionEpoch != null && await _seekLivePosition(_currentPositionEpoch, sourceLease: lease)) {
         return PlaybackSourceChangeOutcome.applied;
+      }
+      if (!_transitionGate.owns(lease) || !identical(_live.session, session)) {
+        return PlaybackSourceChangeOutcome.superseded;
       }
       _live.selectedSubtitle = previous;
       return PlaybackSourceChangeOutcome.failed;
@@ -498,6 +521,7 @@ extension _VideoPlayerLiveTvMethods on VideoPlayerScreenState {
       currentPlayer,
       streamUrl,
       targetEpoch: _live.captureBuffer == null ? null : _live.streamStartEpoch,
+      isCurrent: () => _transitionGate.owns(lease) && identical(_live.session, session),
     );
     if (mounted) _setPlayerState(() {});
     return PlaybackSourceChangeOutcome.applied;
@@ -505,9 +529,12 @@ extension _VideoPlayerLiveTvMethods on VideoPlayerScreenState {
 
   /// Current seekable epoch window for [_liveSeek], or null when there is no
   /// live capture buffer.
+  CaptureBuffer? get _freshLiveBuffer =>
+      _liveBufferAge.isRunning && _liveBufferAge.elapsed > const Duration(seconds: 30) ? null : _live.captureBuffer;
+
   LiveSeekBounds? _liveSeekBounds() {
     final session = _live.session;
-    final buffer = _live.captureBuffer;
+    final buffer = _freshLiveBuffer;
     if (session is! LiveTvTimeshiftSession || buffer == null) return null;
     final window = (session as LiveTvTimeshiftSession).seekWindow(buffer);
     return window;
@@ -548,7 +575,10 @@ extension _VideoPlayerLiveTvMethods on VideoPlayerScreenState {
   void _seekLiveToEpoch(double targetEpochSeconds) => _liveSeek.seekTo(targetEpochSeconds);
 
   /// Jump to the live edge of the capture buffer.
-  void _jumpToLiveEdge() => _liveSeek.jumpToLive();
+  void _jumpToLiveEdge() {
+    final buffer = _live.captureBuffer;
+    if (buffer != null) _liveSeek.jumpToLive(previewEpoch: buffer.startedAt + buffer.seekEndSeconds);
+  }
 
   Future<void> _switchLiveChannel(int delta) async {
     final channels = widget.live?.channels;
@@ -565,6 +595,7 @@ extension _VideoPlayerLiveTvMethods on VideoPlayerScreenState {
         player == currentPlayer &&
         _transitionGate.owns(transitionLease, expected: PlaybackTransition.switchingChannel);
     _liveSeek.cancel();
+    _live.retrying = false;
 
     final previousSession = _live.session;
     final previousFirstFrame = _firstFrame.snapshot();
@@ -622,6 +653,8 @@ extension _VideoPlayerLiveTvMethods on VideoPlayerScreenState {
 
       _live.adoptSession(session);
       _live.fallbackLevel = 0;
+      _live.retrying = false;
+      _live.retryFailed = false;
 
       if (!mounted) return;
       _setPlayerState(() {

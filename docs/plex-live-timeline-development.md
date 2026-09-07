@@ -78,3 +78,169 @@ Plex timing/adapter; worker 2: UI/EPG investigation and control presentation.
 Both prohibited from further delegation and repository operations. The same
 workers will cross-review; there is no third independent reviewer. Human review
 and testing have not been reported for this branch.
+
+## Integrated review and known limits
+
+Frozen review snapshot: e7a1a8c47a7ca921c0a1f8de6a9d97a0f9b837bd.
+The same two workers performed read-only cross-review, primarily outside their
+own code. Six unique findings were accepted: subtitle transition ownership,
+stale buffer execution, watch-from-start offset bypass, empty EPG responses
+marking history fresh, corrected schedule ends retaining obsolete entries, and
+same-target pending skips unnecessarily superseding readiness. Fixes pass the
+source-switch lease explicitly, centralize fresh offset bounds (30 seconds),
+route initial selection through the adapter, conservatively mark empty channel
+responses stale, replace corrected airings by identity/start, and preserve
+same-target operations. Explicit backend return-to-live remains possible with
+stale bounds; no offset is sent for that operation. Additional main review
+preserves retry/session ownership and marks backwards same-source timestamp
+jumps over two seconds as discontinuities. Forward gaps remain ambiguous.
+
+Important: this is a tested foundation and safer seek implementation, NOT a
+verified repair of #2100's remaining real-content near-live failure. Neither
+Plex timeStamp nor request-plus-first-position is proven to identify the
+rendered broadcast frame. Both remain estimated. Consequently real Plex
+playback currently uses explicitly marked live-program fallback metadata;
+confirmed playback-program switching is implemented/tested in the shared
+model but cannot be demonstrated on Plex until a reliable broadcast anchor is
+available. The UI does not falsely claim the fallback is the playback program,
+clamp an out-of-window playhead, or show an estimate as confirmed live.
+
+The next diagnostic step requires a real source: correlate rendered content
+with source-specific server timing and HLS segment program-date-time, where
+available. Do not apply a guessed tuner latency, change fastSeek/copyts, or
+claim an exact requested landing. New debug entries include only local stream
+and source IDs, requested/effective epochs, capture origin, and player seconds;
+no authenticated URLs or tokens are added. The non-native player has no
+load-bound source ID and keeps only a clearly unverified estimate after open;
+its source-event guarantees remain weaker than native MPV. No new native
+framework was introduced to disguise that gap.
+
+A capture snapshot is not extrapolated with device time. After 30 seconds
+without a fresh capture response, offset controls disable. Pause may put the
+playhead outside the retained buffer without a jump: resuming still-valid
+media is allowed. If actual playback fails, the existing retry/degradation
+ladder re-tunes and returns to live, reports failure if recovery fails, and
+reconciles only an estimated new position. A failed URL lookup preserves the
+active mapping; failure after replacement preserves last-known position.
+Pending timeouts clear the failed target while retaining the existing late
+readiness registration. Elapsed heartbeat time uses Stopwatch, including
+paused elapsed time as the prior heartbeat did. Device now is only a guide
+fallback/lookup input, never confirmed playback or an absolute seek target.
+
+EPG retention is session-local and bounded to the requested buffer/playback
+range plus six hours ahead. No persistent EPG history, Jellyfin/Emby timeshift,
+backend port, general session framework, native change, or dependency upgrade
+was introduced. Empty/partial Plex responses cannot perfectly distinguish
+missing history from provider failure; empty channel data is conservatively
+stale. Schedule corrections for the same identity/start replace older bounds.
+
+## Validation record
+
+SDK blockage was resolved without system installation: checked out official
+Flutter tag 3.47.1 at 6655482ec06e547f90abf8ae7590466f4415978d into /tmp,
+then unpacked Ubuntu's unzip package locally to bootstrap it. Runtime: Flutter
+3.47.1, Dart 3.13.1, Linux/WSL. No native application was built or tuner used.
+Repository/root and vendored wakelock_plus dependencies were installed exactly
+as CI specifies (`flutter pub get` and, inside packages/wakelock_plus,
+`flutter pub get --enforce-lockfile --no-example`). No lockfile changes retained.
+
+On the pristine starting checkout after dependency setup:
+
+- `flutter analyze`: passed. Before vendored dev-dependency setup, 49 diagnostics.
+- `bash scripts/run_tests.sh -j 4`: 7,036 passed, 6 skipped.
+- `bash scripts/codegen.sh --check`: passed.
+- `dart format --output=none --set-exit-if-changed .`: flagged 44 existing files.
+
+On the first integrated snapshot:
+
+- `flutter analyze`: passed; `dart run scripts/checks/check_analyzer.dart`: passed.
+- `bash scripts/run_tests.sh -j 4`: 7,062 passed, 6 skipped.
+- `bash scripts/codegen.sh --check`: passed.
+- `python3 scripts/checks/clean_translations.py --check --strict`: passed.
+- `dart format .`: succeeded; the 44 unrelated formatter-only changes were
+  restored. CI's non-generated lib/test formatting scope passed.
+- Focused commands used `flutter test -j 4` with the timeline model/widget,
+  guide, accumulator, Plex adapter, clock state, retry and transient feedback
+  test paths. Initial run: 105 passed. After expanded regressions: two timeout
+  expectations were corrected for intentionally cleared pending state; 96
+  tests in the subsequent affected-file run passed.
+- `live_pending_playback_regression_test.dart` was run unchanged on both trees:
+  starting code fails (expected last playback 1010, got pending target 1500),
+  changed code passes. This proves the pending-state defect, not actual #2100
+  content landing. Fake HTTP Plex tests additionally exercise adapter inputs,
+  stream readiness, nonzero time-pos, differing origin, moving buffer and
+  A/B/A or newer-operation rejection through runLiveTvSeek.
+
+Final post-review check results are recorded in the companion validation note.
+Native formatting/checks and Maestro were not run: no native files changed,
+and disposable Jellyfin E2E cannot validate real Plex tuner content timing.
+
+## Manual build and test guide
+
+Use your fork branch on Windows with Flutter 3.47.1, Visual Studio's Flutter
+Windows build prerequisites, and Git Bash for repository shell scripts.
+`flutter doctor -v` identifies missing platform dependencies. Use the project's
+pinned native dependencies; do not substitute an older installed MPV DLL.
+
+```text
+git clone --branch codex/plex-program-timeline https://github.com/nullroute77/plezy.git
+cd plezy
+flutter pub get --enforce-lockfile --no-example
+# In Git Bash:
+bash scripts/codegen.sh
+# In PowerShell (matches the Windows CI prerequisite):
+flutter precache --windows
+.\windows\tool\install-patched-engine.ps1
+flutter build windows --release
+```
+
+For Android, use Flutter's Android SDK/JDK prerequisites and `flutter build apk
+--release`; test both the selected player and native MPV where available.
+Before testing, record platform/device, `git rev-parse HEAD`, Plezy version,
+Plex server version, active player/MPV version, source type and stream settings.
+No version or setup is inferred from the older issue report for this branch.
+
+1. Join midway through a long scheduled program. Expect full start/end labels,
+   grey unavailable portions, a highlighted playable intersection, and a hollow
+   estimated position plus explicit live-metadata fallback. Until better timing
+   evidence exists, do not expect a solid confirmed position or confirmed LIVE.
+2. Scrub before/after availability: expect the nearest valid grid point within
+   the shown program. At an empty intersection, scrubbing disables. Relative
+   skips use the entire buffer, including across program boundaries.
+3. Repeat small backward/forward skips rapidly while reopening. Expect one
+   pending marker accumulating effective targets, not a moved confirmed thumb;
+   check actual content, especially 10/15/20/30s rewind near live (#2100).
+4. Return to live from inside and before the current program, including during
+   a pending seek. Expect offsetless backend live operation and latest intent
+   ownership; actual landing remains estimated until stronger evidence exists.
+5. Pause/resume, then pause beyond retention. Expect advancing highlighted
+   bounds without a fabricated playback jump. Failure/recovery must be visible;
+   old targets must not be reported as reached. After heartbeat loss, offset
+   controls disable; explicit live operation remains available.
+6. Rewind across an EPG boundary and play forward across it. The confirmed
+   shared-model behavior is covered automatically; real Plex will currently
+   identify live-program metadata as fallback because its playback is estimated.
+   Record this as the known limitation, not a successful program-tracking test.
+7. Change A -> B -> A during a pending seek, and during recovery. Old opens and
+   state must not take ownership. Toggle Plex burn subtitles while behind live
+   and after a return-to-live; the existing source-switch lease must still work.
+8. Safely induce URL/reopen failure if possible. Expect failure feedback,
+   cleared pending state and retained active or last-known playback as applicable.
+   Run long enough to see rolling windows and schedule corrections.
+
+Share sanitized timing logs and content observations from the same run. Do not
+include tokens, complete stream URLs, private server addresses or source details.
+No human test or review of this branch is claimed until you report it.
+
+## Possible later submission boundaries
+
+No upstream submission is authorized or prepared remotely. The pending-state
+and stale-owner repairs are distinguishable defects; the absolute-time adapter
+and shared model support both those controls and the program UI. Program
+presentation, fallback wording and conservative accuracy behavior are deliberate
+product choices that need maintainer agreement before eventual submission.
+One or multiple PRs can be considered after real-source timing is established;
+forcing a split now would obscure the shared contract dependencies. The issue
+report does not approve this design, and successful automated checks do not
+establish upstream acceptance. Jellyfin/Emby can later supply the optional
+absolute-time capability after their actual seek/timestamp semantics are tested.

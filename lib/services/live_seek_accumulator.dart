@@ -74,6 +74,7 @@ class LiveSeekAccumulator {
     // position it already occupies (most commonly fast-forward at live edge).
     // Once a burst has a pending target, keep its normal debounce semantics.
     if (_pendingEpoch == null && target == clampedBase) return;
+    if (_pendingEpoch == target && !_pendingLive) return;
     _intentGeneration++;
     _pendingLive = false;
     if (target != _pendingEpoch) {
@@ -96,9 +97,16 @@ class LiveSeekAccumulator {
     unawaited(_flush());
   }
 
-  void jumpToLive() {
-    final window = bounds();
-    if (window != null && seekLive != null) seekTo(window.endEpoch, live: true);
+  /// Live is a backend operation, allowed even if old seek bounds are stale.
+  /// Its preview is explicitly pending; it is never confirmed playback.
+  void jumpToLive({double? previewEpoch}) {
+    final target = bounds()?.endEpoch ?? previewEpoch;
+    if (_disposed || seekLive == null || target == null || !target.isFinite) return;
+    _intentGeneration++;
+    _pendingEpoch = target;
+    _pendingLive = true;
+    onChanged?.call();
+    unawaited(_flush());
   }
 
   Future<void> _flush() async {
@@ -106,11 +114,11 @@ class LiveSeekAccumulator {
     final requested = _pendingEpoch;
     final window = bounds();
     if (requested == null) return;
-    if (window == null || !window.isValid) {
+    if (!_pendingLive && (window == null || !window.isValid)) {
       cancel();
       return;
     }
-    final target = window.target(requested)!;
+    final target = _pendingLive ? requested : window!.target(requested)!;
     if (_pendingEpoch != target) {
       _pendingEpoch = target;
       onChanged?.call();

@@ -69,6 +69,9 @@ class LiveTvSessionState {
   /// Legacy player-zero epoch estimate. Request/readiness pairing and server
   /// origins can update it, but only [playbackPosition] describes validity.
   double streamStartEpoch = 0;
+
+  /// Last requested open mode, used only to preserve subtitle restart intent.
+  /// The timeline computes confirmed live status independently.
   bool atLiveEdge = true;
 
   /// Bumped on every stream open. A heartbeat snapshots it when dispatched so
@@ -84,6 +87,7 @@ class LiveTvSessionState {
   LiveTvSeekStatus seekStatus = LiveTvSeekStatus.idle;
   double? _lastPlaybackEpoch;
   bool _unidentifiedStreamEstimate = false;
+  Duration? _lastObservedPosition;
 
   /// The request/first-position pairing and Plex origin are estimates until
   /// their relationship to the rendered media clock is independently known.
@@ -107,6 +111,7 @@ class LiveTvSessionState {
     cancelClockOpens();
     activeClockSourceId = null;
     _unidentifiedStreamEstimate = false;
+    _lastObservedPosition = null;
     seekStatus = LiveTvSeekStatus.idle;
   }
 
@@ -117,7 +122,23 @@ class LiveTvSessionState {
     streamStartEpoch = epoch - position.inMilliseconds / 1000.0;
     _lastPlaybackEpoch = epoch;
     _unidentifiedStreamEstimate = true;
+    _lastObservedPosition = position;
     seekStatus = LiveTvSeekStatus.idle;
+  }
+
+  /// Live seeks replace sources; a backwards jump within the same source is
+  /// a timestamp discontinuity, not a new valid anchor. Allow 2s of reporting
+  /// jitter. Forward gaps cannot be distinguished from missing events here.
+  bool observePlayerPosition(Duration position) {
+    if (activeClockSourceId == null && !_unidentifiedStreamEstimate) return false;
+    final previous = _lastObservedPosition;
+    if (previous != null && position < previous - const Duration(seconds: 2)) {
+      invalidatePlayback();
+      return true;
+    }
+    _lastObservedPosition = position;
+    playbackPosition(position);
+    return false;
   }
 
   final Map<int, _LiveClockOpen> _clockOpensBySource = {};
@@ -205,6 +226,7 @@ class LiveTvSessionState {
 
     streamStartEpoch = open.targetEpoch - source.position.inMilliseconds / 1000.0;
     activeClockSourceId = source.sourceId;
+    _lastObservedPosition = source.position;
     _lastPlaybackEpoch = open.targetEpoch;
     seekStatus = LiveTvSeekStatus.idle;
     pendingStreamEpoch = null;

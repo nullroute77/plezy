@@ -30,6 +30,44 @@ void main() {
     expect(guide.programs, [b]);
   });
 
+  test('empty Plex-style response marks retained history stale and corrected end replaces airing', () async {
+    final guide = LiveTvProgramGuide();
+    final owner = Object();
+    final original = LiveTvProgram(
+      title: 'Game',
+      ratingKey: 'game',
+      channelIdentifier: 'A',
+      beginsAt: 1000,
+      endsAt: 2000,
+    );
+    final corrected = LiveTvProgram(
+      title: 'Game',
+      ratingKey: 'game',
+      channelIdentifier: 'A',
+      beginsAt: 1000,
+      endsAt: 2500,
+    );
+    await guide.refresh(
+      owner: owner,
+      channel: channel,
+      fromEpoch: 1000,
+      toEpoch: 3500,
+      fetch: (_, _) async => [original],
+    );
+    await guide.refresh(owner: owner, channel: channel, fromEpoch: 1000, toEpoch: 3500, fetch: (_, _) async => []);
+    expect(guide.programs, [original]);
+    expect(guide.stale, isTrue);
+    await guide.refresh(
+      owner: owner,
+      channel: channel,
+      fromEpoch: 1000,
+      toEpoch: 3500,
+      fetch: (_, _) async => [corrected],
+    );
+    expect(guide.programs, [corrected]);
+    expect(guide.stale, isFalse);
+  });
+
   test('A to B to A rejects first A result and failure retains marked-stale history', () async {
     final guide = LiveTvProgramGuide();
     final first = Object();

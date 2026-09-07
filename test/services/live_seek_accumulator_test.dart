@@ -87,6 +87,53 @@ void main() {
       });
     });
 
+    test('same pending boundary does not supersede readiness or reopen again', () {
+      fakeAsync((async) {
+        gate = Completer<void>();
+        window = const LiveSeekBounds(startEpoch: 900, endEpoch: 1050);
+        final acc = build();
+        acc.seekBy(100);
+        async.elapse(const Duration(milliseconds: 300));
+        final intent = acc.intentGeneration;
+        acc.seekBy(15);
+        expect(acc.intentGeneration, intent);
+        gate!.complete();
+        gate = null;
+        async.flushMicrotasks();
+        async.elapse(const Duration(seconds: 1));
+        expect(seeks, [1050]);
+        acc.dispose();
+      });
+    });
+
+    test('stale bounds reject relative offsets but backend live remains available', () {
+      fakeAsync((async) {
+        var live = 0;
+        final offsets = <double>[];
+        final acc = LiveSeekAccumulator(
+          seek: (value) async {
+            offsets.add(value);
+            return true;
+          },
+          seekLive: () async {
+            live++;
+            return true;
+          },
+          currentEpoch: () => 1000,
+          bounds: () => null,
+        );
+        acc.seekBy(-15);
+        acc.seekTo(900);
+        expect(acc.pendingEpoch, isNull);
+        acc.jumpToLive(previewEpoch: 1100);
+        async.flushMicrotasks();
+        expect(live, 1);
+        expect(offsets, isEmpty);
+        expect(acc.pendingEpoch, isNull);
+        acc.dispose();
+      });
+    });
+
     test('coalesces a rapid burst into a single seek at the summed target', () {
       fakeAsync((async) {
         final acc = build();

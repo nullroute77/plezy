@@ -150,6 +150,11 @@ extension _VideoPlayerPlaybackServiceMethods on VideoPlayerScreenState {
         currentPlayer.streams.sourceReady.listen((source) {
           if (!mounted || player != currentPlayer) return;
           if (_live.calibrateClockSource(source)) {
+            appLogger.d(
+              'Live ready stream=${_live.streamGeneration} source=${source.sourceId} '
+              'playerSeconds=${source.position.inMilliseconds / 1000.0} '
+              'estimatedEpoch=${_live.playbackPosition(source.position).epoch}',
+            );
             _setPlayerState(() {});
           }
         }),
@@ -179,6 +184,10 @@ extension _VideoPlayerPlaybackServiceMethods on VideoPlayerScreenState {
       currentPlayer.streams.position.listen((position) {
         final activePlayer = player;
         if (activePlayer == null || activePlayer != currentPlayer) return;
+        if (widget.isLive && _live.observePlayerPosition(position)) {
+          appLogger.w('Live player timestamp moved backwards; broadcast mapping is now unknown');
+          _setPlayerState(() {});
+        }
 
         // Fallback for MPV backends whose playbackRestart event is unavailable.
         // Android ExoPlayer position can advance on its standalone clock without

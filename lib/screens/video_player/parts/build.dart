@@ -334,8 +334,8 @@ extension _VideoPlayerBuildMethods on VideoPlayerScreenState {
                         liveTimelineForPosition: widget.isLive && _live.session is LiveTvTimeshiftSession
                             ? _liveTimelineForPosition
                             : null,
-                        onLiveSeek: _live.captureBuffer != null ? _seekLiveToEpoch : null,
-                        onLiveSeekBy: _live.captureBuffer != null ? _liveSeek.seekBy : null,
+                        onLiveSeek: _liveSeekBounds() != null ? _seekLiveToEpoch : null,
+                        onLiveSeekBy: _liveSeekBounds() != null ? _liveSeek.seekBy : null,
                         onJumpToLive: _live.captureBuffer != null ? _jumpToLiveEdge : null,
                         isAmbientLightingEnabled: _ambientLightingService?.isEnabled ?? false,
                         onToggleAmbientLighting: _ambientLightingService?.isSupported == true

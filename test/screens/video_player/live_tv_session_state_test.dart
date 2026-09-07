@@ -152,6 +152,19 @@ void main() {
       expect(state.playbackPosition(Duration.zero).accuracy, LiveTvTimeAccuracy.unknown);
     });
 
+    test('unexpected backwards timestamps invalidate the active mapping', () {
+      final state = LiveTvSessionState(null);
+      final generation = state.beginClockOpen(1000);
+      state.bindClockOpen(generation, 1);
+      state.calibrateClockSource(const PlayerSourceReady(sourceId: 1, position: Duration(seconds: 52)));
+      expect(state.observePlayerPosition(const Duration(seconds: 54)), isFalse);
+      expect(state.observePlayerPosition(const Duration(seconds: 10)), isTrue);
+      final stale = state.playbackPosition(const Duration(seconds: 10));
+      expect(stale.active, isFalse);
+      expect(stale.epoch, 1002);
+      expect(stale.accuracy, LiveTvTimeAccuracy.stale);
+    });
+
     test('a superseded source cannot calibrate the latest open', () async {
       final state = LiveTvSessionState(null);
       final firstGeneration = state.beginClockOpen(1085);
