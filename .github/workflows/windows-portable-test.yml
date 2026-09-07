@@ -1,5 +1,5 @@
-name: Windows portable test
-run-name: Windows x64 test — ${{ github.sha }}
+name: Live TV test builds
+run-name: Windows x64 + Android TV ARM64 test — ${{ github.sha }}
 
 on:
   # A new workflow cannot be manually dispatched until registered on the
@@ -16,7 +16,105 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  android-tv-arm64:
+    name: Android TV ARM64 APK
+    if: github.repository == 'nullroute77/plezy' && github.ref == 'refs/heads/codex/plex-program-timeline'
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+
+      - name: Set up Java
+        uses: actions/setup-java@03ad4de0992f5dab5e18fcb136590ce7c4a0ac95 # v5
+        with:
+          distribution: temurin
+          java-version: "21"
+
+      - name: Set up pinned Flutter SDK
+        uses: ./.github/actions/setup-flutter-git
+
+      - name: Install dependencies
+        run: flutter pub get --enforce-lockfile --no-example
+
+      # This is a disposable test identity, never the production signing key.
+      # Reuse it so consecutive test APKs can update one another in place.
+      - name: Restore test signing key
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
+        with:
+          path: ~/.android/plezy-test.keystore
+          key: plezy-android-test-signing-v1
+
+      - name: Configure test signing
+        run: |
+          mkdir -p "$HOME/.android"
+          if [ ! -f "$HOME/.android/plezy-test.keystore" ]; then
+            keytool -genkeypair -noprompt -storetype JKS \
+              -keystore "$HOME/.android/plezy-test.keystore" \
+              -storepass android -keypass android -alias androiddebugkey \
+              -keyalg RSA -keysize 2048 -validity 10000 \
+              -dname "CN=Plezy Fork Test, O=Android, C=US"
+          fi
+          cat > android/key.properties <<EOF
+          storePassword=android
+          keyPassword=android
+          keyAlias=androiddebugkey
+          storeFile=$HOME/.android/plezy-test.keystore
+          EOF
+
+      # Plezy's regular Android app already declares the TV launcher and
+      # detects Android TV; no separate TV flavor or forced UI is needed.
+      - name: Build Android TV ARM64 APK
+        run: >-
+          flutter build apk --release --target-platform android-arm64 --split-per-abi
+          --dart-define=ENABLE_UPDATE_CHECK=false
+          --dart-define=ENABLE_SENTRY=false
+          --dart-define=GIT_COMMIT=${{ github.sha }}
+
+      - name: Verify APK and record build identity
+        env:
+          TEST_COMMIT: ${{ github.sha }}
+          TEST_REF: ${{ github.ref_name }}
+        run: |
+          apk=build/app/outputs/flutter-apk/app-arm64-v8a-release.apk
+          test -s "$apk"
+          "$ANDROID_HOME/build-tools/36.1.0/apksigner" verify "$apk"
+          python3 - <<'PY'
+          import zipfile
+          with zipfile.ZipFile('build/app/outputs/flutter-apk/app-arm64-v8a-release.apk') as apk:
+              abis = {name.split('/')[1] for name in apk.namelist() if name.startswith('lib/') and name.endswith('.so')}
+              if abis != {'arm64-v8a'}:
+                  raise SystemExit(f'Expected only ARM64 native libraries, found {sorted(abis)}')
+          PY
+          mkdir -p build/android-tv-test
+          cp "$apk" build/android-tv-test/plezy-androidtv-arm64-test.apk
+          cat > build/android-tv-test/TEST-BUILD.txt <<EOF
+          Plezy Android TV ARM64 test build
+          Commit: $TEST_COMMIT
+          Branch: $TEST_REF
+          Install plezy-androidtv-arm64-test.apk on a 64-bit Android TV device.
+          Uses Plezy's existing Android TV detection and TV launcher.
+          Signed with a test key, so it cannot update an official release installation.
+          Test updates reuse the signing key while the GitHub Actions cache retains it.
+          Automatic update checks and Sentry are disabled.
+          Plex broadcast timing remains estimated; this is not a verified #2100 repair.
+          EOF
+
+      - name: Remove signing configuration
+        if: always()
+        run: rm -f android/key.properties
+
+      - name: Upload Android TV ARM64 APK
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: plezy-androidtv-arm64-test-${{ github.sha }}
+          path: build/android-tv-test/
+          if-no-files-found: error
+          retention-days: 14
+
   portable:
+    name: Windows x64 portable
     if: github.repository == 'nullroute77/plezy' && github.ref == 'refs/heads/codex/plex-program-timeline'
     runs-on: windows-latest
     timeout-minutes: 90

@@ -10,8 +10,10 @@ Starting SHA: 8238705d3e70add2ed32bbf4ae1af7bf96954e8c.
 Only origin is writable; upstream push URL is disabled.
 
 Presentation revision after user testing: Live TV now reuses the movie
-TimelineSlider, including its rounded white playhead, gray BufferRangePainter
-and hover tooltip (formatted as program clock time). A pending seek uses the
+TimelineSlider, including its rounded playhead, BufferRangePainter and hover
+tooltip (formatted as program clock time). The playhead and buffered time before
+it use the original Live TV red; buffered time after it stays gray. The channel
+header shows the program title and duration beneath the channel name. A pending seek uses the
 same preview thumb as movie seeking. Extra fallback/estimated/pending text and
 elapsed/total labels are removed from the visible bar. Timing accuracy and
 fallback metadata remain in the model and accessibility semantics; the uniform
@@ -205,21 +207,31 @@ and disposable Jellyfin E2E cannot validate real Plex tuner content timing.
 
 ## Manual build and test guide
 
-### Download a GitHub Actions portable test build
+### Download GitHub Actions test builds
 
-The fork-only **Windows portable test** workflow builds x64 on pushes to
+The fork-only **Live TV test builds** workflow (`windows-portable-test.yml`)
+builds Windows x64 portable and Android TV ARM64 APKs in parallel on pushes to
 `codex/plex-program-timeline`. Open your fork's Actions tab, select that workflow
-and the successful run for the commit you want, then download the
-`plezy-windows-x64-portable-test-<commit>` artifact. Extract the whole ZIP into a
-folder and run `plezy.exe`; keep its DLLs and data folder together. `TEST-BUILD.txt`
-records the exact commit. Artifacts expire after 14 days; use **Re-run all jobs**
+and the run for the commit you want, then download the successful job's artifact:
+
+- `plezy-windows-x64-portable-test-<commit>`: extract the whole ZIP into a folder
+  and run `plezy.exe`; keep its DLLs and data folder together.
+- `plezy-androidtv-arm64-test-<commit>`: extract and sideload
+  `plezy-androidtv-arm64-test.apk` on a TV with a 64-bit Android OS. Plezy's
+  existing Android TV detection and TV launcher apply; there is no TV flavor.
+  This APK uses a test signing key and cannot update an official installation.
+  Consecutive test builds can update each other while the cached key is retained;
+  cache eviction changes the key and requires reinstalling. Uninstalling deletes
+  local app data. No production signing secrets are used.
+
+Each `TEST-BUILD.txt` records the exact commit. Artifacts expire after 14 days; use **Re-run all jobs**
 on an existing run to rebuild. The new workflow does not need to be merged into
 main to run on push. GitHub's manual dispatch UI may require it on the default
 branch, so use the push trigger or rerun for this feature branch.
 
-This build uses the pinned Flutter SDK and patched engine, disables automatic
-update checks and Sentry, and uploads only an Actions artifact. It does not sign,
-create a GitHub release or deploy. It is x64 only. Portable packaging does not
+Both jobs use the pinned Flutter SDK, disable automatic update checks and Sentry,
+and upload Actions artifacts. The Windows job uses the patched Windows engine.
+Neither creates a GitHub release or deploys. Portable packaging does not
 imply isolated application settings; record the build identity when reporting
 results. The existing release workflow and its main-branch restriction remain
 unchanged.

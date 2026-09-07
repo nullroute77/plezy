@@ -18,7 +18,7 @@ runs:
       run: |
         $version = "3.47.1"
         $expectedCommit = "6655482ec06e547f90abf8ae7590466f4415978d"
-        $root = "$env:RUNNER_TEMP\flutter"
+        $root = Join-Path $env:RUNNER_TEMP "flutter"
         git init $root
         git -C $root remote add origin https://github.com/flutter/flutter.git
         git -C $root fetch --depth 1 origin "refs/tags/${version}:refs/tags/${version}"
@@ -27,12 +27,14 @@ runs:
         if ($LASTEXITCODE -ne 0 -or $actualCommit -ne $expectedCommit) {
           throw "Flutter $version resolved to $actualCommit, expected $expectedCommit"
         }
-        "$root\bin" | Out-File -FilePath $env:GITHUB_PATH -Append -Encoding utf8
-        & "$root\bin\flutter.bat" --version
+        $bin = Join-Path $root "bin"
+        $flutterCommand = Join-Path $bin $(if ($IsWindows) { "flutter.bat" } else { "flutter" })
+        $bin | Out-File -FilePath $env:GITHUB_PATH -Append -Encoding utf8
+        & $flutterCommand --version
         if ($LASTEXITCODE -ne 0) {
           throw "Unable to bootstrap the Flutter SDK"
         }
-        $versionOutput = & "$root\bin\flutter.bat" --version --machine
+        $versionOutput = & $flutterCommand --version --machine
         if ($LASTEXITCODE -ne 0) {
           throw "Unable to resolve the Flutter SDK version"
         }
