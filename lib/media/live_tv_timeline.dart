@@ -7,7 +7,14 @@ enum LiveTvTimeAccuracy { unknown, estimated, confirmed, stale }
 
 enum LiveTvSeekStatus { idle, pending, opening, failed }
 
-enum LiveTvTimelineMode { playbackProgram, liveProgramFallback, buffer, unavailable }
+enum LiveTvTimelineMode {
+  playbackProgram,
+  estimatedPlaybackProgram,
+  lastKnownPlaybackProgram,
+  liveProgramFallback,
+  buffer,
+  unavailable,
+}
 
 class LiveTvPlaybackPosition {
   final double? epoch;
@@ -50,8 +57,10 @@ class LiveTvSeekWindow {
 }
 
 /// One presentation snapshot, shared by all Live TV controls. Requested seeks
-/// never replace [playback] or select a playback program. Stale schedule data
-/// is retained for fallback display, but cannot establish a known program.
+/// never replace [playback] or select a playback program. Active estimates may
+/// select guide metadata without becoming confirmed playback. Last-known
+/// positions preserve program context while a source opens or has failed.
+/// Stale schedule data is retained for live fallback display only.
 class LiveTvTimeline {
   final LiveTvPlaybackPosition playback;
   final LiveTvSeekWindow? seekable;
@@ -90,12 +99,23 @@ class LiveTvTimeline {
     required double metadataNowEpoch,
     bool programDataStale = false,
   }) {
-    final confirmed = playback.confirmedEpoch;
-    final playing = confirmed == null || programDataStale ? null : programAt(programs, confirmed);
+    final epoch = playback.epoch;
+    final canSelectPlayback =
+        epoch != null &&
+        epoch.isFinite &&
+        ((playback.active &&
+                (playback.accuracy == LiveTvTimeAccuracy.confirmed ||
+                    playback.accuracy == LiveTvTimeAccuracy.estimated)) ||
+            playback.accuracy == LiveTvTimeAccuracy.stale);
+    final playing = !canSelectPlayback || programDataStale ? null : programAt(programs, epoch);
     final selected = playing ?? programAt(programs, metadataNowEpoch);
     final window = seekable?.isValid == true ? seekable : null;
     final mode = playing != null
-        ? LiveTvTimelineMode.playbackProgram
+        ? switch (playback.accuracy) {
+            LiveTvTimeAccuracy.confirmed => LiveTvTimelineMode.playbackProgram,
+            LiveTvTimeAccuracy.estimated => LiveTvTimelineMode.estimatedPlaybackProgram,
+            _ => LiveTvTimelineMode.lastKnownPlaybackProgram,
+          }
         : selected != null
         ? LiveTvTimelineMode.liveProgramFallback
         : window != null

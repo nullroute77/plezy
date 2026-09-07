@@ -20,6 +20,7 @@ import 'package:plezy/models/livetv_channel.dart';
 import 'package:plezy/models/plex/plex_config.dart';
 import 'package:plezy/services/plex_api_cache.dart';
 import 'package:plezy/services/plex_client.dart';
+import 'package:plezy/services/live_tv_program_guide.dart';
 import 'package:plezy/utils/active_client_scope.dart';
 
 void main() {
@@ -170,6 +171,32 @@ void main() {
   test('Plex resolution through source readiness preserves uncertainty and actual origin disagreement', () async {
     var seenOffset = '';
     final client = makeClient((request) async {
+      if (request.url.path == '/provider-a/grid') {
+        expect(request.url.queryParameters['endsAt>'], '1000');
+        expect(request.url.queryParameters['beginsAt<'], '1200');
+        return jsonResponse({
+          'MediaContainer': {
+            'Metadata': [
+              {
+                'title': 'Previous',
+                'ratingKey': 'previous',
+                'type': 'clip',
+                'Media': [
+                  {'beginsAt': 1000, 'endsAt': 1100, 'channelIdentifier': 'A'},
+                ],
+              },
+              {
+                'title': 'Current',
+                'ratingKey': 'current',
+                'type': 'clip',
+                'Media': [
+                  {'beginsAt': 1100, 'endsAt': 1200, 'channelIdentifier': 'A'},
+                ],
+              },
+            ],
+          },
+        });
+      }
       if (request.url.path.endsWith('/tune')) {
         return jsonResponse({
           'MediaContainer': {
@@ -186,6 +213,22 @@ void main() {
     addTearDown(client.close);
     final session = (await client.liveTv.startPlayback('A', dvrKey: 'dvr'))!;
     final state = LiveTvSessionState(null)..adoptSession(session);
+    final guide = LiveTvProgramGuide();
+    await guide.refresh(
+      owner: session,
+      channel: LiveTvChannel(key: 'A'),
+      fromEpoch: 1000.25,
+      toEpoch: 1200,
+      fetch: (from, to) => client.liveTv.fetchSchedule(from: from, to: to),
+    );
+    expect(guide.programs, hasLength(2));
+    LiveTvTimeline timeline(Duration position) => LiveTvTimeline.resolve(
+      playback: state.playbackPosition(position),
+      pendingSeekEpoch: state.pendingTargetEpoch,
+      programs: guide.programs,
+      programDataStale: guide.stale,
+      metadataNowEpoch: 1150,
+    );
     final result = await runLiveTvSeek(
       session: session as LiveTvTimeshiftSession,
       targetEpoch: 1093.25,
@@ -196,10 +239,15 @@ void main() {
         final generation = state.beginClockOpen(request.effectiveTargetEpoch!);
         final result = state.clockOpenResult(generation);
         expect(state.playbackPosition(Duration.zero).epoch, isNull);
+        expect(timeline(Duration.zero).program!.title, 'Current');
         state.bindClockOpen(generation, 1);
         state.calibrateClockSource(const PlayerSourceReady(sourceId: 1, position: Duration(seconds: 52)));
         expect(state.playbackPosition(const Duration(seconds: 52)).epoch, 1093.25);
         expect(state.playbackPosition(const Duration(seconds: 52)).confirmedEpoch, isNull);
+        final view = timeline(const Duration(seconds: 52));
+        expect(view.program!.title, 'Previous');
+        expect(view.mode, LiveTvTimelineMode.estimatedPlaybackProgram);
+        expect((view.startEpoch, view.endEpoch), (1000, 1100));
         return result;
       },
     );

@@ -12,9 +12,10 @@ void main() {
     List<LiveTvProgram>? programs,
     LiveTvTimeAccuracy accuracy = LiveTvTimeAccuracy.confirmed,
     bool stale = false,
+    bool active = true,
     LiveTvSeekWindow? window = buffer,
   }) => LiveTvTimeline.resolve(
-    playback: LiveTvPlaybackPosition(epoch: epoch, accuracy: accuracy, active: epoch != null),
+    playback: LiveTvPlaybackPosition(epoch: epoch, accuracy: accuracy, active: active && epoch != null),
     programs: programs ?? [a, b],
     metadataNowEpoch: 12600,
     seekable: window,
@@ -52,12 +53,41 @@ void main() {
     expect(timeline(null, programs: [], window: null).mode, LiveTvTimelineMode.unavailable);
   });
 
-  test('estimates and stale metadata cannot establish a known playback program', () {
+  test('active estimates select historical guide metadata without confirming playback', () {
     final estimated = timeline(10000, accuracy: LiveTvTimeAccuracy.estimated);
-    expect(estimated.mode, LiveTvTimelineMode.liveProgramFallback);
+    expect(estimated.mode, LiveTvTimelineMode.estimatedPlaybackProgram);
+    expect(estimated.program, same(a));
+    expect((estimated.startEpoch, estimated.endEpoch), (7200, 10800));
+    expect(estimated.estimatedPlayheadEpoch, 10000);
     expect(estimated.confirmedPlayheadEpoch, isNull);
+    expect(estimated.playback.accuracy, LiveTvTimeAccuracy.estimated);
+    expect(estimated.isAtLive, isFalse);
+    expect(timeline(10799.999, accuracy: LiveTvTimeAccuracy.estimated).program, same(a));
+    expect(timeline(10800, accuracy: LiveTvTimeAccuracy.estimated).program, same(b));
+    expect(timeline(10920, pending: 10000, accuracy: LiveTvTimeAccuracy.estimated).program, same(b));
+  });
+
+  test('last-known program stays in place during reopen and never paints an active playhead', () {
+    final opening = timeline(10000, accuracy: LiveTvTimeAccuracy.stale, active: false, pending: 12000);
+    expect(opening.mode, LiveTvTimelineMode.lastKnownPlaybackProgram);
+    expect(opening.program, same(a));
+    expect(opening.confirmedPlayheadEpoch, isNull);
+    expect(opening.estimatedPlayheadEpoch, isNull);
+    expect(opening.playback.active, isFalse);
+  });
+
+  test('unknown positions, inactive estimates and stale guide data still fall back', () {
+    expect(timeline(10000, accuracy: LiveTvTimeAccuracy.unknown).mode, LiveTvTimelineMode.liveProgramFallback);
+    expect(
+      timeline(10000, accuracy: LiveTvTimeAccuracy.estimated, active: false).mode,
+      LiveTvTimelineMode.liveProgramFallback,
+    );
     expect(timeline(10000, stale: true).mode, LiveTvTimelineMode.liveProgramFallback);
-    final stale = timeline(12000, accuracy: LiveTvTimeAccuracy.stale);
+    expect(
+      timeline(10000, stale: true, accuracy: LiveTvTimeAccuracy.estimated).mode,
+      LiveTvTimelineMode.liveProgramFallback,
+    );
+    final stale = timeline(12000, accuracy: LiveTvTimeAccuracy.stale, active: false);
     expect(stale.estimatedPlayheadEpoch, isNull);
     expect(stale.confirmedPlayheadEpoch, isNull);
   });

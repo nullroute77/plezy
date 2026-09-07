@@ -1,7 +1,9 @@
 # Plex Live TV timeline development (unsubmitted)
 
-Status: validated fork development draft. Real-source #2100 repair and confirmed
-Plex playback-program tracking remain unresolved; do not treat this as a completed fix.
+Status: timeline feature development and user testing. Previous-program tracking
+is retained. A dedicated #2100 repair branch is deferred until the user is
+satisfied with the timeline; it has not been created. Broadcast timing remains
+estimated, so this is not a completed #2100 fix.
 
 Fork: nullroute77/plezy. Branch: codex/plex-program-timeline.
 Starting SHA: 8238705d3e70add2ed32bbf4ae1af7bf96954e8c.
@@ -66,9 +68,12 @@ are half-open; backend target windows are inclusive grids with restricted
 endpoints removed by the adapter. Relative seeks use the whole target window;
 scrubs use its intersection with the displayed program. Pending targets never
 replace playback. Playback has explicit unknown/estimated/confirmed/stale
-accuracy and active/last-known state. Only confirmed playback selects a known
-playback program. Missing evidence uses explicitly identified live metadata,
-then a buffer view, then unavailable state. Out-of-window thumbs are hidden.
+accuracy and active/last-known state. Confirmed playback selects a known program;
+active estimated playback now selects a program in an explicitly estimated model
+mode. A last-known position retains program context while reopening or failed,
+without showing an active playhead. Pending targets never choose the program.
+Missing history or stale schedule data falls back to live metadata, then a buffer
+view, then unavailable state. Out-of-window thumbs are hidden.
 
 EPG uses existing fetchSchedule(from,to), scoped with existing channel matching,
 retained only in session memory and refreshed over the buffer. Plex may no
@@ -118,12 +123,14 @@ jumps over two seconds as discontinuities. Forward gaps remain ambiguous.
 Important: this is a tested foundation and safer seek implementation, NOT a
 verified repair of #2100's remaining real-content near-live failure. Neither
 Plex timeStamp nor request-plus-first-position is proven to identify the
-rendered broadcast frame. Both remain estimated. Consequently real Plex
-playback currently uses live-program fallback metadata, identified in semantics;
-confirmed playback-program switching is implemented/tested in the shared
-model but cannot be demonstrated on Plex until a reliable broadcast anchor is
-available. The UI does not falsely claim the fallback is the playback program,
-clamp an out-of-window playhead, or show an estimate as confirmed live.
+rendered broadcast frame. Both remain estimated. The initial implementation
+required confirmed timing for program selection, so Plex could never select an
+earlier program even when historical EPG was loaded. The timeline revision now
+uses active estimates for guide selection without upgrading their accuracy.
+This makes previous-program display possible before the separate #2100 repair,
+but transitions can be early/late if the underlying estimate is wrong. Missing
+history still falls back to the live program; confirmed LIVE still requires
+confirmed timing. No new labels, marker shapes or widget implementation are added.
 
 The next diagnostic step requires a real source: correlate rendered content
 with source-specific server timing and HLS segment program-date-time, where
@@ -260,10 +267,13 @@ No version or setup is inferred from the older issue report for this branch.
    bounds without a fabricated playback jump. Failure/recovery must be visible;
    old targets must not be reported as reached. After heartbeat loss, offset
    controls disable; explicit live operation remains available.
-6. Rewind across an EPG boundary and play forward across it. The confirmed
-   shared-model behavior is covered automatically; real Plex will currently
-   use live-program metadata as fallback because its playback is estimated.
-   Record this as the known limitation, not a successful program-tracking test.
+6. Rewind several minutes into an earlier program still in the buffer. After
+   the replacement stream becomes ready, expect that program's title and full
+   start/end labels when its guide data is available. A pending seek should not
+   select the requested program; further seeks/failures retain the last program
+   context. Play forward across its end: the next program owns the exact boundary
+   according to the active estimate. Compare with actual content and record any
+   early/late change separately. Missing Plex history remains a real limitation.
 7. Change A -> B -> A during a pending seek, and during recovery. Old opens and
    state must not take ownership. Toggle Plex burn subtitles while behind live
    and after a return-to-live; the existing source-switch lease must still work.

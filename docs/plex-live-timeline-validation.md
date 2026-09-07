@@ -45,6 +45,16 @@ the track. Formatter, Live TV and movie-control tests passed 149 cases, covering
 right edge. The full suite passed 7,078 with 6 skipped; analysis, formatting and
 code generation passed. Logs are `/tmp/plezy-hover-seconds-*.log`.
 
+Previous-program selection revision: 51 focused model/guide/widget/Plex tests
+passed. The fake Plex test exercises historical EPG query parameters and parsing,
+seek resolution, nonzero source readiness and estimated previous-program bounds.
+The widget test checks title/start/end changes, no pending-target program switch,
+last-known context after failure and forward playback over the exact boundary.
+The full suite passed 7,081 with 6 skipped; analysis, formatting and code generation
+passed. Logs are `/tmp/plezy-history-program-*.log`. Production changes are confined
+to the timeline selector and its explicit estimated/last-known display modes;
+Plex clock mapping, seek transport and slider rendering are unchanged.
+
 ## Environment and baseline
 
 Flutter 3.47.1, Dart 3.13.1, Linux/WSL2 (kernel
@@ -154,9 +164,13 @@ timestamp alongside observed source content; correlate source/server/segment
 timing where available. A requested target paired with the first player timestamp
 is insufficient. Neither that anchor nor Plex's top-level timeStamp is confirmed.
 
-Consequently Plex shows estimated playback and identified live-program fallback;
-confirmed playback-program switching and confirmed at-live status are not yet
-achieved on real Plex. Relative skips use the active estimate when no confirmed
+Plex shows estimated playback. The subsequent previous-program revision permits
+that active estimate to select historical guide metadata; it uses an explicit
+estimated program mode and preserves last-known program context through reopen.
+The earlier confirmed-only gate made previous-program selection impossible on
+Plex and has been removed. Missing history/stale guide data still uses fallback.
+Confirmed content alignment and confirmed at-live status are not yet achieved
+on real Plex. Relative skips use the active estimate when no confirmed
 mapping exists; their actual landing still needs validation. Backward same-source
 timestamp jumps over two seconds invalidate mapping; forward gaps remain
 ambiguous. Non-native player source-event identity is weaker. Missing historical

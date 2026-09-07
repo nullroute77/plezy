@@ -7,6 +7,8 @@ import 'package:intl/date_symbol_data_local.dart';
 import 'package:plezy/i18n/strings.g.dart';
 import 'package:plezy/media/live_tv_timeline.dart';
 import 'package:plezy/models/livetv_program.dart';
+import 'package:plezy/mpv/player/player_streams.dart';
+import 'package:plezy/screens/video_player/live_tv_session_state.dart';
 import 'package:plezy/utils/formatters.dart';
 import 'package:plezy/widgets/video_controls/widgets/live_timeline_bar.dart';
 import 'package:plezy/widgets/video_controls/widgets/timeline_slider.dart';
@@ -60,6 +62,65 @@ void main() {
     await _tapTrack(tester, 0);
     await _tapTrack(tester, 1);
     expect(seeks, [_start + 30, _start + 119]);
+  });
+
+  testWidgets('Plex estimated source switches to previous program only after readiness and plays across the boundary', (
+    tester,
+  ) async {
+    final state = LiveTvSessionState(null);
+    var position = Duration.zero;
+    final programs = [
+      LiveTvProgram(title: 'Previous program', beginsAt: _start.toInt(), endsAt: _start.toInt() + 120),
+      LiveTvProgram(title: 'Live program', beginsAt: _start.toInt() + 120, endsAt: _start.toInt() + 240),
+    ];
+    LiveTvTimeline view() => LiveTvTimeline.resolve(
+      playback: state.playbackPosition(position),
+      pendingSeekEpoch: state.pendingTargetEpoch,
+      seekStatus: state.seekStatus,
+      programs: programs,
+      seekable: const LiveTvSeekWindow(startEpoch: _start, endEpoch: _start + 200),
+      metadataNowEpoch: _start + 180,
+    );
+    final first = state.beginClockOpen(_start + 180);
+    state.bindClockOpen(first, 1);
+    state.calibrateClockSource(const PlayerSourceReady(sourceId: 1, position: Duration.zero));
+    await _pump(tester, timeline: view(), seeks: []);
+    expect(find.text('Live program'), findsOneWidget);
+
+    final rewind = state.beginClockOpen(_start + 60);
+    await _pump(tester, timeline: view(), seeks: []);
+    expect(find.text('Live program'), findsOneWidget);
+    expect(find.text('Previous program'), findsNothing);
+    state.bindClockOpen(rewind, 2);
+    position = const Duration(seconds: 52);
+    state.calibrateClockSource(PlayerSourceReady(sourceId: 2, position: position));
+    await _pump(tester, timeline: view(), seeks: []);
+    expect(find.text('Previous program'), findsOneWidget);
+    expect(find.text(_clock(_start)), findsOneWidget);
+    expect(find.text(_clock(_start + 120)), findsOneWidget);
+    expect(_slider(tester).value, 60000);
+    expect(view().playback.confirmedEpoch, isNull);
+
+    // A further pending seek must not revert the title to the live program.
+    final next = state.beginClockOpen(_start + 30);
+    await _pump(tester, timeline: view(), seeks: []);
+    expect(find.text('Previous program'), findsOneWidget);
+    state.failClockOpen(next);
+    await _pump(tester, timeline: view(), seeks: []);
+    expect(find.text('Previous program'), findsOneWidget);
+
+    final resumed = state.beginClockOpen(_start + 60);
+    state.bindClockOpen(resumed, 3);
+    state.calibrateClockSource(PlayerSourceReady(sourceId: 3, position: position));
+    position = const Duration(seconds: 111, milliseconds: 999);
+    await _pump(tester, timeline: view(), seeks: []);
+    expect(find.text('Previous program'), findsOneWidget);
+    position = const Duration(seconds: 112);
+    await _pump(tester, timeline: view(), seeks: []);
+    expect(find.text('Live program'), findsOneWidget);
+    expect(find.text(_clock(_start + 120)), findsOneWidget);
+    expect(find.text(_clock(_start + 240)), findsOneWidget);
+    expect(_slider(tester).value, 0);
   });
 
   testWidgets('accessibility relative skips use full buffer across the program boundary', (tester) async {
