@@ -180,6 +180,27 @@ and disposable Jellyfin E2E cannot validate real Plex tuner content timing.
 
 ## Manual build and test guide
 
+### Download a GitHub Actions portable test build
+
+The fork-only **Windows portable test** workflow builds x64 on pushes to
+`codex/plex-program-timeline`. Open your fork's Actions tab, select that workflow
+and the successful run for the commit you want, then download the
+`plezy-windows-x64-portable-test-<commit>` artifact. Extract the whole ZIP into a
+folder and run `plezy.exe`; keep its DLLs and data folder together. `TEST-BUILD.txt`
+records the exact commit. Artifacts expire after 14 days; use **Re-run all jobs**
+on an existing run to rebuild. The new workflow does not need to be merged into
+main to run on push. GitHub's manual dispatch UI may require it on the default
+branch, so use the push trigger or rerun for this feature branch.
+
+This build uses the pinned Flutter SDK and patched engine, disables automatic
+update checks and Sentry, and uploads only an Actions artifact. It does not sign,
+create a GitHub release or deploy. It is x64 only. Portable packaging does not
+imply isolated application settings; record the build identity when reporting
+results. The existing release workflow and its main-branch restriction remain
+unchanged.
+
+### Build locally
+
 Use your fork branch on Windows with Flutter 3.47.1, Visual Studio's Flutter
 Windows build prerequisites, and Git Bash for repository shell scripts.
 `flutter doctor -v` identifies missing platform dependencies. Use the project's
