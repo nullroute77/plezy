@@ -1,6 +1,7 @@
 # Plex Live TV timeline development (unsubmitted)
 
-Status: implementation in progress; not ready for real-source validation.
+Status: validated fork development draft. Real-source #2100 repair and confirmed
+Plex playback-program tracking remain unresolved; do not treat this as a completed fix.
 
 Fork: nullroute77/plezy. Branch: codex/plex-program-timeline.
 Starting SHA: 8238705d3e70add2ed32bbf4ae1af7bf96954e8c.
@@ -10,11 +11,12 @@ Only origin is writable; upstream push URL is disabled.
 
 - [x] Fork, ownership, instructions, source and issue discovery.
 - [x] Two read-only investigations reconciled; baseline commands attempted.
-- [ ] Shared epoch/window/validity contract and deterministic model tests.
-- [ ] Plex adapter and clock-state integration, preserving recovery.
-- [ ] Program-aware UI and session-local historical EPG retrieval.
-- [ ] Integrated tests, two-worker cross-review, diff review and commits.
-- [ ] Manual test guide and evidence/limitations report.
+- [x] Shared epoch/window/validity contract and deterministic model tests.
+- [x] Plex adapter and estimated-clock integration, preserving recovery.
+- [x] Program-aware UI and session-local historical EPG retrieval.
+- [x] Integrated tests, two-worker cross-review, diff review and commits.
+- [x] Manual test guide and evidence/limitations report.
+- [ ] Establish authoritative Plex broadcast timing and validate real content.
 
 ## Evidence and scope
 
@@ -25,7 +27,7 @@ with server origin changes; they do not contain raw capture/playback timing
 payloads or a rendered-frame broadcast timestamp. No real tuner is available
 in this workspace. Do not call synthetic clock tests a real-source diagnosis.
 
-Current flow: LiveSeekAccumulator debounces relative targets; player part
+Starting flow: LiveSeekAccumulator debounces relative targets; player part
 live_tv.dart resolves an integer capture offset through streamUrlAt, reopens
 MPV, then LiveTvSessionState binds clock readiness to the load's source ID.
 The source-ID machinery (baa31742) handles event/reply ordering and obsolete
@@ -76,7 +78,7 @@ parameters. No custom role overrides found; workers expose no independent
 runtime settings introspection. No global configuration changed. Worker 1:
 Plex timing/adapter; worker 2: UI/EPG investigation and control presentation.
 Both prohibited from further delegation and repository operations. The same
-workers will cross-review; there is no third independent reviewer. Human review
+workers performed cross-review; there is no third independent reviewer. Human review
 and testing have not been reported for this branch.
 
 ## Integrated review and known limits
@@ -156,7 +158,8 @@ On the first integrated snapshot:
 - `flutter analyze`: passed; `dart run scripts/checks/check_analyzer.dart`: passed.
 - `bash scripts/run_tests.sh -j 4`: 7,062 passed, 6 skipped.
 - `bash scripts/codegen.sh --check`: passed.
-- `python3 scripts/checks/clean_translations.py --check --strict`: passed.
+- Translation hygiene was incomplete until the final locale-placeholder repair;
+  the final failure and successful rerun are recorded in the validation note.
 - `dart format .`: succeeded; the 44 unrelated formatter-only changes were
   restored. CI's non-generated lib/test formatting scope passed.
 - Focused commands used `flutter test -j 4` with the timeline model/widget,
