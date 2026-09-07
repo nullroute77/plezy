@@ -70,7 +70,6 @@ extension _VideoPlayerPlaybackStartMethods on VideoPlayerScreenState {
         if (requestedEpoch == null) {
           _live.markStreamRestartedAtLiveEdge(captureBuffer);
         } else {
-          _live.atLiveEdge = false;
           _live.playbackElapsed
             ..reset()
             ..start();

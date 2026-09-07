@@ -134,6 +134,29 @@ void main() {
       });
     });
 
+    test('changing a pending live operation to the same offset notifies ownership', () {
+      fakeAsync((async) {
+        final liveReady = Completer<bool>();
+        var changes = 0;
+        final acc = LiveSeekAccumulator(
+          seek: (_) async => true,
+          seekLive: () => liveReady.future,
+          currentEpoch: () => 1000,
+          bounds: () => const LiveSeekBounds(startEpoch: 900, endEpoch: 1100),
+          onChanged: () => changes++,
+        );
+        acc.jumpToLive();
+        final originalChanges = changes;
+        final originalIntent = acc.intentGeneration;
+        acc.seekBy(15);
+        expect(acc.intentGeneration, greaterThan(originalIntent));
+        expect(changes, originalChanges + 1);
+        liveReady.complete(false);
+        async.flushMicrotasks();
+        acc.dispose();
+      });
+    });
+
     test('coalesces a rapid burst into a single seek at the summed target', () {
       fakeAsync((async) {
         final acc = build();

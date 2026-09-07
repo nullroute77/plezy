@@ -70,10 +70,6 @@ class LiveTvSessionState {
   /// origins can update it, but only [playbackPosition] describes validity.
   double streamStartEpoch = 0;
 
-  /// Last requested open mode, used only to preserve subtitle restart intent.
-  /// The timeline computes confirmed live status independently.
-  bool atLiveEdge = true;
-
   /// Bumped on every stream open. A heartbeat snapshots it when dispatched so
   /// a response describing a stream that has since been replaced cannot
   /// re-anchor the clock of its replacement.
@@ -155,6 +151,26 @@ class LiveTvSessionState {
   /// 2 = no DS + no DS audio.
   int fallbackLevel = 0;
   bool retrying = false;
+  Object? _retryOwner;
+
+  Object beginRetry() {
+    retrying = true;
+    return _retryOwner = Object();
+  }
+
+  bool ownsRetry(Object owner) => identical(_retryOwner, owner);
+
+  void finishRetry(Object owner) {
+    if (!ownsRetry(owner)) return;
+    _retryOwner = null;
+    retrying = false;
+  }
+
+  void cancelRetry() {
+    _retryOwner = null;
+    retrying = false;
+  }
+
   bool retryFailed = false;
 
   /// Whether the timeline heartbeat should restart when the app resumes
@@ -368,6 +384,5 @@ class LiveTvSessionState {
       ..start();
     invalidatePlayback();
     streamStartEpoch = buffer == null ? now.millisecondsSinceEpoch / 1000.0 : buffer.startedAt + buffer.seekEndSeconds;
-    atLiveEdge = true;
   }
 }

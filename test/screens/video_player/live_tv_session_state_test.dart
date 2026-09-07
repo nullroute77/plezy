@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:fake_async/fake_async.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:plezy/media/live_tv_support.dart';
@@ -6,6 +7,7 @@ import 'package:plezy/media/media_source_info.dart';
 import 'package:plezy/models/livetv_capture_buffer.dart';
 import 'package:plezy/mpv/player/player_streams.dart';
 import 'package:plezy/screens/video_player/live_tv_session_state.dart';
+import 'package:plezy/screens/video_player/live_stream_retry.dart';
 import 'package:plezy/services/live_seek_accumulator.dart';
 
 MediaSubtitleTrack _track({required int id, int? index, String? languageCode}) =>
@@ -56,6 +58,47 @@ void main() {
 
       expect(state.selectedSubtitle, isNull);
     });
+  });
+
+  test('retry finalization releases its owner after intent cancellation but cannot clear a newer retry', () {
+    final state = LiveTvSessionState(null);
+    final first = state.beginRetry();
+    state.cancelClockOpens();
+    state.finishRetry(first);
+    expect(state.retrying, isFalse);
+    final old = state.beginRetry();
+    state.cancelRetry();
+    final replacement = state.beginRetry();
+    state.finishRetry(old);
+    expect(state.retrying, isTrue);
+    expect(state.ownsRetry(replacement), isTrue);
+    state.finishRetry(replacement);
+    expect(state.retrying, isFalse);
+  });
+
+  test('superseded asynchronous recovery releases retry status through its finalizer', () async {
+    final state = LiveTvSessionState(null);
+    final owner = state.beginRetry();
+    final recovery = Completer<String?>();
+    var intentCurrent = true;
+    final discarded = <String>[];
+    final result = runLiveStreamRetry<String>(
+      recover: () => recovery.future,
+      lookupStreamUrl: (_) async => 'unused',
+      applyPlayerOptions: () async {},
+      open: (_) async {},
+      isCurrent: () => intentCurrent && state.ownsRetry(owner),
+      adoptSession: (_) => fail('obsolete recovery adopted'),
+      currentSession: () => 'old',
+      discardSession: discarded.add,
+      reportFailure: (_, _) => fail('obsolete failure reported'),
+      onFinished: () => state.finishRetry(owner),
+    );
+    intentCurrent = false;
+    recovery.complete('obsolete');
+    expect(await result, LiveStreamRetryResult.stale);
+    expect(discarded, ['obsolete']);
+    expect(state.retrying, isFalse);
   });
 
   group('LiveTvSessionState source clock', () {
@@ -387,7 +430,6 @@ void main() {
       state.markStreamRestartedAtLiveEdge(capture);
 
       expect(state.streamStartEpoch, 1040);
-      expect(state.atLiveEdge, isTrue);
       expect(state.playbackPosition(const Duration(seconds: 10)).accuracy, LiveTvTimeAccuracy.unknown);
     });
 

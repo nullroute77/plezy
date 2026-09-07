@@ -244,3 +244,16 @@ forcing a split now would obscure the shared contract dependencies. The issue
 report does not approve this design, and successful automated checks do not
 establish upstream acceptance. Jellyfin/Emby can later supply the optional
 absolute-time capability after their actual seek/timestamp semantics are tested.
+
+The recheck found three follow-up cases, now corrected: retry finalization must
+release its own status even when seek intent becomes stale, paused playback
+must not inherit a last-open-live hint for subtitle preservation, and changing
+pending live to an offset operation must notify cancellation even when its
+numeric target is unchanged. Retry ownership now lives in LiveTvSessionState;
+a previous retry cannot clear a newer one's flag. Offset and subtitle inputs
+are unavailable during recovery. Subtitle changes preserve the active epoch
+estimate, including after pause. The obsolete atLiveEdge mutable flag was
+removed: its former UI role belongs to the snapshot, and its subtitle role
+now uses the active estimate. A helper-path deferred recovery regression covers
+the stale result/finalizer sequence. Same-source forward timestamp gaps remain
+ambiguous; only clear backward discontinuities are invalidated automatically.

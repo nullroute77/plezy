@@ -77,10 +77,8 @@ class LiveSeekAccumulator {
     if (_pendingEpoch == target && !_pendingLive) return;
     _intentGeneration++;
     _pendingLive = false;
-    if (target != _pendingEpoch) {
-      _pendingEpoch = target;
-      onChanged?.call();
-    }
+    _pendingEpoch = target;
+    onChanged?.call(); // Also notify when only live/offset operation changes.
 
     _debounceTimer?.cancel();
     _debounceTimer = Timer(debounce, () => unawaited(_flush()));
