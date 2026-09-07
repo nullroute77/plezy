@@ -73,17 +73,20 @@ extension _VideoPlayerPlaybackStartMethods on VideoPlayerScreenState {
         }
 
         // Track the requested epoch separately from MPV's source-local clock.
-        int? targetEpoch;
+        double? targetEpoch;
         if (offsetSeconds != null) {
-          targetEpoch = (captureBuffer!.startedAt + offsetSeconds).round();
+          targetEpoch = (captureBuffer!.startedAt + offsetSeconds);
           if (currentPlayer is! PlayerNative) {
             _live.streamStartEpoch = captureBuffer.startedAt + offsetSeconds;
           }
           _live.atLiveEdge = false;
           _live.playbackStartTime = DateTime.now();
+          _live.playbackElapsed
+            ..reset()
+            ..start();
         } else {
           _live.markStreamRestartedAtLiveEdge(captureBuffer);
-          targetEpoch = captureBuffer == null ? null : _live.streamStartEpoch.round();
+          targetEpoch = captureBuffer == null ? null : _live.streamStartEpoch;
         }
 
         await _openLiveStream(

@@ -830,7 +830,7 @@ void main() {
       _RecordingPlayer? withPlayer,
       bool isLive = false,
       ValueChanged<int>? onLiveSeekBy,
-      ValueChanged<int>? onLiveSeek,
+      ValueChanged<double>? onLiveSeek,
       VoidCallback? onNext,
       bool canNavigateMediaItems = false,
     }) async {
@@ -1025,7 +1025,7 @@ void main() {
       // (#1253), so no playhead jump can retire this badge. The absolute seek
       // cancels the queued skip, so its promised total is going nowhere.
       final liveOffsets = <int>[];
-      final absoluteSeeks = <int>[];
+      final absoluteSeeks = <double>[];
       await pumpDesktopControls(tester, isLive: true, onLiveSeekBy: liveOffsets.add, onLiveSeek: absoluteSeeks.add);
 
       await pressKey(tester, LogicalKeyboardKey.arrowRight);

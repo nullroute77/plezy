@@ -5,224 +5,183 @@ import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:intl/date_symbol_data_local.dart';
 import 'package:plezy/i18n/strings.g.dart';
-import 'package:plezy/models/livetv_capture_buffer.dart';
+import 'package:plezy/media/live_tv_timeline.dart';
+import 'package:plezy/models/livetv_program.dart';
 import 'package:plezy/utils/formatters.dart';
 import 'package:plezy/widgets/video_controls/widgets/live_timeline_bar.dart';
 
 import '../test_helpers/watch_together_fakes.dart';
 
+const _start = 1767268800.0;
+
+LiveTvTimeline _timeline({
+  double? position = 60,
+  double? pending,
+  bool estimated = false,
+  bool unknown = false,
+  bool withBuffer = true,
+  bool withProgram = true,
+  double bufferStart = 30,
+  double bufferEnd = 180,
+  double metadataNow = 60,
+}) => LiveTvTimeline.resolve(
+  playback: LiveTvPlaybackPosition(
+    epoch: position == null ? null : _start + position,
+    active: !unknown,
+    accuracy: unknown
+        ? LiveTvTimeAccuracy.unknown
+        : estimated
+        ? LiveTvTimeAccuracy.estimated
+        : LiveTvTimeAccuracy.confirmed,
+  ),
+  seekable: withBuffer ? LiveTvSeekWindow(startEpoch: _start + bufferStart, endEpoch: _start + bufferEnd) : null,
+  programs: withProgram
+      ? [LiveTvProgram(title: 'Morning news', beginsAt: _start.toInt(), endsAt: _start.toInt() + 120)]
+      : [],
+  pendingSeekEpoch: pending == null ? null : _start + pending,
+  metadataNowEpoch: _start + metadataNow,
+);
+
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
-
   setUpAll(() async {
     LocaleSettings.setLocaleSync(AppLocale.en);
     await initializeDateFormatting('en');
   });
 
-  group('LiveTimelineBar semantics', () {
-    testWidgets('exposes one named adjustable node without a duplicate timestamp', (tester) async {
-      final semantics = tester.ensureSemantics();
-      for (final horizontalLayout in [true, false]) {
-        final seeks = <int>[];
-        final harness = await _pumpTimeline(
-          tester,
-          seeks: seeks,
-          currentOffset: 60,
-          horizontalLayout: horizontalLayout,
-        );
-
-        final timeline = find.bySemanticsLabel(t.videoControls.timelineSlider);
-        expect(timeline, findsOneWidget, reason: 'horizontalLayout=$horizontalLayout');
-
-        final node = tester.getSemantics(timeline);
-        final data = node.getSemanticsData();
-        expect(data.label, t.videoControls.timelineSlider);
-        expect(data.flagsCollection.isSlider, isTrue);
-        expect(data.flagsCollection.isEnabled, Tristate.isTrue);
-        expect(data.value, _clock(harness.startEpoch + 60));
-        expect(data.increasedValue, _clock(harness.startEpoch + 70));
-        expect(data.decreasedValue, _clock(harness.startEpoch + 50));
-        expect(data.hasAction(SemanticsAction.increase), isTrue);
-        expect(data.hasAction(SemanticsAction.decrease), isTrue);
-        expect(data.hasAction(SemanticsAction.scrollLeft), isFalse);
-        expect(data.hasAction(SemanticsAction.scrollRight), isFalse);
-
-        expect(
-          find.bySemanticsLabel(_clock(harness.startEpoch + 60)),
-          findsNothing,
-          reason: 'the visual timestamp must not be announced separately when horizontalLayout=$horizontalLayout',
-        );
-      }
-      semantics.dispose();
-    });
-
-    testWidgets('increase and decrease each emit one bounded absolute seek', (tester) async {
-      final semantics = tester.ensureSemantics();
-      final seeks = <int>[];
-      final harness = await _pumpTimeline(tester, seeks: seeks, currentOffset: 60);
-      final node = tester.getSemantics(find.bySemanticsLabel(t.videoControls.timelineSlider));
-
-      node.owner!.performAction(node.id, SemanticsAction.increase);
-      expect(seeks, [harness.startEpoch + 70]);
-
-      node.owner!.performAction(node.id, SemanticsAction.decrease);
-      expect(seeks, [harness.startEpoch + 70, harness.startEpoch + 50]);
-      semantics.dispose();
-    });
-
-    testWidgets('short live window clamps actions and omits boundary no-ops', (tester) async {
-      final semantics = tester.ensureSemantics();
-      final seeks = <int>[];
-      final startHarness = await _pumpTimeline(
-        tester,
-        seeks: seeks,
-        currentOffset: 0,
-        rangeEndOffset: 6,
-        isAtLiveEdge: false,
-      );
-
-      var node = tester.getSemantics(find.bySemanticsLabel(t.videoControls.timelineSlider));
-      var data = node.getSemanticsData();
-      expect(data.hasAction(SemanticsAction.decrease), isFalse);
-      expect(data.decreasedValue, isEmpty);
-      expect(data.hasAction(SemanticsAction.increase), isTrue);
-      expect(data.increasedValue, t.liveTv.live);
-
-      node.owner!.performAction(node.id, SemanticsAction.increase);
-      expect(seeks, [startHarness.startEpoch + 6]);
-
-      await tester.pumpWidget(const SizedBox.shrink());
-      await _pumpTimeline(tester, seeks: seeks, currentOffset: 6, rangeEndOffset: 6, isAtLiveEdge: true);
-      node = tester.getSemantics(find.bySemanticsLabel(t.videoControls.timelineSlider));
-      data = node.getSemanticsData();
-      expect(data.value, t.liveTv.live);
-      expect(data.hasAction(SemanticsAction.increase), isFalse);
-      expect(data.increasedValue, isEmpty);
-      expect(data.hasAction(SemanticsAction.decrease), isTrue);
-      semantics.dispose();
-    });
-
-    testWidgets('supplied live-edge policy announces LIVE before the exact range end', (tester) async {
-      final semantics = tester.ensureSemantics();
-      await _pumpTimeline(tester, seeks: <int>[], currentOffset: 116, rangeEndOffset: 120, isAtLiveEdge: true);
-
-      final data = tester.getSemantics(find.bySemanticsLabel(t.videoControls.timelineSlider)).getSemanticsData();
-      expect(data.value, t.liveTv.live);
-      expect(data.hasAction(SemanticsAction.increase), isTrue);
-      expect(data.increasedValue, t.liveTv.live);
-      semantics.dispose();
-    });
-
-    testWidgets('disabled, callback-less, and invalid timelines expose no adjustments', (tester) async {
-      final semantics = tester.ensureSemantics();
-
-      for (final scenario in <({bool enabled, bool provideCallback, int rangeEnd})>[
-        (enabled: false, provideCallback: true, rangeEnd: 120),
-        (enabled: true, provideCallback: false, rangeEnd: 120),
-        (enabled: true, provideCallback: true, rangeEnd: 0),
-      ]) {
-        final seeks = <int>[];
-        await tester.pumpWidget(const SizedBox.shrink());
-        await _pumpTimeline(
-          tester,
-          seeks: seeks,
-          currentOffset: 0,
-          rangeEndOffset: scenario.rangeEnd,
-          enabled: scenario.enabled,
-          provideSeekCallback: scenario.provideCallback,
-          isAtLiveEdge: false,
-        );
-
-        final data = tester.getSemantics(find.bySemanticsLabel(t.videoControls.timelineSlider)).getSemanticsData();
-        expect(data.flagsCollection.isEnabled, Tristate.isFalse, reason: '$scenario');
-        expect(data.hasAction(SemanticsAction.increase), isFalse, reason: '$scenario');
-        expect(data.hasAction(SemanticsAction.decrease), isFalse, reason: '$scenario');
-        expect(data.increasedValue, isEmpty, reason: '$scenario');
-        expect(data.decreasedValue, isEmpty, reason: '$scenario');
-        expect(seeks, isEmpty, reason: '$scenario');
-      }
-      semantics.dispose();
-    });
+  testWidgets('program labels cover full schedule while scrubbing clamps to playable intersection', (tester) async {
+    final seeks = <double>[];
+    await _pump(tester, timeline: _timeline(), seeks: seeks);
+    expect(find.text('Morning news'), findsOneWidget);
+    expect(find.text(_clock(_start)), findsOneWidget);
+    expect(find.text(_clock(_start + 120)), findsOneWidget);
+    await _tapTrack(tester, 0);
+    await _tapTrack(tester, 1);
+    expect(seeks, [_start + 30, _start + 119]);
   });
 
-  testWidgets('uses the calibrated source clock instead of adding its non-zero origin', (tester) async {
+  testWidgets('accessibility relative skips use full buffer across the program boundary', (tester) async {
     final semantics = tester.ensureSemantics();
-    final harness = await _pumpTimeline(
-      tester,
-      seeks: <int>[],
-      currentOffset: 52,
-      rangeEndOffset: 200,
-      epochForPosition: (startEpoch, position) {
-        const requestedOffset = 93;
-        const sourceBaseline = 47;
-        return startEpoch + requestedOffset + position.inSeconds - sourceBaseline;
-      },
-    );
-
-    final data = tester.getSemantics(find.bySemanticsLabel(t.videoControls.timelineSlider)).getSemanticsData();
-    expect(data.value, _clock(harness.startEpoch + 98));
-    expect(data.decreasedValue, _clock(harness.startEpoch + 88));
+    final relative = <int>[];
+    final absolute = <double>[];
+    await _pump(tester, timeline: _timeline(position: 115, pending: 145), seeks: absolute, relative: relative);
+    final node = tester.getSemantics(find.bySemanticsLabel(t.videoControls.timelineSlider));
+    expect(node.getSemanticsData().value, _clock(_start + 115));
+    expect(node.getSemanticsData().increasedValue, _clock(_start + 155));
+    node.owner!.performAction(node.id, SemanticsAction.increase);
+    expect(relative, [10]);
+    expect(absolute, isEmpty);
+    expect(find.text('${t.liveTv.timelinePending}: ${_clock(_start + 145)}'), findsOneWidget);
     semantics.dispose();
   });
 
-  testWidgets('pointer seek and desktop key routing remain intact', (tester) async {
-    final seeks = <int>[];
-    final focusNode = FocusNode();
-    addTearDown(focusNode.dispose);
-    var keyEvents = 0;
-    final harness = await _pumpTimeline(
+  testWidgets('out-of-window fallback hides playback without inventing an edge timestamp', (tester) async {
+    final semantics = tester.ensureSemantics();
+    await _pump(tester, timeline: _timeline(position: -30), seeks: []);
+    expect(find.textContaining(t.liveTv.timelineLiveProgram), findsOneWidget);
+    final node = tester.getSemantics(find.bySemanticsLabel(t.videoControls.timelineSlider));
+    expect(node.getSemanticsData().value, t.liveTv.timelineUnavailable);
+    final painter = _painter(tester);
+    expect(painter.confirmed, isNull);
+    expect(painter.estimated, isNull);
+    semantics.dispose();
+  });
+
+  testWidgets('estimated playback is labelled and uses a separate hollow marker', (tester) async {
+    final semantics = tester.ensureSemantics();
+    await _pump(tester, timeline: _timeline(estimated: true, pending: 90), seeks: []);
+    final node = tester.getSemantics(find.bySemanticsLabel(t.videoControls.timelineSlider));
+    expect(node.getSemanticsData().value, '${t.liveTv.timelineEstimated}: ${_clock(_start + 60)}');
+    final painter = _painter(tester);
+    expect(painter.confirmed, isNull);
+    expect(painter.estimated, 0.5);
+    expect(painter.pending, 0.75);
+    semantics.dispose();
+  });
+
+  testWidgets('unknown and unavailable timelines never paint a playhead or seek', (tester) async {
+    final semantics = tester.ensureSemantics();
+    final seeks = <double>[];
+    await _pump(tester, timeline: _timeline(unknown: true, withBuffer: false, withProgram: false), seeks: seeks);
+    final data = tester.getSemantics(find.bySemanticsLabel(t.videoControls.timelineSlider)).getSemanticsData();
+    expect(data.flagsCollection.isEnabled, Tristate.isFalse);
+    expect(data.hasAction(SemanticsAction.increase), isFalse);
+    expect(_painter(tester).confirmed, isNull);
+    await _tapTrack(tester, 0.5);
+    expect(seeks, isEmpty);
+    semantics.dispose();
+  });
+
+  testWidgets('missing history explicitly uses buffer range', (tester) async {
+    await _pump(tester, timeline: _timeline(withProgram: false), seeks: []);
+    expect(find.text(t.liveTv.timelineBuffer), findsOneWidget);
+    expect(find.text(_clock(_start + 30)), findsOneWidget);
+    expect(find.text(_clock(_start + 180)), findsOneWidget);
+  });
+
+  testWidgets('program with no overlapping buffer disables pointer scrub', (tester) async {
+    final seeks = <double>[];
+    await _pump(tester, timeline: _timeline(bufferStart: 130), seeks: seeks);
+    await _tapTrack(tester, 0.5);
+    expect(seeks, isEmpty);
+    expect(_painter(tester).seekStart, isNull);
+  });
+
+  testWidgets('disabled controls and desktop focus routing remain intact', (tester) async {
+    final focus = FocusNode();
+    addTearDown(focus.dispose);
+    var presses = 0;
+    final seeks = <double>[];
+    await _pump(
       tester,
+      timeline: _timeline(),
       seeks: seeks,
-      currentOffset: 60,
-      focusNode: focusNode,
-      onKeyEvent: (_, event) {
+      focus: focus,
+      onKey: (_, event) {
         if (event is KeyDownEvent && event.logicalKey == LogicalKeyboardKey.arrowRight) {
-          keyEvents++;
+          presses++;
           return KeyEventResult.handled;
         }
         return KeyEventResult.ignored;
       },
     );
-
-    final paint = find.descendant(of: find.byType(LiveTimelineBar), matching: find.byType(CustomPaint));
-    final topLeft = tester.getTopLeft(paint);
-    final size = tester.getSize(paint);
-    final gesture = await tester.startGesture(Offset(topLeft.dx + size.width * 0.75, topLeft.dy + size.height / 2));
-    await tester.pump();
-    await gesture.up();
-    await tester.pump();
-    expect(seeks, [harness.startEpoch + 90]);
-
-    focusNode.requestFocus();
+    focus.requestFocus();
     await tester.pump();
     await tester.sendKeyEvent(LogicalKeyboardKey.arrowRight);
-    await tester.pump();
-    expect(keyEvents, 1);
-    expect(seeks, [harness.startEpoch + 90]);
+    expect(presses, 1);
+    await _pump(tester, timeline: _timeline(), seeks: seeks, enabled: false);
+    await _tapTrack(tester, 0.5);
+    expect(seeks, isEmpty);
   });
 }
 
-String _clock(int epochSeconds) {
-  return formatClockTime(DateTime.fromMillisecondsSinceEpoch(epochSeconds * 1000), is24Hour: true);
+// The painter is private to production; inspect its public presentation fields
+// dynamically so regressions cannot silently clamp an absent thumb to an edge.
+dynamic _painter(WidgetTester tester) => tester.widget<CustomPaint>(_paint).painter;
+Finder get _paint => find.descendant(of: find.byType(LiveTimelineBar), matching: find.byType(CustomPaint));
+
+Future<void> _tapTrack(WidgetTester tester, double fraction) async {
+  final rect = tester.getRect(_paint);
+  final gesture = await tester.startGesture(Offset(rect.left + (rect.width - 1) * fraction, rect.center.dy));
+  await tester.pump();
+  await gesture.up();
+  await tester.pump();
 }
 
-Future<({int startEpoch, FakeSyncPlayer player})> _pumpTimeline(
-  WidgetTester tester, {
-  required List<int> seeks,
-  required int currentOffset,
-  int rangeEndOffset = 120,
-  bool isAtLiveEdge = false,
-  bool enabled = true,
-  bool provideSeekCallback = true,
-  bool horizontalLayout = true,
-  FocusNode? focusNode,
-  KeyEventResult Function(FocusNode, KeyEvent)? onKeyEvent,
-  int Function(int startEpoch, Duration position)? epochForPosition,
-}) async {
-  final startEpoch = DateTime(2026, 1, 1, 12).millisecondsSinceEpoch ~/ 1000;
-  final player = FakeSyncPlayer(position: Duration(seconds: currentOffset));
-  addTearDown(player.dispose);
+String _clock(double epoch) =>
+    formatClockTime(DateTime.fromMillisecondsSinceEpoch((epoch * 1000).round()), is24Hour: true);
 
+Future<void> _pump(
+  WidgetTester tester, {
+  required LiveTvTimeline timeline,
+  required List<double> seeks,
+  List<int>? relative,
+  bool enabled = true,
+  FocusNode? focus,
+  KeyEventResult Function(FocusNode, KeyEvent)? onKey,
+}) async {
+  final player = FakeSyncPlayer(position: const Duration(seconds: 60));
+  addTearDown(player.dispose);
   await tester.pumpWidget(
     TranslationProvider(
       child: MaterialApp(
@@ -235,19 +194,12 @@ Future<({int startEpoch, FakeSyncPlayer player})> _pumpTimeline(
                 width: 400,
                 child: LiveTimelineBar(
                   player: player,
-                  captureBuffer: CaptureBuffer(
-                    startedAt: startEpoch.toDouble(),
-                    seekStartSeconds: 0,
-                    seekEndSeconds: rangeEndOffset.toDouble(),
-                  ),
-                  epochForPosition: (position) =>
-                      epochForPosition?.call(startEpoch, position) ?? startEpoch + position.inSeconds,
-                  isAtLiveEdge: isAtLiveEdge,
-                  onSeekEnd: provideSeekCallback ? seeks.add : null,
-                  focusNode: focusNode,
-                  onKeyEvent: onKeyEvent,
-                  horizontalLayout: horizontalLayout,
+                  timelineForPosition: (_) => timeline,
+                  onSeekEnd: seeks.add,
+                  onSeekBy: relative?.add,
                   enabled: enabled,
+                  focusNode: focus,
+                  onKeyEvent: onKey,
                 ),
               ),
             ),
@@ -256,6 +208,4 @@ Future<({int startEpoch, FakeSyncPlayer player})> _pumpTimeline(
       ),
     ),
   );
-
-  return (startEpoch: startEpoch, player: player);
 }

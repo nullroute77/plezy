@@ -47,7 +47,7 @@ import '../../database/app_database.dart';
 import '../../media/media_backend.dart';
 import '../../media/media_item.dart';
 import '../../media/stepped_seek.dart';
-import '../../models/livetv_capture_buffer.dart';
+import '../../media/live_tv_timeline.dart';
 import '../../providers/multi_server_provider.dart';
 import '../../media/media_source_info.dart';
 import '../../models/transcode_quality_preset.dart';
@@ -644,17 +644,11 @@ class PlexVideoControls extends StatefulWidget {
   /// Channel name for live TV display
   final String? liveChannelName;
 
-  /// Capture buffer for live TV time-shift (null = no time-shift support)
-  final CaptureBuffer? captureBuffer;
-
-  /// Whether playback is at the live edge
-  final bool isAtLiveEdge;
-
-  /// Maps a player-local position to absolute epoch seconds for live TV.
-  final int Function(Duration position)? liveEpochForPosition;
+  /// Shared live timeline snapshot for the supplied player-local position.
+  final LiveTvTimeline Function(Duration position)? liveTimelineForPosition;
 
   /// Seek callback for live TV time-shift (absolute epoch seconds; scrubber)
-  final ValueChanged<int>? onLiveSeek;
+  final ValueChanged<double>? onLiveSeek;
 
   /// Relative live-TV skip callback (delta seconds). The owning screen
   /// accumulates rapid presses and debounces the transcode re-open, so skip
@@ -739,9 +733,7 @@ class PlexVideoControls extends StatefulWidget {
     this.thumbnailDataBuilder,
     this.isLive = false,
     this.liveChannelName,
-    this.captureBuffer,
-    this.isAtLiveEdge = true,
-    this.liveEpochForPosition,
+    this.liveTimelineForPosition,
     this.onLiveSeek,
     this.onLiveSeekBy,
     this.onJumpToLive,
@@ -1365,10 +1357,10 @@ class _PlexVideoControlsState extends State<PlexVideoControls>
                                                       thumbnailDataBuilder: widget.thumbnailDataBuilder,
                                                       isLive: widget.isLive,
                                                       liveChannelName: widget.liveChannelName,
-                                                      captureBuffer: widget.captureBuffer,
-                                                      isAtLiveEdge: widget.isAtLiveEdge,
-                                                      liveEpochForPosition: widget.liveEpochForPosition,
+                                                      liveTimelineForPosition: widget.liveTimelineForPosition,
+
                                                       onLiveSeek: _liveSeekAbandoningBurst(widget.onLiveSeek),
+                                                      onLiveSeekBy: widget.onLiveSeekBy,
                                                       serverId: widget.metadata.serverId,
                                                       showQueueTab: canShowQueue,
                                                       onQueueItemSelected: canShowQueue ? _onQueueItemSelected : null,

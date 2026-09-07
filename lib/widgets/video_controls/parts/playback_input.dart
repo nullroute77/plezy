@@ -704,7 +704,7 @@ extension _PlexVideoControlsPlaybackInputMethods on _PlexVideoControlsState {
   /// accumulator (#1253), so the jump the reopen announces finds no pending
   /// target here and nothing retires the readout. The absolute action cancels
   /// that queued skip, so its promised total is no longer going anywhere.
-  ValueChanged<int>? _liveSeekAbandoningBurst(ValueChanged<int>? onLiveSeek) {
+  ValueChanged<double>? _liveSeekAbandoningBurst(ValueChanged<double>? onLiveSeek) {
     if (onLiveSeek == null) return null;
     return (offset) {
       _dismissSkipFeedback();

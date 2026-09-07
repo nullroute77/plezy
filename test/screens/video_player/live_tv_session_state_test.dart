@@ -1,6 +1,7 @@
 import 'package:fake_async/fake_async.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:plezy/media/live_tv_support.dart';
+import 'package:plezy/media/live_tv_timeline.dart';
 import 'package:plezy/media/media_source_info.dart';
 import 'package:plezy/models/livetv_capture_buffer.dart';
 import 'package:plezy/mpv/player/player_streams.dart';
@@ -63,13 +64,92 @@ void main() {
       final generation = state.beginClockOpen(1093);
       final result = state.clockOpenResult(generation);
 
-      expect(state.epochForPosition(const Duration(seconds: 52)), 1093);
+      expect(state.pendingTargetEpoch, 1093);
+      expect(state.playbackPosition(const Duration(seconds: 52)).epoch, isNull);
       expect(state.bindClockOpen(generation, 7), isTrue);
       expect(state.calibrateClockSource(const PlayerSourceReady(sourceId: 7, position: Duration(seconds: 47))), isTrue);
 
       expect(await result, isTrue);
       expect(state.streamStartEpoch, 1046);
       expect(state.epochForPosition(const Duration(seconds: 52)), 1098);
+    });
+
+    test('readiness and a differing server origin remain estimates', () {
+      final state = LiveTvSessionState(null);
+      final generation = state.beginClockOpen(1093.25);
+      state.bindClockOpen(generation, 7);
+      state.calibrateClockSource(const PlayerSourceReady(sourceId: 7, position: Duration(seconds: 47)));
+      final requestedEstimate = state.playbackPosition(const Duration(seconds: 52));
+      expect(requestedEstimate.epoch, 1098.25);
+      expect(requestedEstimate.accuracy, LiveTvTimeAccuracy.estimated);
+      expect(requestedEstimate.confirmedEpoch, isNull);
+
+      expect(
+        state.adoptPlaybackStreamOrigin(
+          const CaptureBuffer(startedAt: 1030.5, seekStartSeconds: 0, seekEndSeconds: 100),
+          generation: state.streamGeneration,
+        ),
+        isTrue,
+      );
+      final serverEstimate = state.playbackPosition(const Duration(seconds: 52));
+      expect(serverEstimate.epoch, 1082.5);
+      expect(serverEstimate.accuracy, LiveTvTimeAccuracy.estimated);
+      expect(serverEstimate.confirmedEpoch, isNull);
+    });
+
+    test('opening and failure retain last playback rather than requested target', () {
+      final state = LiveTvSessionState(null);
+      final first = state.beginClockOpen(1093);
+      state.bindClockOpen(first, 7);
+      state.calibrateClockSource(const PlayerSourceReady(sourceId: 7, position: Duration(seconds: 47)));
+      expect(state.playbackPosition(const Duration(seconds: 52)).epoch, 1098);
+      final replacement = state.beginClockOpen(1083);
+      final opening = state.playbackPosition(Duration.zero);
+      expect(opening.epoch, 1098);
+      expect(opening.accuracy, LiveTvTimeAccuracy.stale);
+      expect(opening.active, isFalse);
+      expect(state.pendingTargetEpoch, 1083);
+      expect(state.seekStatus, LiveTvSeekStatus.opening);
+      state.failClockOpen(replacement);
+      expect(state.pendingTargetEpoch, isNull);
+      expect(state.seekStatus, LiveTvSeekStatus.failed);
+      expect(state.epochForPosition(Duration.zero), 1098);
+    });
+
+    test('active source failure loses mapping and late sources cannot restore it', () {
+      final state = LiveTvSessionState(null);
+      final generation = state.beginClockOpen(1093);
+      state.bindClockOpen(generation, 7);
+      state.calibrateClockSource(const PlayerSourceReady(sourceId: 7, position: Duration(seconds: 47)));
+      state.playbackPosition(const Duration(seconds: 52));
+      state.failClockSource(const PlayerSourceFailed(8));
+      expect(state.playbackPosition(const Duration(seconds: 52)).active, isTrue);
+      state.failClockSource(const PlayerSourceFailed(7));
+      expect(state.playbackPosition(const Duration(seconds: 60)).epoch, 1098);
+      expect(state.playbackPosition(Duration.zero).accuracy, LiveTvTimeAccuracy.stale);
+      expect(
+        state.adoptPlaybackStreamOrigin(
+          const CaptureBuffer(startedAt: 1030, seekStartSeconds: 0, seekEndSeconds: 100),
+          generation: state.streamGeneration,
+        ),
+        isFalse,
+      );
+      expect(
+        state.calibrateClockSource(const PlayerSourceReady(sourceId: 7, position: Duration(seconds: 60))),
+        isFalse,
+      );
+      expect(state.playbackPosition(Duration.zero).active, isFalse);
+    });
+
+    test('invalidation cancels pending opens without inventing a playback epoch', () async {
+      final state = LiveTvSessionState(null);
+      final generation = state.beginClockOpen(1093);
+      final result = state.clockOpenResult(generation);
+      state.invalidatePlayback();
+      expect(await result, isFalse);
+      expect(state.bindClockOpen(generation, 7), isFalse);
+      expect(state.pendingTargetEpoch, isNull);
+      expect(state.playbackPosition(Duration.zero).accuracy, LiveTvTimeAccuracy.unknown);
     });
 
     test('a superseded source cannot calibrate the latest open', () async {
@@ -104,7 +184,8 @@ void main() {
         state.calibrateClockSource(const PlayerSourceReady(sourceId: 7, position: Duration(seconds: 47))),
         isFalse,
       );
-      expect(state.epochForPosition(const Duration(seconds: 52)), 1093);
+      expect(state.pendingTargetEpoch, 1093);
+      expect(state.playbackPosition(const Duration(seconds: 52)).epoch, isNull);
 
       expect(state.bindClockOpen(generation, 7), isTrue);
       expect(await result, isTrue);
@@ -140,7 +221,8 @@ void main() {
       // mpv rejected the first loadfile: no source ever existed for it.
       state.failClockOpen(firstGeneration);
       expect(await firstResult, isFalse);
-      expect(state.epochForPosition(const Duration(seconds: 40)), 1075);
+      expect(state.pendingTargetEpoch, 1075);
+      expect(state.playbackPosition(const Duration(seconds: 40)).epoch, isNull);
 
       expect(state.bindClockOpen(secondGeneration, 12), isTrue);
       expect(await secondResult, isTrue);
@@ -163,7 +245,8 @@ void main() {
       final secondGeneration = state.beginClockOpen(1070);
       final secondResult = state.clockOpenResult(secondGeneration);
       expect(state.bindClockOpen(secondGeneration, 13), isTrue);
-      expect(state.epochForPosition(const Duration(seconds: 5)), 1070);
+      expect(state.pendingTargetEpoch, 1070);
+      expect(state.playbackPosition(const Duration(seconds: 5)).epoch, 1085);
       expect(
         state.calibrateClockSource(const PlayerSourceReady(sourceId: 13, position: Duration(seconds: 40))),
         isTrue,
@@ -183,21 +266,24 @@ void main() {
       }
 
       expect(state.bindClockOpen(generation, 1), isTrue);
-      expect(state.epochForPosition(const Duration(seconds: 52)), 1093);
+      expect(state.pendingTargetEpoch, 1093);
+      expect(state.playbackPosition(const Duration(seconds: 52)).epoch, isNull);
       expect(state.calibrateClockSource(const PlayerSourceReady(sourceId: 1, position: Duration(seconds: 47))), isTrue);
       expect(await result, isTrue);
     });
 
-    test('a calibration timeout keeps the target until late readiness arrives', () async {
+    test('a calibration timeout clears pending intent but permits late readiness', () async {
       final state = LiveTvSessionState(null);
       final generation = state.beginClockOpen(1093);
       final result = state.clockOpenResult(generation);
       state.bindClockOpen(generation, 7);
 
       state.timeoutClockOpen(generation);
+      expect(state.pendingTargetEpoch, isNull);
 
       expect(await result, isFalse);
-      expect(state.epochForPosition(const Duration(seconds: 52)), 1093);
+      expect(state.pendingTargetEpoch, isNull);
+      expect(state.playbackPosition(const Duration(seconds: 52)).epoch, isNull);
       expect(state.calibrateClockSource(const PlayerSourceReady(sourceId: 7, position: Duration(seconds: 47))), isTrue);
       expect(state.epochForPosition(const Duration(seconds: 52)), 1098);
     });
@@ -210,7 +296,8 @@ void main() {
       state.timeoutClockOpen(generation);
       expect(await result, isFalse);
       state.calibrateClockSource(const PlayerSourceReady(sourceId: 7, position: Duration(seconds: 47)));
-      expect(state.epochForPosition(const Duration(seconds: 52)), 1093);
+      expect(state.pendingTargetEpoch, isNull);
+      expect(state.playbackPosition(const Duration(seconds: 52)).epoch, isNull);
 
       expect(state.bindClockOpen(generation, 7), isTrue);
       expect(state.epochForPosition(const Duration(seconds: 52)), 1098);
@@ -230,9 +317,12 @@ void main() {
     test('two backward skips compound from the calibrated source clock', () {
       fakeAsync((async) {
         final state = LiveTvSessionState(null)..streamStartEpoch = 1000;
+        final initial = state.beginClockOpen(1000);
+        state.bindClockOpen(initial, 99);
+        state.calibrateClockSource(const PlayerSourceReady(sourceId: 99, position: Duration.zero));
         var position = const Duration(seconds: 100);
         var sourceId = 0;
-        final requestedEpochs = <int>[];
+        final requestedEpochs = <double>[];
         final accumulator = LiveSeekAccumulator(
           seek: (targetEpoch) async {
             requestedEpochs.add(targetEpoch);
@@ -253,8 +343,8 @@ void main() {
             }
             return result;
           },
-          currentEpoch: () => state.epochForPosition(position),
-          bounds: () => (start: 0, end: 2000),
+          currentEpoch: () => state.playbackPosition(position).epoch,
+          bounds: () => const LiveSeekBounds(startEpoch: 0, endEpoch: 2000),
           debounce: Duration.zero,
         );
 
@@ -285,16 +375,19 @@ void main() {
 
       expect(state.streamStartEpoch, 1040);
       expect(state.atLiveEdge, isTrue);
-      expect(state.epochForPosition(const Duration(seconds: 10)), 1050);
+      expect(state.playbackPosition(const Duration(seconds: 10)).accuracy, LiveTvTimeAccuracy.unknown);
     });
 
     test('a heartbeat re-anchors the clock on the playback transcode origin', () {
       final state = LiveTvSessionState(null)..markStreamRestartedAtLiveEdge(capture);
+      final generation = state.beginClockOpen(1040);
+      state.bindClockOpen(generation, 1);
+      state.calibrateClockSource(const PlayerSourceReady(sourceId: 1, position: Duration.zero));
       final playback = CaptureBuffer(startedAt: 1027.5, seekStartSeconds: 0.033, seekEndSeconds: 12);
 
       expect(state.adoptPlaybackStreamOrigin(playback, generation: state.streamGeneration), isTrue);
 
-      // A 10 s skip back from 20 s in now targets 1017, not 1050.
+      // Server coordinates change the estimate, without confirming a landing.
       expect(state.epochForPosition(const Duration(seconds: 20)), 1048);
       expect(state.adoptPlaybackStreamOrigin(playback, generation: state.streamGeneration), isFalse);
     });
@@ -320,7 +413,8 @@ void main() {
 
       final old = CaptureBuffer(startedAt: 1027.5, seekStartSeconds: 0, seekEndSeconds: 60);
       expect(state.adoptPlaybackStreamOrigin(old, generation: state.streamGeneration), isFalse);
-      expect(state.epochForPosition(const Duration(seconds: 5)), 990);
+      expect(state.pendingTargetEpoch, 990);
+      expect(state.playbackPosition(const Duration(seconds: 5)).epoch, isNull);
     });
   });
 }
