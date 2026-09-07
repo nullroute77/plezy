@@ -158,6 +158,7 @@ extension _VideoPlayerPlaybackServiceMethods on VideoPlayerScreenState {
               'previousAnchor=$previousAnchor anchor=${_live.streamStartEpoch} '
               'activeSource=${_live.activeClockSourceId} pending=${_live.pendingStreamEpoch}',
             );
+            if (calibrated) unawaited(_logLiveDemuxerStart(currentPlayer, source));
           }
           if (calibrated) {
             _setPlayerState(() {});

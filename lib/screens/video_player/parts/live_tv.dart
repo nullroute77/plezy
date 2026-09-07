@@ -2,6 +2,9 @@ part of '../../video_player_screen.dart';
 
 const _liveClockReadyTimeout = Duration(seconds: 15);
 const _liveSeekDiagnostics = bool.fromEnvironment('PLEX_LIVE_SEEK_DIAGNOSTICS');
+// Investigation switch: validate HLS segment selection independently of the
+// existing clock calibration before making this the production behavior.
+const _liveSeekHlsFromStart = bool.fromEnvironment('PLEX_LIVE_SEEK_HLS_FROM_START');
 
 extension _VideoPlayerLiveTvMethods on VideoPlayerScreenState {
   /// Start periodic timeline heartbeats for live TV transcode session.
@@ -265,10 +268,12 @@ extension _VideoPlayerLiveTvMethods on VideoPlayerScreenState {
   }) async {
     if (_shuttingDown) return false;
     _live.streamGeneration++;
+    final hlsFromStart = _liveSeekHlsFromStart && Uri.parse(streamUrl).queryParameters.containsKey('offset');
     if (_liveSeekDiagnostics) {
       appLogger.d(
         '[LiveSeekDiag] open generation=${_live.streamGeneration} target=$targetEpoch '
-        'playerMs=${player.currentPosition.inMilliseconds} anchor=${_live.streamStartEpoch}',
+        'playerMs=${player.currentPosition.inMilliseconds} anchor=${_live.streamStartEpoch} '
+        'hlsFromStart=$hlsFromStart',
       );
     }
     final media = Media(streamUrl, headers: const {'Accept-Language': 'en'});
@@ -286,7 +291,7 @@ extension _VideoPlayerLiveTvMethods on VideoPlayerScreenState {
     try {
       if (applyOptions) await _setLiveStreamOptions(player);
       if (_shuttingDown) return false;
-      sourceId = await player.open(media, play: playNow, isLive: true);
+      sourceId = await player.open(media, play: playNow, isLive: true, startLivePlaylistFromBeginning: hlsFromStart);
     } catch (_) {
       _live.failClockOpen(clockGeneration);
       rethrow;
@@ -322,6 +327,33 @@ extension _VideoPlayerLiveTvMethods on VideoPlayerScreenState {
   }
 
   int _liveEpochForPosition(Duration position) => _liveSeek.pendingEpoch ?? _live.epochForPosition(position);
+
+  /// Numeric-only evidence of the timestamp MPV rebases to zero. Discard a
+  /// sample if a replacement open starts while the property reads are pending.
+  Future<void> _logLiveDemuxerStart(Player currentPlayer, PlayerSourceReady source) async {
+    final generation = _live.streamGeneration;
+    try {
+      final start = double.tryParse(await currentPlayer.getProperty('demuxer-start-time') ?? '');
+      final rebase = await currentPlayer.getProperty('options/rebase-start-time');
+      if (!mounted ||
+          player != currentPlayer ||
+          generation != _live.streamGeneration ||
+          _live.activeClockSourceId != source.sourceId) {
+        return;
+      }
+      appLogger.d(
+        '[LiveSeekDiag] demuxer generation=$generation source=${source.sourceId} '
+        'startSeconds=$start rebase=${rebase == 'yes'
+            ? true
+            : rebase == 'no'
+            ? false
+            : null} '
+        'firstFrameMs=${source.position.inMilliseconds}',
+      );
+    } catch (_) {
+      // Optional observations must never interfere with playback.
+    }
+  }
 
   /// Current playback position in absolute epoch seconds.
   int get _rawPositionEpoch => _live.epochForPosition(player?.currentPosition ?? Duration.zero);
