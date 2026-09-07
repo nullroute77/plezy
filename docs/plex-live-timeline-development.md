@@ -16,6 +16,15 @@ fallback metadata remain in the model and accessibility semantics; the uniform
 thumb is not new evidence of confirmed playback. These requested presentation
 changes supersede the initial distinct-marker design recorded below.
 
+Buffer-refresh revision: Plex timeshift heartbeat snapshots now refresh every
+two seconds, retaining the three-second startup grace period. Polls do not
+overlap, so slow replies cannot arrive behind a newer poll and move its bounds
+backwards. Freshness/UI ticks continue during an outstanding request, including
+while paused. Other backends keep their ten-second interval. The shared slider
+and painter are unchanged. Shading still reflects reported seekable bounds;
+it is not extended to match an estimated playhead. Server snapshot granularity
+and unvalidated playback anchors can therefore still produce a visual gap.
+
 ## Living plan
 
 - [x] Fork, ownership, instructions, source and issue discovery.

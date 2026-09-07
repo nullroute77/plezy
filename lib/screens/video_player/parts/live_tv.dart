@@ -8,22 +8,20 @@ extension _VideoPlayerLiveTvMethods on VideoPlayerScreenState {
     final generation = ++_live.timelineGeneration;
     _live.timelineTimer?.cancel();
     unawaited(_refreshLiveGuide());
-    _live.timelineTimer = Timer.periodic(const Duration(seconds: 10), (_) {
-      if (generation != _live.timelineGeneration) return;
-      if (mounted) _setPlayerState(() {}); // Refresh age-based control availability.
-      final state = player?.state.playing == true ? 'playing' : 'paused';
-      _sendLiveTimeline(state);
-      unawaited(_refreshLiveGuide());
-    });
-    // Delay initial heartbeat to let the transcode session stabilize.
-    // Sending time=0 immediately after player.open() causes the server
-    // to spawn a duplicate transcode job with offset=-1 that 404s.
-    Future.delayed(const Duration(seconds: 3), () {
-      if (_live.timelineTimer != null && generation == _live.timelineGeneration) {
+    _live.timelineTimer = startLiveTimelinePolling(
+      // Plex supplies seekable bounds in heartbeat responses. Refresh those
+      // alongside playback rather than holding a ten-second-old buffer edge.
+      interval: Duration(seconds: _live.session is LiveTvTimeshiftSession ? 2 : 10),
+      isCurrent: () => mounted && generation == _live.timelineGeneration,
+      onTick: () {
+        _setPlayerState(() {}); // Refresh age-based availability, including paused playback.
+        unawaited(_refreshLiveGuide());
+      },
+      report: () {
         final state = player?.state.playing == true ? 'playing' : 'paused';
-        _sendLiveTimeline(state);
-      }
-    });
+        return _sendLiveTimeline(state);
+      },
+    );
   }
 
   /// Advance the fallback ladder and retry — the error path's entry point.

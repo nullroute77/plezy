@@ -29,6 +29,14 @@ Logs for these runs are `/tmp/plezy-timeline-style-*.log`. The preceding x64 por
 workflow succeeded for `e548622b20046232045531e1c9a8e3d5d4fe08f2`; pushing this
 revision starts a separate build containing the requested presentation changes.
 
+Buffer-refresh revision: Plex timeshift polling changed from ten to two seconds,
+with the three-second startup grace period retained and overlapping polls skipped.
+The slider/painter and actual seek bounds are unchanged. Deterministic polling
+and Live TV widget tests passed 19 cases; the full suite passed 7,076 with 6
+skipped. Analysis, changed-Dart formatting and code generation passed. Logs are
+`/tmp/plezy-buffer-refresh-*.log`. This reduces stale snapshot delay but does not
+prove an estimated playback position belongs inside the reported capture window.
+
 ## Environment and baseline
 
 Flutter 3.47.1, Dart 3.13.1, Linux/WSL2 (kernel
