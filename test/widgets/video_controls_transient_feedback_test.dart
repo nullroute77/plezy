@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:math' as math;
+import 'dart:ui' show PointerDeviceKind;
 import 'package:drift/native.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -1044,44 +1045,67 @@ void main() {
       await settleFeedback(tester);
     });
 
-    testWidgets('keyboard seeks request preview while the mouse scrub callback stays absolute', (tester) async {
+    testWidgets('keyboard shortcuts request live program preview', (tester) async {
       final ordinary = <int>[];
       final preview = <int>[];
-      final absolute = <double>[];
+      await pumpDesktopControls(tester, isLive: true, onLiveSeekBy: ordinary.add, onLiveSeekByWithPreview: preview.add);
+      await pressKey(tester, LogicalKeyboardKey.arrowRight);
+      await pressKey(tester, LogicalKeyboardKey.arrowLeft);
+      expect(preview, [10, -10]);
+      expect(ordinary, isEmpty);
+      await settleFeedback(tester);
+    });
+
+    LiveTvTimeline bufferTimeline(Duration _) => LiveTvTimeline.resolve(
+      playback: const LiveTvPlaybackPosition(epoch: 100, accuracy: LiveTvTimeAccuracy.estimated, active: true),
+      seekable: const LiveTvSeekWindow(startEpoch: 0, endEpoch: 300),
+      metadataNowEpoch: 100,
+    );
+
+    testWidgets('focused live timeline routes arrow keys to program preview', (tester) async {
+      final ordinary = <int>[];
+      final preview = <int>[];
       await pumpDesktopControls(
         tester,
         isLive: true,
         onLiveSeekBy: ordinary.add,
         onLiveSeekByWithPreview: preview.add,
-        onLiveSeek: absolute.add,
-        liveTimelineForPosition: (_) => LiveTvTimeline.resolve(
-          playback: const LiveTvPlaybackPosition(epoch: 100, accuracy: LiveTvTimeAccuracy.estimated, active: true),
-          seekable: const LiveTvSeekWindow(startEpoch: 0, endEpoch: 300),
-          metadataNowEpoch: 100,
-        ),
+        onLiveSeek: (_) => fail('Focused arrow input must use a relative seek'),
+        liveTimelineForPosition: bufferTimeline,
       );
-      await pressKey(tester, LogicalKeyboardKey.arrowRight);
-      await pressKey(tester, LogicalKeyboardKey.arrowLeft);
-      expect(preview, [10, -10]);
-      expect(ordinary, isEmpty);
       chrome.show();
       await tester.pump();
-      final timeline = tester.widget<LiveTimelineBar>(find.byType(LiveTimelineBar));
-      timeline.onKeyEvent!(
-        timeline.focusNode!,
-        const KeyDownEvent(
-          physicalKey: PhysicalKeyboardKey.arrowRight,
-          logicalKey: LogicalKeyboardKey.arrowRight,
-          timeStamp: Duration.zero,
-        ),
+      final focus = tester.widget<LiveTimelineBar>(find.byType(LiveTimelineBar)).focusNode!;
+      focus.requestFocus();
+      await tester.pump();
+      expect(focus.hasFocus, isTrue);
+      await pressKey(tester, LogicalKeyboardKey.arrowRight);
+      expect(preview, [10]);
+      expect(ordinary, isEmpty);
+      await settleFeedback(tester);
+    });
+
+    testWidgets('mouse scrubbing commits an absolute seek without program preview', (tester) async {
+      final preview = <int>[];
+      final absolute = <double>[];
+      await pumpDesktopControls(
+        tester,
+        isLive: true,
+        onLiveSeekByWithPreview: preview.add,
+        onLiveSeek: absolute.add,
+        liveTimelineForPosition: bufferTimeline,
       );
-      expect(preview, [10, -10, 10], reason: 'focused timeline remote input also requests preview');
-      final gesture = await tester.startGesture(tester.getCenter(find.byType(TimelineSlider)));
+      chrome.show();
+      await tester.pump();
+      final gesture = await tester.startGesture(
+        tester.getCenter(find.byType(TimelineSlider)),
+        kind: PointerDeviceKind.mouse,
+      );
       await tester.pump();
       await gesture.up();
       await tester.pump();
       expect(absolute, [150]);
-      expect(preview, [10, -10, 10]);
+      expect(preview, isEmpty);
       await settleFeedback(tester);
     });
 

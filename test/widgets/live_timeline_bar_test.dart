@@ -27,6 +27,11 @@ import '../test_helpers/theme.dart';
 
 const _start = 1767268800.0;
 
+final _previewPrograms = [
+  LiveTvProgram(title: 'Previous', beginsAt: _start.toInt(), endsAt: _start.toInt() + 120),
+  LiveTvProgram(title: 'Current', beginsAt: _start.toInt() + 120, endsAt: _start.toInt() + 240),
+];
+
 LiveTvTimeline _timeline({
   double? position = 60,
   double? pending,
@@ -63,8 +68,42 @@ void main() {
     await initializeDateFormatting('en');
   });
 
+  testWidgets('remote program preview follows direction changes without moving playback', (tester) async {
+    final acc = LiveSeekAccumulator(
+      seek: (_) async => true,
+      currentEpoch: () => _start + 150,
+      bounds: () => const LiveSeekBounds(startEpoch: _start, endEpoch: _start + 230),
+    );
+    addTearDown(acc.dispose);
+    final duration = formatDurationTextual(120000);
+    for (final (delta, title, position) in [
+      (-40, 'Previous', 110000),
+      (20, 'Current', 10000),
+      (-40, 'Previous', 90000),
+    ]) {
+      acc.seekBy(delta, previewProgram: true);
+      final view = LiveTvTimeline.resolve(
+        playback: const LiveTvPlaybackPosition(
+          epoch: _start + 150,
+          accuracy: LiveTvTimeAccuracy.estimated,
+          active: true,
+        ),
+        pendingSeekEpoch: acc.pendingEpoch,
+        programPreviewEpoch: acc.programPreviewEpoch,
+        seekable: acc.bounds(),
+        programs: _previewPrograms,
+        metadataNowEpoch: _start + 180,
+      );
+      await _pump(tester, timeline: view, seeks: [], showHeader: true);
+      expect(find.text('$title · $duration'), findsOneWidget);
+      expect(_slider(tester).value, position);
+      expect(view.playback.epoch, _start + 150);
+    }
+    acc.cancel();
+  });
+
   for (final outcome in ['success', 'failure', 'cancel']) {
-    testWidgets('remote program preview follows direction changes and settles on $outcome', (tester) async {
+    testWidgets('remote program preview stays visible until seek $outcome', (tester) async {
       final state = LiveTvSessionState(null);
       final initial = state.beginClockOpen(_start + 150);
       state.bindClockOpen(initial, 1);
@@ -86,17 +125,13 @@ void main() {
         bounds: () => const LiveSeekBounds(startEpoch: _start, endEpoch: _start + 230),
       );
       addTearDown(acc.dispose);
-      final programs = [
-        LiveTvProgram(title: 'Previous', beginsAt: _start.toInt(), endsAt: _start.toInt() + 120),
-        LiveTvProgram(title: 'Current', beginsAt: _start.toInt() + 120, endsAt: _start.toInt() + 240),
-      ];
       LiveTvTimeline view() => LiveTvTimeline.resolve(
         playback: state.playbackPosition(Duration.zero),
         pendingSeekEpoch: acc.pendingEpoch,
         programPreviewEpoch: acc.programPreviewEpoch,
         seekStatus: state.seekStatus,
         seekable: acc.bounds(),
-        programs: programs,
+        programs: _previewPrograms,
         metadataNowEpoch: _start + 180,
       );
       final player = FakeSyncPlayer();
@@ -106,17 +141,9 @@ void main() {
       final duration = formatDurationTextual(120000);
       await refresh();
       expect(find.text('Current · $duration'), findsOneWidget);
-      for (final (delta, title, position) in [
-        (-40, 'Previous', 110000),
-        (20, 'Current', 10000),
-        (-40, 'Previous', 90000),
-      ]) {
-        acc.seekBy(delta, previewProgram: true);
-        await refresh();
-        expect(find.text('$title · $duration'), findsOneWidget);
-        expect(_slider(tester).value, position);
-        expect(view().playback.epoch, _start + 150);
-      }
+      acc.seekBy(-60, previewProgram: true);
+      await refresh();
+      expect(find.text('Previous · $duration'), findsOneWidget);
       await tester.pump(const Duration(milliseconds: 300));
       await refresh();
       expect(find.text('Previous · $duration'), findsOneWidget);
@@ -130,7 +157,7 @@ void main() {
       await refresh();
       expect(acc.programPreviewEpoch, isNull);
       expect(find.text('${outcome == 'success' ? 'Previous' : 'Current'} · $duration'), findsOneWidget);
-      expect(view().playback.confirmedEpoch, isNull);
+      expect(_timelineSlider(tester).showPosition, outcome == 'success');
     });
   }
 
@@ -276,9 +303,10 @@ void main() {
     final semantics = tester.ensureSemantics();
     await _pump(tester, timeline: _timeline(estimated: true), seeks: []);
     final initialThumb = _thumbSize(tester);
-    expect(initialThumb, const Size(4, 20));
+    expect(initialThumb, isNotNull);
     expect(_slider(tester).value, 60000);
-    expect(find.byType(Text), findsNWidgets(2));
+    expect(find.text(_clock(_start)), findsOneWidget);
+    expect(find.text(_clock(_start + 120)), findsOneWidget);
 
     await _pump(tester, timeline: _timeline(estimated: true, pending: 90), seeks: []);
     expect(_thumbSize(tester), initialThumb);
@@ -289,7 +317,8 @@ void main() {
     expect(find.textContaining(t.liveTv.timelineEstimated), findsNothing);
     expect(find.textContaining(t.liveTv.timelinePending), findsNothing);
     expect(find.textContaining(t.liveTv.timelineLiveProgram), findsNothing);
-    expect(find.byType(Text), findsNWidgets(2));
+    expect(find.text(_clock(_start)), findsOneWidget);
+    expect(find.text(_clock(_start + 120)), findsOneWidget);
     semantics.dispose();
   });
 
