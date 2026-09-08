@@ -378,6 +378,10 @@ class PlayerNative extends PlayerBase {
   /// Method-channel contract: the `command` reply for `loadfile` is
   /// `{'playlistEntryId': int}` on every native core; every other command
   /// replies null.
+  ///
+  /// [startLivePlaylistFromBeginning] makes mpv start server-positioned live
+  /// HLS at its first available segment instead of FFmpeg's default live position.
+  /// It applies only to this live open, preserving later opens' defaults.
   @override
   Future<int?> open(
     Media media, {

@@ -262,17 +262,15 @@ extension _VideoPlayerLiveTvMethods on VideoPlayerScreenState {
     bool awaitClock = false,
     bool? play,
     bool applyOptions = true,
+    bool timeShifted = false,
   }) async {
     if (_shuttingDown) return false;
     _live.streamGeneration++;
-    // Plex has already positioned an offset-specific playlist. MPV must not
-    // skip ahead again using FFmpeg's default live-start policy (#2100).
-    final hlsFromStart = player is PlayerNative && Uri.parse(streamUrl).queryParameters.containsKey('offset');
     if (_liveSeekDiagnostics) {
       appLogger.d(
         '[LiveSeekDiag] open generation=${_live.streamGeneration} target=$targetEpoch '
         'playerMs=${player.currentPosition.inMilliseconds} anchor=${_live.streamStartEpoch} '
-        'hlsFromStart=$hlsFromStart',
+        'timeShifted=$timeShifted',
       );
     }
     final media = Media(streamUrl, headers: const {'Accept-Language': 'en'});
@@ -290,7 +288,7 @@ extension _VideoPlayerLiveTvMethods on VideoPlayerScreenState {
     try {
       if (applyOptions) await _setLiveStreamOptions(player);
       if (_shuttingDown) return false;
-      sourceId = await player.open(media, play: playNow, isLive: true, startLivePlaylistFromBeginning: hlsFromStart);
+      sourceId = await player.open(media, play: playNow, isLive: true, startLivePlaylistFromBeginning: timeShifted);
     } catch (_) {
       _live.failClockOpen(clockGeneration);
       rethrow;
@@ -411,6 +409,7 @@ extension _VideoPlayerLiveTvMethods on VideoPlayerScreenState {
       streamUrl,
       targetEpoch: clamped,
       awaitClock: currentPlayer is PlayerNative,
+      timeShifted: true,
     );
     if (!mounted || player != currentPlayer) return false;
     if (_liveSeekDiagnostics) {
