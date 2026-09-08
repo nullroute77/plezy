@@ -188,12 +188,15 @@ class LiveTvTimeline {
   double? scrubTarget(double epoch) =>
       hasRange ? seekable?.targetWithin(epoch, startEpoch!, endEpoch!, endExclusive: program != null) : null;
 
-  /// Retains Plezy's 15s tolerance, but requires active confirmed playback
-  /// and fresh live-edge evidence. It never compares against program end.
+  /// Retains Plezy's 15s live-edge tolerance for active playback with fresh
+  /// timing evidence. This UI status does not promote an estimated broadcast
+  /// clock to confirmed accuracy, and pending targets never establish it.
   bool get isAtLive =>
-      playback.confirmedEpoch != null &&
-      liveEdgeEpoch != null &&
+      playback.active &&
+      (playback.accuracy == LiveTvTimeAccuracy.confirmed || playback.accuracy == LiveTvTimeAccuracy.estimated) &&
+      playback.epoch?.isFinite == true &&
+      liveEdgeEpoch?.isFinite == true &&
       liveEdgeAccuracy != LiveTvTimeAccuracy.unknown &&
       liveEdgeAccuracy != LiveTvTimeAccuracy.stale &&
-      (playback.confirmedEpoch! - liveEdgeEpoch!).abs() <= 15;
+      (playback.epoch! - liveEdgeEpoch!).abs() <= 15;
 }

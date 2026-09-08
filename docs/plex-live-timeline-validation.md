@@ -1,5 +1,23 @@
 # Plex timeline validation — fork draft
 
+## September 8: LIVE status and guide-refresh scrub fixes
+
+The existing branch now accepts fresh active playback estimates for LIVE's
+15-second proximity check without promoting their clock accuracy. Pending,
+inactive, unknown, and stale timing cannot establish LIVE. Scrub ownership uses
+stable airing/channel/source identity and schedule bounds, so an unchanged guide
+refresh preserves a drag while a real airing, channel, or bounds change cancels it.
+
+Validation: 31 focused timeline/widget tests and the full suite passed
+(7,091 passed, 6 skipped). All repository checks passed individually. The first
+CI-script run encountered an obsolete Flutter SDK path in the nested wakelock
+package; refreshing that package's dependencies and rerunning the analyzer
+passed without a source change. Other CI-script checks passed on their first run.
+Real-device validation of these two changes is pending the branch's test builds.
+No new branch or PR is authorized for this timeline work.
+
+## Earlier validation history
+
 Date: September 7, 2026. Account: `nullroute77` (GitHub ID 248068038).
 Fork: <https://github.com/nullroute77/plezy>.
 Branch: `codex/plex-program-timeline`.
@@ -191,8 +209,9 @@ that active estimate to select historical guide metadata; it uses an explicit
 estimated program mode and preserves last-known program context through reopen.
 The earlier confirmed-only gate made previous-program selection impossible on
 Plex and has been removed. Missing history/stale guide data still uses fallback.
-Confirmed content alignment and confirmed at-live status are not yet achieved
-on real Plex. Relative skips use the active estimate when no confirmed
+Confirmed content alignment is not yet established by this timeline branch.
+The LIVE indicator now accepts active estimates within 15 seconds of a fresh
+live edge, without claiming a confirmed broadcast clock. Relative skips use the active estimate when no confirmed
 mapping exists; their actual landing still needs validation. Backward same-source
 timestamp jumps over two seconds invalidate mapping; forward gaps remain
 ambiguous. Non-native player source-event identity is weaker. Missing historical

@@ -34,9 +34,10 @@ capture origin. Excluding the latest captured endpoint is conservative; availabl
 evidence does not prove every selected offset lands exactly or is complete.
 Return-to-live uses the offsetless backend operation. Both server-origin and
 request/first-player-time mappings remain estimates. Establishing a validated
-broadcast anchor is the outstanding dependency for confirmed content alignment
-and confirmed LIVE presentation. Timeline program selection can use estimates
-while that separate #2100 work is deferred.
+broadcast anchor is the outstanding dependency for confirmed content alignment.
+Timeline program selection and the LIVE indicator may use active estimates;
+LIVE applies Plezy's 15-second tolerance against fresh live-edge timing without
+upgrading the broadcast clock's accuracy. Pending targets do not establish LIVE.
 
 The deliberate UX change shows the entire scheduled program, unavailable portions
 and the seekable intersection. Relative skips cross program boundaries using the

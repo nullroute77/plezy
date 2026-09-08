@@ -131,8 +131,9 @@ earlier program even when historical EPG was loaded. The timeline revision now
 uses active estimates for guide selection without upgrading their accuracy.
 This makes previous-program display possible before the separate #2100 repair,
 but transitions can be early/late if the underlying estimate is wrong. Missing
-history still falls back to the live program; confirmed LIVE still requires
-confirmed timing. No new labels, marker shapes or widget implementation are added.
+history still falls back to the live program. LIVE now uses active estimated or
+confirmed playback within 15 seconds of a fresh live edge; it does not upgrade
+clock accuracy. No new labels, marker shapes or widget implementation are added.
 
 The next diagnostic step requires a real source: correlate rendered content
 with source-specific server timing and HLS segment program-date-time, where

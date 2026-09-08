@@ -39,7 +39,7 @@ class LiveTimelineBar extends StatefulWidget {
 class _LiveTimelineBarState extends State<LiveTimelineBar> {
   double? _dragRangeStart;
   double? _dragRangeEnd;
-  Object? _dragProgram;
+  Object? _dragProgramIdentity;
   late Stream<int> _positionSecondsStream;
 
   @override
@@ -183,7 +183,7 @@ class _LiveTimelineBarState extends State<LiveTimelineBar> {
             final current = _timeline;
             _dragRangeStart = current.startEpoch;
             _dragRangeEnd = current.endEpoch;
-            _dragProgram = current.program;
+            _dragProgramIdentity = _programIdentity(current);
           },
           onScrubEnd: _clearDragRange,
           onSeek: (_) {},
@@ -207,11 +207,26 @@ class _LiveTimelineBarState extends State<LiveTimelineBar> {
   void _clearDragRange() {
     _dragRangeStart = null;
     _dragRangeEnd = null;
-    _dragProgram = null;
+    _dragProgramIdentity = null;
+  }
+
+  // Guide refreshes reconstruct program objects. Compare the airing's stable
+  // identity within its channel/source, while checking schedule bounds below.
+  Object? _programIdentity(LiveTvTimeline timeline) {
+    final program = timeline.program;
+    return program == null
+        ? null
+        : (
+            program.serverId,
+            program.liveDvrKey,
+            program.providerIdentifier,
+            program.channelIdentifier,
+            program.ratingKey ?? program.key ?? program.guid ?? program.title,
+          );
   }
 
   bool _sameDragRange(LiveTvTimeline timeline) =>
       timeline.startEpoch == _dragRangeStart &&
       timeline.endEpoch == _dragRangeEnd &&
-      identical(timeline.program, _dragProgram);
+      _programIdentity(timeline) == _dragProgramIdentity;
 }

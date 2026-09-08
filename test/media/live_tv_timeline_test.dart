@@ -13,6 +13,7 @@ void main() {
     LiveTvTimeAccuracy accuracy = LiveTvTimeAccuracy.confirmed,
     bool stale = false,
     bool active = true,
+    LiveTvTimeAccuracy edgeAccuracy = LiveTvTimeAccuracy.estimated,
     LiveTvSeekWindow? window = buffer,
   }) => LiveTvTimeline.resolve(
     playback: LiveTvPlaybackPosition(epoch: epoch, accuracy: accuracy, active: active && epoch != null),
@@ -22,7 +23,7 @@ void main() {
     pendingSeekEpoch: pending,
     programDataStale: stale,
     liveEdgeEpoch: 12600.5,
-    liveEdgeAccuracy: LiveTvTimeAccuracy.estimated,
+    liveEdgeAccuracy: edgeAccuracy,
   );
 
   test('rewind and forward progression select the half-open playback program', () {
@@ -118,10 +119,13 @@ void main() {
     expect(const LiveTvSeekWindow(startEpoch: 2, endEpoch: 1).target(1), isNull);
   });
 
-  test('live tolerance needs confirmed playback and does not follow paused edge', () {
+  test('live tolerance accepts active estimates without confirming the clock or following a paused edge', () {
     expect(timeline(12600).isAtLive, isTrue);
     expect(timeline(12585).isAtLive, isFalse);
-    expect(timeline(12600, accuracy: LiveTvTimeAccuracy.estimated).isAtLive, isFalse);
+    final estimated = timeline(12600, accuracy: LiveTvTimeAccuracy.estimated);
+    expect(estimated.isAtLive, isTrue);
+    expect(estimated.playback.confirmedEpoch, isNull);
+    expect(estimated.playback.accuracy, LiveTvTimeAccuracy.estimated);
     final paused = LiveTvTimeline.resolve(
       playback: const LiveTvPlaybackPosition(epoch: 12600, accuracy: LiveTvTimeAccuracy.confirmed, active: true),
       seekable: const LiveTvSeekWindow(startEpoch: 12700, endEpoch: 13000),
@@ -132,5 +136,16 @@ void main() {
     expect(paused.playback.confirmedEpoch, 12600);
     expect(paused.isAtLive, isFalse);
     expect(paused.playbackOutOfWindow, isTrue);
+  });
+
+  test('LIVE ignores pending targets and requires active fresh finite timing', () {
+    expect(timeline(12000, pending: 12600, accuracy: LiveTvTimeAccuracy.estimated).isAtLive, isFalse);
+    expect(timeline(12600, active: false).isAtLive, isFalse);
+    expect(timeline(12600, accuracy: LiveTvTimeAccuracy.unknown).isAtLive, isFalse);
+    expect(timeline(12600, accuracy: LiveTvTimeAccuracy.stale).isAtLive, isFalse);
+    expect(timeline(12600, edgeAccuracy: LiveTvTimeAccuracy.stale).isAtLive, isFalse);
+    expect(timeline(12600, edgeAccuracy: LiveTvTimeAccuracy.unknown).isAtLive, isFalse);
+    expect(timeline(double.nan).isAtLive, isFalse);
+    expect(timeline(null).isAtLive, isFalse);
   });
 }

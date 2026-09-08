@@ -9,8 +9,10 @@ import 'package:intl/date_symbol_data_local.dart';
 import 'package:plezy/i18n/strings.g.dart';
 import 'package:plezy/media/live_tv_timeline.dart';
 import 'package:plezy/models/livetv_program.dart';
+import 'package:plezy/models/livetv_channel.dart';
 import 'package:plezy/mpv/player/player_streams.dart';
 import 'package:plezy/screens/video_player/live_tv_session_state.dart';
+import 'package:plezy/services/live_tv_program_guide.dart';
 import 'package:plezy/utils/formatters.dart';
 import 'package:plezy/widgets/video_controls/widgets/live_timeline_bar.dart';
 import 'package:plezy/widgets/video_controls/widgets/video_controls_header.dart';
@@ -31,6 +33,7 @@ LiveTvTimeline _timeline({
   bool unknown = false,
   bool withBuffer = true,
   bool withProgram = true,
+  LiveTvProgram? program,
   double bufferStart = 30,
   double bufferEnd = 180,
   double metadataNow = 60,
@@ -46,7 +49,7 @@ LiveTvTimeline _timeline({
   ),
   seekable: withBuffer ? LiveTvSeekWindow(startEpoch: _start + bufferStart, endEpoch: _start + bufferEnd) : null,
   programs: withProgram
-      ? [LiveTvProgram(title: 'Morning news', beginsAt: _start.toInt(), endsAt: _start.toInt() + 120)]
+      ? [program ?? LiveTvProgram(title: 'Morning news', beginsAt: _start.toInt(), endsAt: _start.toInt() + 120)]
       : [],
   pendingSeekEpoch: pending == null ? null : _start + pending,
   metadataNowEpoch: _start + metadataNow,
@@ -155,6 +158,37 @@ void main() {
     semantics.dispose();
   });
 
+  testWidgets('real session estimates show LIVE until playback falls behind the fresh edge', (tester) async {
+    final semantics = tester.ensureSemantics();
+    final state = LiveTvSessionState(null);
+    final open = state.beginClockOpen(_start + 60);
+    state.bindClockOpen(open, 1);
+    state.calibrateClockSource(const PlayerSourceReady(sourceId: 1, position: Duration.zero));
+    var edge = _start + 60;
+    LiveTvTimeline view() => LiveTvTimeline.resolve(
+      playback: state.playbackPosition(Duration.zero),
+      programs: [LiveTvProgram(title: 'News', beginsAt: _start.toInt(), endsAt: _start.toInt() + 120)],
+      liveEdgeEpoch: edge,
+      liveEdgeAccuracy: LiveTvTimeAccuracy.estimated,
+      metadataNowEpoch: edge,
+    );
+    final player = FakeSyncPlayer();
+    addTearDown(player.dispose);
+    await _pump(tester, timeline: view(), seeks: [], player: player);
+    String announcedPosition() =>
+        tester.getSemantics(find.bySemanticsLabel(t.videoControls.timelineSlider)).getSemanticsData().value;
+    expect(announcedPosition(), t.liveTv.live);
+    expect(view().playback.confirmedEpoch, isNull);
+    expect(view().playback.accuracy, LiveTvTimeAccuracy.estimated);
+
+    // Paused playback stays put while the server's live edge advances.
+    edge += 16;
+    await _pump(tester, timeline: view(), seeks: [], player: player);
+    expect(announcedPosition(), '${t.liveTv.timelineEstimated}: ${_clock(_start + 60)}');
+    expect(view().isAtLive, isFalse);
+    semantics.dispose();
+  });
+
   testWidgets('out-of-window fallback hides playback without inventing an edge timestamp', (tester) async {
     final semantics = tester.ensureSemantics();
     await _pump(tester, timeline: _timeline(position: -30), seeks: []);
@@ -258,6 +292,73 @@ void main() {
     await tester.pump();
     expect(seeks, isEmpty);
   });
+
+  testWidgets('refreshing the same airing preserves an active scrub despite new metadata objects', (tester) async {
+    final guide = LiveTvProgramGuide();
+    final owner = Object();
+    final channel = LiveTvChannel(key: 'A');
+    Future<void> refresh(String title) async {
+      await guide.refresh(
+        owner: owner,
+        channel: channel,
+        fromEpoch: _start,
+        toEpoch: _start + 120,
+        fetch: (_, _) async => [
+          LiveTvProgram(
+            ratingKey: 'news',
+            channelIdentifier: 'A',
+            title: title,
+            beginsAt: _start.toInt(),
+            endsAt: _start.toInt() + 120,
+          ),
+        ],
+      );
+    }
+
+    await refresh('News');
+    LiveTvTimeline view() => _timeline(program: guide.programs.single, estimated: true);
+    final seeks = <double>[];
+    await _pump(tester, timeline: view(), timelineBuilder: view, seeks: seeks);
+    final gesture = await tester.startGesture(tester.getCenter(find.byType(TimelineSlider)));
+    await tester.pump();
+    await refresh('Updated news title');
+    await gesture.up();
+    await tester.pump();
+    expect(seeks, [_start + 60]);
+  });
+
+  testWidgets('an unchanged airing without a server ID also survives guide refresh', (tester) async {
+    var current = _timeline();
+    final seeks = <double>[];
+    await _pump(tester, timeline: current, timelineBuilder: () => current, seeks: seeks);
+    final gesture = await tester.startGesture(tester.getCenter(find.byType(TimelineSlider)));
+    await tester.pump();
+    current = _timeline();
+    await gesture.up();
+    await tester.pump();
+    expect(seeks, [_start + 60]);
+  });
+
+  for (final change in ['airing', 'channel', 'bounds']) {
+    testWidgets('a real $change change cancels an active scrub', (tester) async {
+      LiveTvProgram program({bool changed = false}) => LiveTvProgram(
+        ratingKey: changed && change == 'airing' ? 'other-news' : 'news',
+        channelIdentifier: changed && change == 'channel' ? 'B' : 'A',
+        title: 'News',
+        beginsAt: _start.toInt(),
+        endsAt: _start.toInt() + (changed && change == 'bounds' ? 121 : 120),
+      );
+      var current = _timeline(program: program());
+      final seeks = <double>[];
+      await _pump(tester, timeline: current, timelineBuilder: () => current, seeks: seeks);
+      final gesture = await tester.startGesture(tester.getCenter(find.byType(TimelineSlider)));
+      await tester.pump();
+      current = _timeline(program: program(changed: true));
+      await gesture.up();
+      await tester.pump();
+      expect(seeks, isEmpty);
+    });
+  }
 
   testWidgets('unknown and unavailable timelines never paint a playhead or seek', (tester) async {
     final semantics = tester.ensureSemantics();
