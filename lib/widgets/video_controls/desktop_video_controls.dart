@@ -82,6 +82,7 @@ class DesktopVideoControls extends StatefulWidget {
 
   /// Relative live-TV skip callback (delta seconds); parent accumulates+debounces.
   final ValueChanged<int>? onLiveSeekBy;
+  final ValueChanged<int>? onLiveSeekByWithPreview;
   final VoidCallback? onJumpToLive;
 
   /// Whether to use dpad navigation for content strip (TV or keyboard nav mode)
@@ -145,6 +146,7 @@ class DesktopVideoControls extends StatefulWidget {
     this.liveTimelineForPosition,
     this.onLiveSeek,
     this.onLiveSeekBy,
+    this.onLiveSeekByWithPreview,
     this.onJumpToLive,
     required this.useDpadNavigation,
     this.serverId,
@@ -579,7 +581,7 @@ class DesktopVideoControlsState extends State<DesktopVideoControls> {
       // sums them.
       if (_isLive && widget.onLiveSeekBy != null) {
         final stepSeconds = (widget.seekTimeSmall * effectiveMultiplier).clamp(1, 300).round();
-        widget.onLiveSeekBy!(isForward ? stepSeconds : -stepSeconds);
+        (widget.onLiveSeekByWithPreview ?? widget.onLiveSeekBy)!(isForward ? stepSeconds : -stepSeconds);
         widget.onFocusActivity?.call();
         return KeyEventResult.handled;
       }

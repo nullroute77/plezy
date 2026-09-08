@@ -28,8 +28,8 @@ class VideoControlsHeader extends StatelessWidget {
   final MediaItem metadata;
   final VideoHeaderStyle style;
 
-  /// Live TV resolves the header program from the same playback snapshot as
-  /// the timeline. A pending seek must not replace the displayed program.
+  /// Live TV resolves the header from the same snapshot as the timeline,
+  /// including an explicitly requested remote/keyboard program preview.
   final Player? player;
   final LiveTvTimeline Function(Duration position)? liveTimelineForPosition;
 

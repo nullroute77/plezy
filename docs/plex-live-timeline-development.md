@@ -73,7 +73,10 @@ replace playback. Playback has explicit unknown/estimated/confirmed/stale
 accuracy and active/last-known state. Confirmed playback selects a known program;
 active estimated playback now selects a program in an explicitly estimated model
 mode. A last-known position retains program context while reopening or failed,
-without showing an active playhead. Pending targets never choose the program.
+without showing an active playhead. Remote/keyboard seeks explicitly opt into
+destination-program preview; that preview stays until the accumulated seek
+settles and never changes the actual playback clock. Mouse scrubs, touch skips,
+and return-to-live do not opt in. Missing preview history uses the buffer range.
 Missing history or stale schedule data falls back to live metadata, then a buffer
 view, then unavailable state. Out-of-window thumbs are hidden.
 
@@ -284,11 +287,13 @@ No version or setup is inferred from the older issue report for this branch.
    bounds without a fabricated playback jump. Failure/recovery must be visible;
    old targets must not be reported as reached. After heartbeat loss, offset
    controls disable; explicit live operation remains available.
-6. Rewind several minutes into an earlier program still in the buffer. After
-   the replacement stream becomes ready, expect that program's title and full
-   start/end labels when its guide data is available. A pending seek should not
-   select the requested program; further seeks/failures retain the last program
-   context. Play forward across its end: the next program owns the exact boundary
+6. Use remote/keyboard seeks across earlier and later programs in the buffer.
+   Expect title, duration, bounds, and the preview thumb to follow the target
+   immediately and remain there while its replacement stream opens. Reverse
+   direction repeatedly. On failure/cancellation, expect the last playback
+   program again; after success, actual playback takes over without a flash of
+   the old program. Mouse dragging retains the displayed program. Play forward
+   across its end: the next program owns the exact boundary
    according to the active estimate. Compare with actual content and record any
    early/late change separately. Missing Plex history remains a real limitation.
 7. Change A -> B -> A during a pending seek, and during recovery. Old opens and

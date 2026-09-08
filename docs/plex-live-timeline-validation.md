@@ -1,5 +1,28 @@
 # Plex timeline validation — fork draft
 
+## September 8: remote/keyboard destination-program preview
+
+Keyboard shortcuts, remote transport keys, and focused timeline navigation now
+opt into a destination-program preview through the existing live seek
+accumulator. The title, duration, range, and thumb follow the pending target
+across program boundaries and remain there through source readiness. Completion
+hands the display back to playback; failure/cancellation restores its last-known
+program. Neither preview nor pending intent changes the actual playback clock.
+Mouse scrubbing remains absolute and does not opt in. Missing or stale guide
+metadata uses the buffer range so the pending destination remains visible.
+
+Regression coverage exercises boundary crossings in both directions, successful
+and failed opens, cancellation, older failures during newer input, missing guide
+history, remote/keyboard callback routing, focused timeline input, and a real
+pointer scrub after keyboard seeking. Manual device validation remains pending
+the test builds from this same branch.
+
+Automated validation: the full rerun with eight workers reported 7,103 passed,
+6 skipped. The first run had one failure in the unchanged library-event socket
+timing test; that file passed all 18 tests in isolation, and the full rerun also
+passed it. Repository checks and final analysis passed. Logs are
+`/tmp/plezy-preview-{tests-final,checks,analyzer-final}.log`.
+
 ## September 8: LIVE status and guide-refresh scrub fixes
 
 The existing branch now accepts fresh active playback estimates for LIVE's

@@ -46,6 +46,7 @@ extension _PlexVideoControlsNavigationMethods on _PlexVideoControlsState {
 
         onLiveSeek: _liveSeekAbandoningBurst(widget.onLiveSeek),
         onLiveSeekBy: widget.onLiveSeekBy,
+        onLiveSeekByWithPreview: widget.onLiveSeekByWithPreview,
         onJumpToLive: _abandoningBurst(widget.onJumpToLive),
         useDpadNavigation: useDpad,
         serverId: widget.metadata.serverId,

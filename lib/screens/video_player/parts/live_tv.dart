@@ -336,6 +336,7 @@ extension _VideoPlayerLiveTvMethods on VideoPlayerScreenState {
           ? LiveTvTimeAccuracy.stale
           : LiveTvTimeAccuracy.estimated,
       pendingSeekEpoch: _liveSeek.pendingEpoch ?? _live.pendingTargetEpoch,
+      programPreviewEpoch: _liveSeek.programPreviewEpoch,
       seekStatus: _liveSeek.pendingEpoch != null ? LiveTvSeekStatus.pending : _live.seekStatus,
       programs: identical(_liveGuideSession, session) ? _liveGuide.programs : const [],
       metadataNowEpoch: DateTime.now().millisecondsSinceEpoch / 1000.0,

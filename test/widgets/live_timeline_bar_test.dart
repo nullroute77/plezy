@@ -13,6 +13,7 @@ import 'package:plezy/models/livetv_channel.dart';
 import 'package:plezy/mpv/player/player_streams.dart';
 import 'package:plezy/screens/video_player/live_tv_session_state.dart';
 import 'package:plezy/services/live_tv_program_guide.dart';
+import 'package:plezy/services/live_seek_accumulator.dart';
 import 'package:plezy/utils/formatters.dart';
 import 'package:plezy/widgets/video_controls/widgets/live_timeline_bar.dart';
 import 'package:plezy/widgets/video_controls/widgets/video_controls_header.dart';
@@ -61,6 +62,77 @@ void main() {
     LocaleSettings.setLocaleSync(AppLocale.en);
     await initializeDateFormatting('en');
   });
+
+  for (final outcome in ['success', 'failure', 'cancel']) {
+    testWidgets('remote program preview follows direction changes and settles on $outcome', (tester) async {
+      final state = LiveTvSessionState(null);
+      final initial = state.beginClockOpen(_start + 150);
+      state.bindClockOpen(initial, 1);
+      state.calibrateClockSource(const PlayerSourceReady(sourceId: 1, position: Duration.zero));
+      final result = Completer<bool>();
+      final acc = LiveSeekAccumulator(
+        seek: (target) async {
+          final open = state.beginClockOpen(target);
+          final success = await result.future;
+          if (success) {
+            state.bindClockOpen(open, 2);
+            state.calibrateClockSource(const PlayerSourceReady(sourceId: 2, position: Duration.zero));
+          } else {
+            state.failClockOpen(open);
+          }
+          return success;
+        },
+        currentEpoch: () => state.playbackPosition(Duration.zero).epoch,
+        bounds: () => const LiveSeekBounds(startEpoch: _start, endEpoch: _start + 230),
+      );
+      addTearDown(acc.dispose);
+      final programs = [
+        LiveTvProgram(title: 'Previous', beginsAt: _start.toInt(), endsAt: _start.toInt() + 120),
+        LiveTvProgram(title: 'Current', beginsAt: _start.toInt() + 120, endsAt: _start.toInt() + 240),
+      ];
+      LiveTvTimeline view() => LiveTvTimeline.resolve(
+        playback: state.playbackPosition(Duration.zero),
+        pendingSeekEpoch: acc.pendingEpoch,
+        programPreviewEpoch: acc.programPreviewEpoch,
+        seekStatus: state.seekStatus,
+        seekable: acc.bounds(),
+        programs: programs,
+        metadataNowEpoch: _start + 180,
+      );
+      final player = FakeSyncPlayer();
+      addTearDown(player.dispose);
+      Future<void> refresh() =>
+          _pump(tester, timeline: view(), timelineBuilder: view, seeks: [], player: player, showHeader: true);
+      final duration = formatDurationTextual(120000);
+      await refresh();
+      expect(find.text('Current · $duration'), findsOneWidget);
+      for (final (delta, title, position) in [
+        (-40, 'Previous', 110000),
+        (20, 'Current', 10000),
+        (-40, 'Previous', 90000),
+      ]) {
+        acc.seekBy(delta, previewProgram: true);
+        await refresh();
+        expect(find.text('$title · $duration'), findsOneWidget);
+        expect(_slider(tester).value, position);
+        expect(view().playback.epoch, _start + 150);
+      }
+      await tester.pump(const Duration(milliseconds: 300));
+      await refresh();
+      expect(find.text('Previous · $duration'), findsOneWidget);
+      expect(_slider(tester).value, 90000);
+      if (outcome == 'cancel') {
+        acc.cancel();
+        state.cancelClockOpens();
+      }
+      result.complete(outcome == 'success');
+      await tester.pump();
+      await refresh();
+      expect(acc.programPreviewEpoch, isNull);
+      expect(find.text('${outcome == 'success' ? 'Previous' : 'Current'} · $duration'), findsOneWidget);
+      expect(view().playback.confirmedEpoch, isNull);
+    });
+  }
 
   testWidgets('program labels cover full schedule while scrubbing clamps to playable intersection', (tester) async {
     final seeks = <double>[];

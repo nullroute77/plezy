@@ -336,6 +336,9 @@ extension _VideoPlayerBuildMethods on VideoPlayerScreenState {
                             : null,
                         onLiveSeek: _liveSeekBounds() != null ? _seekLiveToEpoch : null,
                         onLiveSeekBy: _liveSeekBounds() != null ? _liveSeek.seekBy : null,
+                        onLiveSeekByWithPreview: _liveSeekBounds() != null
+                            ? (seconds) => _liveSeek.seekBy(seconds, previewProgram: true)
+                            : null,
                         onJumpToLive: _live.captureBuffer != null && !_live.retrying ? _jumpToLiveEdge : null,
                         isAmbientLightingEnabled: _ambientLightingService?.isEnabled ?? false,
                         onToggleAmbientLighting: _ambientLightingService?.isSupported == true

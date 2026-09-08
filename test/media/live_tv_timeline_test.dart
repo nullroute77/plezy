@@ -9,6 +9,7 @@ void main() {
   LiveTvTimeline timeline(
     double? epoch, {
     double? pending,
+    double? preview,
     List<LiveTvProgram>? programs,
     LiveTvTimeAccuracy accuracy = LiveTvTimeAccuracy.confirmed,
     bool stale = false,
@@ -21,6 +22,7 @@ void main() {
     metadataNowEpoch: 12600,
     seekable: window,
     pendingSeekEpoch: pending,
+    programPreviewEpoch: preview,
     programDataStale: stale,
     liveEdgeEpoch: 12600.5,
     liveEdgeAccuracy: edgeAccuracy,
@@ -33,6 +35,31 @@ void main() {
     expect(timeline(10800).program, same(b));
     expect(timeline(10920, pending: 10620).program, same(b));
     expect(timeline(10920, pending: 10620).confirmedPlayheadEpoch, 10920);
+  });
+
+  test('remote program preview crosses boundaries without moving the playback clock', () {
+    final view = timeline(10920, pending: 10620, preview: 10620);
+    expect(view.program, same(a));
+    expect(view.mode, LiveTvTimelineMode.seekPreview);
+    expect(view.playback.confirmedEpoch, 10920);
+    expect((view.startEpoch, view.endEpoch), (7200, 10800));
+    expect(timeline(10920, preview: 10800).program, same(b));
+    // Mouse/ordinary pending seeks do not request program preview.
+    expect(timeline(10920, pending: 10620).program, same(b));
+    expect(timeline(10920, pending: 12600, preview: 12600).isAtLive, isFalse);
+  });
+
+  test('missing or stale preview guide data keeps the destination visible on the buffer', () {
+    for (final view in [
+      timeline(10920, pending: 10000, preview: 10000, programs: [b]),
+      timeline(10920, pending: 10000, preview: 10000, stale: true),
+    ]) {
+      expect(view.program, isNull);
+      expect(view.mode, LiveTvTimelineMode.buffer);
+      expect((view.startEpoch, view.endEpoch), (9000, 12600));
+      expect(view.contains(10000), isTrue);
+      expect(view.playback.epoch, 10920);
+    }
   });
 
   test('whole schedule and seekable intersection differ when joining midway', () {

@@ -71,6 +71,8 @@ class _LiveTimelineBarState extends State<LiveTimelineBar> {
   );
 
   String _positionValue(LiveTvTimeline timeline) {
+    final preview = timeline.programPreviewEpoch;
+    if (preview != null) return '${t.liveTv.timelinePending}: ${_clock(preview, includeSeconds: true)}';
     if (timeline.isAtLive) return t.liveTv.live;
     final confirmed = timeline.confirmedPlayheadEpoch;
     if (confirmed != null) return _clock(confirmed);
@@ -132,8 +134,9 @@ class _LiveTimelineBarState extends State<LiveTimelineBar> {
     final increase = _relativeTarget(timeline, 10);
     final decrease = _relativeTarget(timeline, -10);
     final pending = timeline.pendingSeekEpoch;
-    final position = pending != null && timeline.contains(pending)
-        ? pending
+    final destination = timeline.programPreviewEpoch ?? pending;
+    final position = destination != null && timeline.contains(destination)
+        ? destination
         : timeline.confirmedPlayheadEpoch ?? timeline.estimatedPlayheadEpoch;
     return Semantics(
       label: t.videoControls.timelineSlider,
@@ -144,7 +147,7 @@ class _LiveTimelineBarState extends State<LiveTimelineBar> {
         if (timeline.mode == LiveTvTimelineMode.buffer) t.liveTv.timelineBuffer,
         if (timeline.mode == LiveTvTimelineMode.liveProgramFallback) t.liveTv.timelineLiveProgram,
         if (timeline.programDataStale) t.liveTv.timelineStale,
-        if (timeline.playbackOutOfWindow) t.liveTv.unknownProgram,
+        if (timeline.programPreviewEpoch == null && timeline.playbackOutOfWindow) t.liveTv.unknownProgram,
         if (pending != null) t.liveTv.timelinePending,
         if (timeline.seekStatus == LiveTvSeekStatus.failed) t.liveTv.liveStreamFailed,
       ].join(' · '),

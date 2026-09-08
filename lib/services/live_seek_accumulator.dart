@@ -48,6 +48,7 @@ class LiveSeekAccumulator {
 
   double? _pendingEpoch;
   bool _pendingLive = false;
+  bool _previewProgram = false;
   int _intentGeneration = 0;
   int get intentGeneration => _intentGeneration;
   Timer? _debounceTimer;
@@ -59,9 +60,13 @@ class LiveSeekAccumulator {
   /// Presentation must render this separately from observed playback.
   double? get pendingEpoch => _pendingEpoch;
 
+  /// Remote/keyboard destination used only for program presentation. Remains
+  /// available through debounce and source readiness, then clears on any outcome.
+  double? get programPreviewEpoch => _previewProgram ? _pendingEpoch : null;
+
   /// Accumulate a relative skip of [deltaSeconds] and (re)arm the debounce.
   /// No-op when there is no seekable window.
-  void seekBy(int deltaSeconds) {
+  void seekBy(int deltaSeconds, {bool previewProgram = false}) {
     if (_disposed) return;
     final window = bounds();
     if (window == null || !window.isValid) return;
@@ -74,9 +79,16 @@ class LiveSeekAccumulator {
     // position it already occupies (most commonly fast-forward at live edge).
     // Once a burst has a pending target, keep its normal debounce semantics.
     if (_pendingEpoch == null && target == clampedBase) return;
-    if (_pendingEpoch == target && !_pendingLive) return;
+    if (_pendingEpoch == target && !_pendingLive) {
+      if (_previewProgram != previewProgram) {
+        _previewProgram = previewProgram;
+        onChanged?.call();
+      }
+      return;
+    }
     _intentGeneration++;
     _pendingLive = false;
+    _previewProgram = previewProgram;
     _pendingEpoch = target;
     onChanged?.call(); // Also notify when only live/offset operation changes.
 
@@ -91,6 +103,7 @@ class LiveSeekAccumulator {
     _intentGeneration++;
     _pendingEpoch = window.target(targetEpoch);
     _pendingLive = false;
+    _previewProgram = false;
     onChanged?.call();
     unawaited(_flush());
   }
@@ -103,6 +116,7 @@ class LiveSeekAccumulator {
     _intentGeneration++;
     _pendingEpoch = target;
     _pendingLive = true;
+    _previewProgram = false;
     onChanged?.call();
     unawaited(_flush());
   }
@@ -155,6 +169,7 @@ class LiveSeekAccumulator {
     // Success calibrated the source; failure leaves uncertainty with the
     // source clock. Neither outcome should keep this completed burst pinned.
     _pendingEpoch = null;
+    _previewProgram = false;
     onChanged?.call();
   }
 
@@ -167,6 +182,7 @@ class LiveSeekAccumulator {
     _debounceTimer?.cancel();
     _debounceTimer = null;
     _flushing = false;
+    _previewProgram = false;
     if (_pendingEpoch != null) {
       _pendingEpoch = null;
       onChanged?.call();

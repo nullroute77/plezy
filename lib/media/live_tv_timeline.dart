@@ -8,6 +8,7 @@ enum LiveTvTimeAccuracy { unknown, estimated, confirmed, stale }
 enum LiveTvSeekStatus { idle, pending, opening, failed }
 
 enum LiveTvTimelineMode {
+  seekPreview,
   playbackProgram,
   estimatedPlaybackProgram,
   lastKnownPlaybackProgram,
@@ -56,9 +57,9 @@ class LiveTvSeekWindow {
   }
 }
 
-/// One presentation snapshot, shared by all Live TV controls. Requested seeks
-/// never replace [playback] or select a playback program. Active estimates may
-/// select guide metadata without becoming confirmed playback. Last-known
+/// One presentation snapshot, shared by all Live TV controls. Remote/keyboard
+/// previews can select a displayed program without replacing [playback]. Active
+/// estimates may select guide metadata without becoming confirmed playback. Last-known
 /// positions preserve program context while a source opens or has failed.
 /// Stale schedule data is retained for live fallback display only.
 class LiveTvTimeline {
@@ -67,6 +68,7 @@ class LiveTvTimeline {
   final double? liveEdgeEpoch;
   final LiveTvTimeAccuracy liveEdgeAccuracy;
   final double? pendingSeekEpoch;
+  final double? programPreviewEpoch;
   final LiveTvSeekStatus seekStatus;
   final LiveTvProgram? program;
   final LiveTvTimelineMode mode;
@@ -80,6 +82,7 @@ class LiveTvTimeline {
     required this.liveEdgeEpoch,
     required this.liveEdgeAccuracy,
     required this.pendingSeekEpoch,
+    required this.programPreviewEpoch,
     required this.seekStatus,
     required this.program,
     required this.mode,
@@ -94,6 +97,7 @@ class LiveTvTimeline {
     double? liveEdgeEpoch,
     LiveTvTimeAccuracy liveEdgeAccuracy = LiveTvTimeAccuracy.unknown,
     double? pendingSeekEpoch,
+    double? programPreviewEpoch,
     LiveTvSeekStatus seekStatus = LiveTvSeekStatus.idle,
     List<LiveTvProgram> programs = const [],
     required double metadataNowEpoch,
@@ -108,9 +112,20 @@ class LiveTvTimeline {
                     playback.accuracy == LiveTvTimeAccuracy.estimated)) ||
             playback.accuracy == LiveTvTimeAccuracy.stale);
     final playing = !canSelectPlayback || programDataStale ? null : programAt(programs, epoch);
-    final selected = playing ?? programAt(programs, metadataNowEpoch);
+    final preview = programPreviewEpoch?.isFinite == true ? programPreviewEpoch : null;
+    // Unknown preview airings use the whole buffer instead of leaving the
+    // destination outside the old program. Do not invent guide metadata.
+    final selected = preview != null
+        ? (programDataStale ? null : programAt(programs, preview))
+        : playing ?? programAt(programs, metadataNowEpoch);
     final window = seekable?.isValid == true ? seekable : null;
-    final mode = playing != null
+    final mode = preview != null
+        ? (selected != null
+              ? LiveTvTimelineMode.seekPreview
+              : window != null
+              ? LiveTvTimelineMode.buffer
+              : LiveTvTimelineMode.unavailable)
+        : playing != null
         ? switch (playback.accuracy) {
             LiveTvTimeAccuracy.confirmed => LiveTvTimelineMode.playbackProgram,
             LiveTvTimeAccuracy.estimated => LiveTvTimelineMode.estimatedPlaybackProgram,
@@ -127,6 +142,7 @@ class LiveTvTimeline {
       liveEdgeEpoch: liveEdgeEpoch,
       liveEdgeAccuracy: liveEdgeAccuracy,
       pendingSeekEpoch: pendingSeekEpoch,
+      programPreviewEpoch: preview,
       seekStatus: seekStatus,
       program: selected,
       mode: mode,

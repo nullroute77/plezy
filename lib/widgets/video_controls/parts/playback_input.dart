@@ -34,7 +34,7 @@ extension _PlexVideoControlsPlaybackInputMethods on _PlexVideoControlsState {
 
   Future<void> _seekByTime({required bool forward}) async {
     final delta = Duration(seconds: forward ? _seekTimeSmall : -_seekTimeSmall);
-    await _seekByOffset(delta);
+    await _seekByOffset(delta, previewProgram: InputModeTracker.currentMode == InputMode.keyboard);
   }
 
   /// Relative seek reported through the transient skip badge instead of the
@@ -53,7 +53,7 @@ extension _PlexVideoControlsPlaybackInputMethods on _PlexVideoControlsState {
     // an absolute target is meaningless against a moving live edge (#1253).
     if (widget.isLive && widget.onLiveSeekBy != null) {
       final stepSeconds = (delta.inMilliseconds.abs() / 1000).round().clamp(1, 300);
-      widget.onLiveSeekBy!(forward ? stepSeconds : -stepSeconds);
+      (widget.onLiveSeekByWithPreview ?? widget.onLiveSeekBy)!(forward ? stepSeconds : -stepSeconds);
       _registerSkipFeedback(isForward: forward, seconds: stepSeconds);
       return;
     }
@@ -170,13 +170,14 @@ extension _PlexVideoControlsPlaybackInputMethods on _PlexVideoControlsState {
     }
   }
 
-  Future<void> _seekByOffset(Duration delta, {bool notifyCompletion = true}) async {
+  Future<void> _seekByOffset(Duration delta, {bool notifyCompletion = true, bool previewProgram = false}) async {
     // Route relative live-TV skips through the parent accumulator, which
     // coalesces a rapid burst into a single transcode re-open and computes the
     // target from a stable base rather than the laggy live epoch (#1253).
     if (widget.isLive && widget.onLiveSeekBy == null) return;
     if (widget.isLive && widget.onLiveSeekBy != null) {
-      widget.onLiveSeekBy!(delta.inSeconds);
+      final seek = previewProgram ? widget.onLiveSeekByWithPreview ?? widget.onLiveSeekBy : widget.onLiveSeekBy;
+      seek!(delta.inSeconds);
       return;
     }
     final target = widget.player.state.position + delta;

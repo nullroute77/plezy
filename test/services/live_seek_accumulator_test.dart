@@ -37,6 +37,77 @@ void main() {
       gate = null;
     });
 
+    for (final outcome in ['success', 'failure', 'exception']) {
+      test('remote program preview survives debounce/readiness and clears after $outcome', () {
+        fakeAsync((async) {
+          final acc = build();
+          gate = Completer<void>();
+          seekSucceeds = outcome == 'success';
+          seekThrows = outcome == 'exception';
+          acc.seekBy(-15, previewProgram: true);
+          expect(acc.programPreviewEpoch, 985);
+          async.elapse(const Duration(milliseconds: 300));
+          expect(seeks, [985]);
+          expect(acc.programPreviewEpoch, 985);
+          gate!.complete();
+          async.flushMicrotasks();
+          expect(acc.programPreviewEpoch, isNull);
+          expect(acc.pendingEpoch, isNull);
+          acc.dispose();
+        });
+      });
+    }
+
+    test('mouse scrubs, ordinary skips, return-to-live and cancellation do not retain program previews', () {
+      fakeAsync((async) {
+        final acc = LiveSeekAccumulator(
+          seek: (_) => Completer<bool>().future,
+          seekLive: () async => true,
+          currentEpoch: () => 1000,
+          bounds: () => const LiveSeekBounds(startEpoch: 0, endEpoch: 2000),
+        );
+        acc.seekBy(-15);
+        expect(acc.programPreviewEpoch, isNull);
+        acc.seekBy(-15, previewProgram: true);
+        expect(acc.programPreviewEpoch, 970);
+        acc.seekTo(900);
+        expect(acc.programPreviewEpoch, isNull);
+        acc.seekBy(-15, previewProgram: true);
+        expect(acc.programPreviewEpoch, 885);
+        acc.jumpToLive();
+        expect(acc.programPreviewEpoch, isNull);
+        acc.seekBy(-15, previewProgram: true);
+        acc.cancel();
+        expect(acc.programPreviewEpoch, isNull);
+        acc.dispose();
+      });
+    });
+
+    test('an older failed seek cannot clear the newer remote preview', () {
+      fakeAsync((async) {
+        final first = Completer<bool>();
+        final second = Completer<bool>();
+        var opens = 0;
+        final acc = LiveSeekAccumulator(
+          seek: (_) => ++opens == 1 ? first.future : second.future,
+          currentEpoch: () => 1000,
+          bounds: () => const LiveSeekBounds(startEpoch: 0, endEpoch: 2000),
+        );
+        acc.seekBy(-200, previewProgram: true);
+        async.elapse(const Duration(milliseconds: 300));
+        acc.seekBy(300, previewProgram: true);
+        expect(acc.programPreviewEpoch, 1100);
+        first.complete(false);
+        async.flushMicrotasks();
+        expect(opens, 2);
+        expect(acc.programPreviewEpoch, 1100);
+        second.complete(true);
+        async.flushMicrotasks();
+        expect(acc.programPreviewEpoch, isNull);
+        acc.dispose();
+      });
+    });
+
     test('return to live supersedes resolving seek with the backend live operation', () {
       fakeAsync((async) {
         final delayed = Completer<bool>();
