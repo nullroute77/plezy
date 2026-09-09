@@ -19,6 +19,7 @@ void main() {
   for (final connection in [testJellyfinConnection(), testEmbyConnection()]) {
     group('${connection.dialect.productName} validated EVENT session', () {
       var count = 20;
+      var segmentDuration = 1.0;
       var originIdentity = 'origin-1';
       var missingSegments = false;
       var unavailable = false;
@@ -34,6 +35,7 @@ void main() {
 
       setUp(() async {
         count = 20;
+        segmentDuration = 1;
         originIdentity = 'origin-1';
         missingSegments = unavailable = unsupported = false;
         discontinuity = false;
@@ -87,7 +89,11 @@ void main() {
                 transientMediaFailures--;
                 return http.Response('', 503);
               }
-              var text = eventPlaylist(count: count, extra: discontinuity ? '#EXT-X-DISCONTINUITY' : '');
+              var text = eventPlaylist(
+                count: count,
+                duration: segmentDuration,
+                extra: discontinuity ? '#EXT-X-DISCONTINUITY' : '',
+              );
               if (unsupported) text = text.replaceFirst('#EXT-X-PLAYLIST-TYPE:EVENT', '');
               return http.Response(text, 200, headers: {'content-type': 'application/vnd.apple.mpegurl'});
             }
@@ -242,6 +248,17 @@ void main() {
         await playback.reportTimeline(state: 'paused', positionMs: 19000, durationMs: 0);
         expect(session.preferredLiveEpoch, isNull);
         expect(await session.resolveSeek(targetEpoch: buffer.startedAt + 19, buffer: buffer), isNull);
+      });
+
+      test('fractional segment summation never exposes exact EOF', () async {
+        count = 200;
+        segmentDuration = .1;
+        await session.preparePlayback();
+        final buffer = playback.captureBuffer!;
+        expect(buffer.seekEndSeconds, closeTo(20, .000001));
+        expect(session.seekWindow(buffer)!.endEpoch, buffer.startedAt + 19);
+        final seek = (await session.resolveSeek(targetEpoch: buffer.startedAt + 20, buffer: buffer))!;
+        expect(seek.mediaStart, const Duration(seconds: 19));
       });
 
       test('same-named server job replacement invalidates its origin', () async {
