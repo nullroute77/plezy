@@ -22,7 +22,8 @@ void main() {
     expect(history.update(parse(eventPlaylist(duration: 1.5)), now), isTrue);
     final buffer = history.buffer(now)!;
     expect(buffer.seekStartSeconds, 0);
-    expect(buffer.seekEndSeconds, 24);
+    expect(buffer.seekEndSeconds, 30);
+    expect(history.playlist!.preferredLivePosition, 24);
     expect(buffer.startedAt, now.millisecondsSinceEpoch / 1000 - 30);
     expect(history.exactClock, isFalse);
     expect(history.buffer(now.add(const Duration(seconds: 16))), isNull);
@@ -34,10 +35,26 @@ void main() {
     final origin = history.epochOrigin;
     history.update(parse(eventPlaylist(count: 40)), now.add(const Duration(minutes: 20)));
     expect(history.epochOrigin, origin);
-    expect(history.buffer(now.add(const Duration(minutes: 20)))!.seekEndSeconds, 34);
+    expect(history.buffer(now.add(const Duration(minutes: 20)))!.seekEndSeconds, 40);
     history.unavailable();
     expect(history.buffer(now), isNull);
     expect(history.isFresh(now), isFalse);
+  });
+
+  test('short history and changing target duration do not hide completed media', () {
+    final history = RetainedHlsHistory();
+    history.update(parse(eventPlaylist(count: 3, duration: .5)), now);
+    expect(history.buffer(now)!.seekEndSeconds, 1.5);
+    expect(history.playlist!.preferredLivePosition, 0);
+    history.update(parse(eventPlaylist(count: 30, duration: .5)), now);
+    expect(history.buffer(now)!.seekEndSeconds, 15);
+    expect(history.playlist!.preferredLivePosition, 9);
+    history.update(
+      parse(eventPlaylist(count: 30, duration: .5).replaceFirst('TARGETDURATION:2', 'TARGETDURATION:4')),
+      now,
+    );
+    expect(history.buffer(now)!.seekEndSeconds, 15);
+    expect(history.playlist!.preferredLivePosition, 3);
   });
 
   test('consistent PDT supplies clock independently of history validity', () {

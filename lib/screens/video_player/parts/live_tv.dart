@@ -369,6 +369,15 @@ extension _VideoPlayerLiveTvMethods on VideoPlayerScreenState {
   double? get _currentPositionEpoch =>
       _liveSeek.pendingEpoch ?? _live.playbackPosition(player?.currentPosition ?? Duration.zero).epoch;
 
+  double? get _preferredLiveEpoch {
+    final buffer = _live.captureBuffer;
+    if (buffer == null) return null;
+    final session = _live.session;
+    return session is LiveTvHlsTimeshiftSession
+        ? (session as LiveTvHlsTimeshiftSession).preferredLiveEpoch
+        : buffer.startedAt + buffer.seekEndSeconds;
+  }
+
   LiveTvTimeline _liveTimelineForPosition(Duration position) {
     final session = _live.session;
     final buffer = _live.captureBuffer;
@@ -380,7 +389,7 @@ extension _VideoPlayerLiveTvMethods on VideoPlayerScreenState {
     return LiveTvTimeline.resolve(
       playback: _live.playbackPosition(position),
       seekable: seekable,
-      liveEdgeEpoch: buffer == null ? null : buffer.startedAt + buffer.seekEndSeconds,
+      liveEdgeEpoch: _preferredLiveEpoch,
       liveEdgeAccuracy: buffer == null
           ? LiveTvTimeAccuracy.unknown
           : staleBuffer
@@ -636,8 +645,8 @@ extension _VideoPlayerLiveTvMethods on VideoPlayerScreenState {
   /// Jump to the live edge of the capture buffer.
   void _jumpToLiveEdge() {
     if (_live.retrying) return;
-    final buffer = _live.captureBuffer;
-    if (buffer != null) _liveSeek.jumpToLive(previewEpoch: buffer.startedAt + buffer.seekEndSeconds);
+    final target = _preferredLiveEpoch;
+    if (target != null) _liveSeek.jumpToLive(previewEpoch: target);
   }
 
   Future<void> _switchLiveChannel(int delta) async {

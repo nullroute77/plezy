@@ -92,6 +92,10 @@ class LiveTvSeekRequest {
 /// currently supplies the required stable-origin open and observed landing;
 /// ExoPlayer needs its own window-relative timeline contract.
 abstract interface class LiveTvHlsTimeshiftSession implements LiveTvTimeshiftSession {
+  /// Preferred live playback position, distinct from the newest manual seek.
+  /// Null when no fresh, prepared history is available.
+  double? get preferredLiveEpoch;
+
   Map<String, String> get playbackHeaders;
   Future<LiveTvSeekRequest?> preparePlayback();
   void invalidateHistory();

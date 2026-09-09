@@ -103,7 +103,12 @@ void main() {
       test('a short initial playlist grows into a visible timeline with a decoded playhead', () async {
         count = 3;
         final start = (await session.preparePlayback())!;
-        expect(playback.captureBuffer, isNull, reason: 'not enough media for the live safety margin yet');
+        expect(
+          playback.captureBuffer!.seekEndSeconds,
+          3,
+          reason: 'completed media is seekable before live hold-back fills',
+        );
+        expect(start.mediaStart, Duration.zero);
         final state = LiveTvSessionState(null)..adoptSession(playback);
         final opening = state.beginClockOpen(
           start.effectiveTargetEpoch!,
@@ -196,7 +201,7 @@ void main() {
         await playback.reportTimeline(state: 'playing', positionMs: 14000, durationMs: 0);
         count = 100;
         final update = await playback.reportTimeline(state: 'paused', positionMs: 3000, durationMs: 0);
-        expect(update!.captureBuffer!.seekEndSeconds, 94);
+        expect(update!.captureBuffer!.seekEndSeconds, 100);
         expect(update.captureBuffer!.startedAt, origin);
         for (final seconds in [3, 80, 5, 90]) {
           final seek = await session.resolveSeek(targetEpoch: origin! + seconds, buffer: playback.captureBuffer!);
@@ -215,6 +220,28 @@ void main() {
         expect(jsonDecode(reports.last.body)['IsPaused'], isTrue);
         expect(jsonDecode(reports.last.body)['PositionTicks'], 30000000);
         expect(requests.any((r) => r.url.path.endsWith('/Stopped') || r.url.path.endsWith('/Close')), isFalse);
+      });
+
+      test('manual seeks reach the last completed segment while Go Live keeps its preferred latency', () async {
+        final start = (await session.preparePlayback())!;
+        final buffer = playback.captureBuffer!;
+        final window = session.seekWindow(buffer)!;
+        expect(start.mediaStart, const Duration(seconds: 14));
+        expect(session.preferredLiveEpoch, buffer.startedAt + 14);
+        expect(window.endEpoch, buffer.startedAt + 19);
+        for (final requested in [18, 19, 20, 1000]) {
+          final seek = (await session.resolveSeek(targetEpoch: buffer.startedAt + requested, buffer: buffer))!;
+          expect(seek.mediaStart, Duration(seconds: requested == 18 ? 18 : 19));
+          expect(seek.url, start.url);
+        }
+        expect(requests.any((r) => r.url.path.endsWith('segment-19.ts') && r.headers['range'] == 'bytes=0-0'), isTrue);
+        final live = (await session.resolveSeek(targetEpoch: null, buffer: buffer))!;
+        expect(live.mediaStart, const Duration(seconds: 14));
+        expect(requests.where((r) => r.url.path.endsWith('/PlaybackInfo')), hasLength(1));
+        unavailable = true;
+        await playback.reportTimeline(state: 'paused', positionMs: 19000, durationMs: 0);
+        expect(session.preferredLiveEpoch, isNull);
+        expect(await session.resolveSeek(targetEpoch: buffer.startedAt + 19, buffer: buffer), isNull);
       });
 
       test('same-named server job replacement invalidates its origin', () async {
