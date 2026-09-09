@@ -1,5 +1,28 @@
 # Plex timeline validation — fork draft
 
+## September 8: integration with the merged #2100 MPV fix
+
+The user accepted the pre-integration timeline at `1c242933`. Upstream main
+through `d1925b89` (PR #2282) is integrated on the same branch. MPV's merged
+first-HLS-segment option and its tests are unchanged from upstream. Offset
+seeks, including subtitle-preserving seeks, and watch-from-start pass explicit
+timeshift intent; normal starts, recovery, channel changes and return-to-live
+keep offsetless live behavior. The timeline's program previews, fractional
+epoch handling and stale-owner guards remain intact.
+
+The merge also retains upstream's ordered terminal heartbeat reporting, shutdown
+guards and launch observation alongside the timeline's non-overlapping polling
+and buffer freshness checks. Conflicts in generated translations were resolved
+by regenerating from the merged sources. Both polling and terminal-queue tests
+are retained.
+
+Full automated suite: 7,157 passed, 6 skipped. All repository checks passed. Logs:
+`/tmp/plezy-2100-integration-{tests,checks,codegen}.log`.
+Combined Windows portable and Android TV ARM64 device testing remains pending.
+Prioritize short near-live rewinds, watch-from-start, return-to-live, and remote
+seeks across program boundaries; then check mouse scrubbing and channel changes.
+No new timeline branch or PR was created. Earlier entries below are historical.
+
 ## September 8: remote/keyboard destination-program preview
 
 Keyboard shortcuts, remote transport keys, and focused timeline navigation now

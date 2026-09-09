@@ -1,9 +1,11 @@
 # Plex Live TV timeline development (unsubmitted)
 
-Status: timeline feature development and user testing. Previous-program tracking
-is retained. A dedicated #2100 repair branch is deferred until the user is
-satisfied with the timeline; it has not been created. Broadcast timing remains
-estimated, so this is not a completed #2100 fix.
+Status: the user is satisfied with the timeline before integration. The separate
+MPV fix for #2100 merged upstream as PR #2282 (`d1925b89`) and is now integrated
+into this branch with current upstream main. Previous-program tracking and
+remote/keyboard previews are retained. Test the combined builds before preparing
+any timeline PR; no new branch or PR is authorized. Broadcast timing remains
+estimated. The earlier investigation notes below describe the pre-fix work.
 
 Fork: nullroute77/plezy. Branch: codex/plex-program-timeline.
 Starting SHA: 8238705d3e70add2ed32bbf4ae1af7bf96954e8c.
@@ -42,7 +44,7 @@ and unvalidated playback anchors can therefore still produce a visual gap.
 
 ## Evidence and scope
 
-Issue #2100 remains open. September 4 discussion reports af9fb3f fixed the
+Before PR #2282, the September 4 discussion reported af9fb3f fixed the
 replacement MPV clock, but small near-live seeks still fail. September 7's
 report confirms the later build still fails. Logs correlate requested offsets
 with server origin changes; they do not contain raw capture/playback timing

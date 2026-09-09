@@ -5,6 +5,7 @@ const _liveClockReadyTimeout = Duration(seconds: 15);
 extension _VideoPlayerLiveTvMethods on VideoPlayerScreenState {
   /// Start periodic timeline heartbeats for live TV transcode session.
   void _startLiveTimelineUpdates() {
+    if (_shuttingDown) return;
     final generation = ++_live.timelineGeneration;
     _live.timelineTimer?.cancel();
     unawaited(_refreshLiveGuide());
@@ -26,6 +27,7 @@ extension _VideoPlayerLiveTvMethods on VideoPlayerScreenState {
 
   /// Advance the fallback ladder and retry — the error path's entry point.
   void _beginLiveLadderRetry() {
+    if (_shuttingDown) return;
     _live.fallbackLevel++;
     _live.retrying = true;
     appLogger.w('Live stream failed, retrying with fallback level ${_live.fallbackLevel}');
@@ -35,7 +37,7 @@ extension _VideoPlayerLiveTvMethods on VideoPlayerScreenState {
   /// Play pressed while the live stream is dead: reuse the ladder retry
   /// unless one is already in flight.
   Future<void> _retryLiveStreamForPlayIntent() {
-    if (_live.retrying) return Future.value();
+    if (_shuttingDown || _live.retrying) return Future.value();
     _live.retrying = true;
     return _retryLiveStream();
   }
@@ -82,6 +84,7 @@ extension _VideoPlayerLiveTvMethods on VideoPlayerScreenState {
   }
 
   Future<void> _sendLiveTimeline(String state) async {
+    if (_shuttingDown && state != 'stopped') return;
     final requestSession = _live.session;
     if (requestSession == null) return;
     final requestGeneration = _live.timelineGeneration;
@@ -92,31 +95,34 @@ extension _VideoPlayerLiveTvMethods on VideoPlayerScreenState {
     final playbackTime = _live.playbackElapsed.elapsedMilliseconds;
 
     try {
-      await runLiveTimelineReport(
-        requestSession: requestSession,
-        requestGeneration: requestGeneration,
-        state: state,
-        positionMs: playbackTime,
-        currentSession: () => _live.session,
-        currentGeneration: () => _live.timelineGeneration,
-        isMounted: () => mounted,
-        commit: (update) {
-          if (requestStreamGeneration != _live.streamGeneration) return;
-          _setPlayerState(() {
-            final playbackStream = update.playbackStream;
-            if (playbackStream != null &&
-                _live.adoptPlaybackStreamOrigin(playbackStream, generation: requestStreamGeneration)) {
-              appLogger.d('Live clock re-anchored on playback transcode origin ${playbackStream.startedAt}');
-            }
-            final buffer = update.captureBuffer;
-            if (buffer != null) {
-              _live.captureBuffer = buffer;
-              _liveBufferAge
-                ..reset()
-                ..start();
-            }
-          });
-        },
+      await _live.timelineReports.send(
+        stopped: state == 'stopped',
+        report: () => runLiveTimelineReport(
+          requestSession: requestSession,
+          requestGeneration: requestGeneration,
+          state: state,
+          positionMs: playbackTime,
+          currentSession: () => _live.session,
+          currentGeneration: () => _live.timelineGeneration,
+          isMounted: () => mounted,
+          commit: (update) {
+            if (requestStreamGeneration != _live.streamGeneration) return;
+            _setPlayerState(() {
+              final playbackStream = update.playbackStream;
+              if (playbackStream != null &&
+                  _live.adoptPlaybackStreamOrigin(playbackStream, generation: requestStreamGeneration)) {
+                appLogger.d('Live clock re-anchored on playback transcode origin ${playbackStream.startedAt}');
+              }
+              final buffer = update.captureBuffer;
+              if (buffer != null) {
+                _live.captureBuffer = buffer;
+                _liveBufferAge
+                  ..reset()
+                  ..start();
+              }
+            });
+          },
+        ),
       );
     } catch (e) {
       appLogger.d('Live timeline update failed', error: e);
@@ -163,7 +169,7 @@ extension _VideoPlayerLiveTvMethods on VideoPlayerScreenState {
   Future<void> _retryLiveStream() async {
     _liveSeek.cancel();
     final currentPlayer = player;
-    if (!mounted || currentPlayer == null) return;
+    if (!mounted || _shuttingDown || currentPlayer == null) return;
     final generation = _transitionGate.generation;
     final intent = _liveSeek.intentGeneration;
     final retryOwner = _live.beginRetry();
@@ -255,8 +261,11 @@ extension _VideoPlayerLiveTvMethods on VideoPlayerScreenState {
     bool? play,
     bool applyOptions = true,
     bool Function()? isCurrent,
+    bool timeShifted = false,
+    void Function()? onOpenStarted,
   }) async {
-    bool ownsOpen() => mounted && this.player == player && (isCurrent?.call() ?? true);
+    bool ownsOpen() =>
+        mounted && !_shuttingDown && _launchCurrent && this.player == player && (isCurrent?.call() ?? true);
     if (!ownsOpen()) return false;
     _live.playbackPosition(player.currentPosition);
     _live.invalidatePlayback();
@@ -268,6 +277,7 @@ extension _VideoPlayerLiveTvMethods on VideoPlayerScreenState {
     if (targetEpoch == null || player is! PlayerNative) {
       if (applyOptions) await _setLiveStreamOptions(player);
       if (!ownsStream()) return false;
+      onOpenStarted?.call();
       await player.open(media, play: playNow, isLive: true);
       if (ownsStream() && targetEpoch != null) {
         _live.estimateUnidentifiedStream(targetEpoch, player.currentPosition);
@@ -284,7 +294,8 @@ extension _VideoPlayerLiveTvMethods on VideoPlayerScreenState {
         _live.failClockOpen(clockGeneration);
         return false;
       }
-      sourceId = await player.open(media, play: playNow, isLive: true);
+      onOpenStarted?.call();
+      sourceId = await player.open(media, play: playNow, isLive: true, startLivePlaylistFromBeginning: timeShifted);
     } catch (_) {
       _live.failClockOpen(clockGeneration);
       rethrow;
@@ -450,6 +461,7 @@ extension _VideoPlayerLiveTvMethods on VideoPlayerScreenState {
           targetEpoch: request.effectiveTargetEpoch,
           awaitClock: currentPlayer is PlayerNative,
           isCurrent: isCurrent,
+          timeShifted: targetEpochSeconds != null,
         );
       },
     );
@@ -580,6 +592,7 @@ extension _VideoPlayerLiveTvMethods on VideoPlayerScreenState {
   }
 
   Future<void> _switchLiveChannel(int delta) async {
+    if (_shuttingDown) return;
     final channels = widget.live?.channels;
     if (channels == null || channels.isEmpty) return;
     final newIndex = _live.channelIndex + delta;
@@ -591,6 +604,7 @@ extension _VideoPlayerLiveTvMethods on VideoPlayerScreenState {
     if (transitionLease == null) return; // debounce concurrent switches
     bool isCurrentChannelSwitch() =>
         mounted &&
+        !_shuttingDown &&
         player == currentPlayer &&
         _transitionGate.owns(transitionLease, expected: PlaybackTransition.switchingChannel);
     _liveSeek.cancel();
@@ -632,8 +646,17 @@ extension _VideoPlayerLiveTvMethods on VideoPlayerScreenState {
       });
       _live.markStreamRestartedAtLiveEdge(session.captureBuffer);
       final targetEpoch = session.captureBuffer == null ? null : _live.streamStartEpoch;
-      replacementOpenStarted = true;
-      await _openLiveStream(currentPlayer, streamUrl, targetEpoch: targetEpoch);
+      await _openLiveStream(
+        currentPlayer,
+        streamUrl,
+        targetEpoch: targetEpoch,
+        onOpenStarted: () {
+          replacementOpenStarted = true;
+          // Detach the old launch receipt when the replacement reaches the
+          // player, retaining the screen's launch lifetime fence.
+          widget.launchObserver?.detach();
+        },
+      );
       if (!isCurrentChannelSwitch()) {
         _abandonLiveSession(session);
         return;

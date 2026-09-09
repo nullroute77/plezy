@@ -1,12 +1,13 @@
 # Plex timeline design note — unsubmitted fork draft
 
 This draft separates requested seeks from playback and adds a shared scheduled
-program timeline. It does not establish a real-content fix for
-[#2100](https://github.com/edde746/plezy/issues/2100). The issue remained open on
-September 7, 2026; reports after the nonzero-player-clock and server-origin changes
-still describe bad near-live rewinds. Available logs correlate request offsets
-with response origins but cannot identify the rendered broadcast frame. No real
-Plex tuner was available for this work.
+program timeline. The separate MPV fix for
+[#2100](https://github.com/edde746/plezy/issues/2100) merged as
+[PR #2282](https://github.com/edde746/plezy/pull/2282) (`d1925b89`) and is now
+integrated here. Offset seeks and watch-from-start explicitly start MPV at the
+first available HLS segment; offsetless live opens keep MPV's defaults. This
+does not promote the timeline's estimated broadcast clock to confirmed accuracy.
+The user tested the fix separately; the combined timeline builds need device testing.
 
 One defect is reproduced deterministically: the starting session state reports a
 pending target of 1500 as playback while actual last playback is 1010. The same
@@ -59,15 +60,15 @@ The abstraction serves current Plex and shared UI needs. Jellyfin/Emby retain
 their existing capabilities; their timeshift adapters are deferred until their
 actual timing contracts are tested. No native subsystem or dependencies change.
 
-Current sequencing: finish/test the timeline in this fork branch first; create a
-separate #2100-focused branch only after the user's satisfaction and instruction.
-Previous-program tracking is retained for testing, not dropped.
+Current sequencing: test the timeline together with the merged #2100 fix on this
+existing branch. Previous-program tracking is retained. Create no new timeline
+branch or PR until the user approves.
 Possible later submission boundaries are the demonstrable pending/ownership
 repairs, the absolute-time contract and adapter migration, and the program UI.
 Their shared-control dependencies should determine the eventual split after
 real-source validation. Maintainer agreement would help on endpoint policy,
 accuracy/fallback wording and full-program presentation. The issue does not
-approve the redesign. No upstream PR, issue, comment or review request was made.
+approve the redesign. No upstream timeline PR, issue, comment or review request was made.
 
 AI disclosure: development/integration used GPT-6-based Codex with its selected
 settings unchanged. Exactly two reused workers were explicitly spawned with
