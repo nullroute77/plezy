@@ -33,7 +33,20 @@ jobs:
           java-version: "21"
 
       - name: Set up pinned Flutter SDK
-        uses: ./.github/actions/setup-flutter-git
+        shell: bash
+        run: |
+          flutter_version=3.47.1
+          expected_commit=6655482ec06e547f90abf8ae7590466f4415978d
+          flutter_root="$RUNNER_TEMP/flutter"
+          git init "$flutter_root"
+          git -C "$flutter_root" remote add origin https://github.com/flutter/flutter.git
+          git -C "$flutter_root" fetch --depth 1 origin "refs/tags/$flutter_version:refs/tags/$flutter_version"
+          git -C "$flutter_root" checkout --detach "refs/tags/$flutter_version"
+          test "$(git -C "$flutter_root" rev-parse HEAD)" = "$expected_commit"
+          echo "$flutter_root/bin" >> "$GITHUB_PATH"
+          "$flutter_root/bin/flutter" --version
+          "$flutter_root/bin/flutter" --version --machine > "$RUNNER_TEMP/flutter-version.json"
+          python3 -c 'import json,sys; assert json.load(open(sys.argv[1]))["frameworkVersion"] == "3.47.1"' "$RUNNER_TEMP/flutter-version.json"
 
       - name: Install dependencies
         run: flutter pub get --enforce-lockfile --no-example
