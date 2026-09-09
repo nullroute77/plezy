@@ -92,7 +92,9 @@ extension _VideoPlayerLiveTvMethods on VideoPlayerScreenState {
     // For live TV, player position/duration are unreliable (often 0). Use
     // elapsed wall-clock as the position and the program duration from tune
     // metadata; the per-backend session owns the wire mapping.
-    final playbackTime = _live.playbackElapsed.elapsedMilliseconds;
+    final playbackTime = requestSession is LiveTvHlsTimeshiftSession
+        ? (player?.currentPosition.inMilliseconds ?? 0)
+        : _live.playbackElapsed.elapsedMilliseconds;
 
     try {
       await _live.timelineReports.send(
@@ -114,6 +116,7 @@ extension _VideoPlayerLiveTvMethods on VideoPlayerScreenState {
                 appLogger.d('Live clock re-anchored on playback transcode origin ${playbackStream.startedAt}');
               }
               final buffer = update.captureBuffer;
+              if (update.clearCaptureBuffer) _live.captureBuffer = null;
               if (buffer != null) {
                 _live.captureBuffer = buffer;
                 _liveBufferAge
@@ -165,7 +168,7 @@ extension _VideoPlayerLiveTvMethods on VideoPlayerScreenState {
   /// The session owns the per-backend recovery: Plex re-tunes the channel
   /// for a fresh capture session (the previous one expires while MPV
   /// exhausts its reconnect attempts) applying the degradation flags;
-  /// Jellyfin re-opens its session-less URL.
+  /// Jellyfin/Emby reopen their negotiated HLS session.
   Future<void> _retryLiveStream() async {
     _liveSeek.cancel();
     final currentPlayer = player;
@@ -262,17 +265,35 @@ extension _VideoPlayerLiveTvMethods on VideoPlayerScreenState {
     bool applyOptions = true,
     bool Function()? isCurrent,
     bool timeShifted = false,
+    LiveTvSeekRequest? hlsRequest,
     void Function()? onOpenStarted,
   }) async {
     bool ownsOpen() =>
         mounted && !_shuttingDown && _launchCurrent && this.player == player && (isCurrent?.call() ?? true);
     if (!ownsOpen()) return false;
+    final session = _live.session;
+    final hls = session is LiveTvHlsTimeshiftSession ? session as LiveTvHlsTimeshiftSession : null;
+    if (hls != null && player is PlayerNative) {
+      hlsRequest ??= await hls.preparePlayback();
+      if (!ownsOpen() || !identical(_live.session, session)) return false;
+      if (hlsRequest != null) {
+        streamUrl = hlsRequest.url;
+        targetEpoch = hlsRequest.effectiveTargetEpoch;
+        timeShifted = true;
+        awaitClock = true;
+        _live.captureBuffer = session!.captureBuffer;
+      }
+    }
     _live.playbackPosition(player.currentPosition);
     _live.invalidatePlayback();
     _live.streamGeneration++;
     final streamGeneration = _live.streamGeneration;
     bool ownsStream() => ownsOpen() && streamGeneration == _live.streamGeneration;
-    final media = Media(streamUrl, headers: const {'Accept-Language': 'en'});
+    final media = Media(
+      streamUrl,
+      start: hlsRequest?.mediaStart,
+      headers: hls?.playbackHeaders ?? const {'Accept-Language': 'en'},
+    );
     final playNow = play ?? automotivePlaybackAllowedNow();
     if (targetEpoch == null || player is! PlayerNative) {
       if (applyOptions) await _setLiveStreamOptions(player);
@@ -285,7 +306,11 @@ extension _VideoPlayerLiveTvMethods on VideoPlayerScreenState {
       return ownsStream();
     }
 
-    final clockGeneration = _live.beginClockOpen(targetEpoch);
+    final clockGeneration = _live.beginClockOpen(
+      targetEpoch,
+      mediaStart: hlsRequest?.mediaStart,
+      mediaEpochOrigin: hlsRequest?.mediaEpochOrigin,
+    );
     final clockResult = _live.clockOpenResult(clockGeneration);
     final int? sourceId;
     try {
@@ -316,7 +341,7 @@ extension _VideoPlayerLiveTvMethods on VideoPlayerScreenState {
       unawaited(clockResult);
       return true;
     }
-    return clockResult.timeout(
+    final ready = await clockResult.timeout(
       _liveClockReadyTimeout,
       onTimeout: () {
         _live.timeoutClockOpen(clockGeneration);
@@ -324,6 +349,11 @@ extension _VideoPlayerLiveTvMethods on VideoPlayerScreenState {
         return false;
       },
     );
+    if (!ready && ownsStream() && hlsRequest != null) {
+      hls?.invalidateHistory();
+      _live.captureBuffer = null;
+    }
+    return ready;
   }
 
   double? get _currentPositionEpoch =>
@@ -333,7 +363,8 @@ extension _VideoPlayerLiveTvMethods on VideoPlayerScreenState {
     final session = _live.session;
     final buffer = _live.captureBuffer;
     final staleBuffer = _liveBufferAge.isRunning && _liveBufferAge.elapsed > const Duration(seconds: 30);
-    final seekable = session is LiveTvTimeshiftSession && buffer != null && !staleBuffer
+    final engineSupported = session is! LiveTvHlsTimeshiftSession || player is PlayerNative;
+    final seekable = engineSupported && session is LiveTvTimeshiftSession && buffer != null && !staleBuffer
         ? (session as LiveTvTimeshiftSession).seekWindow(buffer)
         : null;
     return LiveTvTimeline.resolve(
@@ -413,10 +444,9 @@ extension _VideoPlayerLiveTvMethods on VideoPlayerScreenState {
     );
   }
 
-  /// Seek the live TV stream to an absolute epoch second by rebuilding the
-  /// stream at the target offset. The session returns null when the backend
-  /// can't time-shift (Jellyfin), and its capture buffer is null there too,
-  /// so both guards cover it. Returns whether the rebuilt stream was opened.
+  /// Translate the absolute seek through the backend, then open the resolved
+  /// stream. Retained HLS uses a player offset within the same server job;
+  /// Plex uses its existing server-positioned URL.
   Future<bool> _seekLivePosition(double? targetEpochSeconds, {PlaybackTransitionLease? sourceLease}) async {
     final currentPlayer = player;
     final session = _live.session;
@@ -430,6 +460,7 @@ extension _VideoPlayerLiveTvMethods on VideoPlayerScreenState {
         _live.retrying) {
       return false;
     }
+    if (session is LiveTvHlsTimeshiftSession && currentPlayer is! PlayerNative) return false;
     final generation = _transitionGate.generation;
     final intent = _liveSeek.intentGeneration;
     bool isCurrent() =>
@@ -457,11 +488,18 @@ extension _VideoPlayerLiveTvMethods on VideoPlayerScreenState {
           awaitClock: currentPlayer is PlayerNative,
           isCurrent: isCurrent,
           timeShifted: targetEpochSeconds != null,
+          hlsRequest: request.mediaStart == null ? null : request,
+          play: session is LiveTvHlsTimeshiftSession ? currentPlayer.state.playing : null,
         );
       },
     );
     if (result == LiveTvSeekOutcome.superseded || !isCurrent()) return false;
     if (result == LiveTvSeekOutcome.failed) {
+      if (session is LiveTvHlsTimeshiftSession) {
+        (session as LiveTvHlsTimeshiftSession).invalidateHistory();
+        _live.captureBuffer = null;
+        _live.invalidatePlayback();
+      }
       _live.seekStatus = LiveTvSeekStatus.failed;
       showGlobalErrorSnackBar(t.liveTv.liveStreamFailed);
     }
@@ -539,6 +577,7 @@ extension _VideoPlayerLiveTvMethods on VideoPlayerScreenState {
   LiveSeekBounds? _liveSeekBounds() {
     if (_live.retrying) return null;
     final session = _live.session;
+    if (session is LiveTvHlsTimeshiftSession && player is! PlayerNative) return null;
     final buffer = _freshLiveBuffer;
     if (session is! LiveTvTimeshiftSession || buffer == null) return null;
     final window = (session as LiveTvTimeshiftSession).seekWindow(buffer);
@@ -567,6 +606,11 @@ extension _VideoPlayerLiveTvMethods on VideoPlayerScreenState {
     } catch (e, st) {
       appLogger.w('Live time-shift seek failed', error: e, stackTrace: st);
       if (mounted && identical(_live.session, session) && intent == _liveSeek.intentGeneration) {
+        if (session is LiveTvHlsTimeshiftSession) {
+          (session as LiveTvHlsTimeshiftSession).invalidateHistory();
+          _live.captureBuffer = null;
+          _live.invalidatePlayback();
+        }
         _live.seekStatus = LiveTvSeekStatus.failed;
         _setPlayerState(() {});
         showGlobalErrorSnackBar(t.liveTv.liveStreamFailed);

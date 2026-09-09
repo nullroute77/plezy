@@ -2756,18 +2756,16 @@ void main() {
       expect(negotiation.url.path, '/Items/channel-1/PlaybackInfo');
       expect(negotiation.url.queryParameters['AutoOpenLiveStream'], 'true');
       expect(negotiation.url.queryParameters['EnableTranscoding'], 'true');
-      // Original quality asks for direct play; this server answers with a
-      // transcode (no SupportsDirectPlay on the source) and the session
-      // adopts it.
-      expect(negotiation.url.queryParameters['EnableDirectPlay'], 'true');
-      expect(negotiation.url.queryParameters['EnableDirectStream'], 'true');
+      // Original requests HLS while permitting compatible audio/video copy.
+      expect(negotiation.url.queryParameters['EnableDirectPlay'], 'false');
+      expect(negotiation.url.queryParameters['EnableDirectStream'], 'false');
       expect(negotiation.url.queryParameters['AllowVideoStreamCopy'], 'true');
       expect(negotiation.url.queryParameters['AllowAudioStreamCopy'], 'true');
       final body = jsonDecode(negotiation.body) as Map<String, dynamic>;
       expect(body['AutoOpenLiveStream'], isTrue);
       expect(body['EnableTranscoding'], isTrue);
-      expect(body['EnableDirectPlay'], isTrue);
-      expect(body['EnableDirectStream'], isTrue);
+      expect(body['EnableDirectPlay'], isFalse);
+      expect(body['EnableDirectStream'], isFalse);
 
       expect(session, isNotNull);
       final uri = Uri.parse((await session!.streamUrlAt())!);

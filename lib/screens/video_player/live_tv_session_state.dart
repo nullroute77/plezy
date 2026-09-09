@@ -9,10 +9,12 @@ import 'live_tv_session_args.dart';
 import 'live_timeline_report.dart';
 
 class _LiveClockOpen {
-  _LiveClockOpen({required this.generation, required this.targetEpoch});
+  _LiveClockOpen({required this.generation, required this.targetEpoch, this.mediaStart, this.mediaEpochOrigin});
 
   final int generation;
   final double targetEpoch;
+  final Duration? mediaStart;
+  final double? mediaEpochOrigin;
   final Completer<bool> result = Completer<bool>();
   int? sourceId;
   bool canceled = false;
@@ -186,7 +188,7 @@ class LiveTvSessionState {
   /// returned generation is the handle the caller binds to the source id the
   /// load reports ([bindClockOpen]); until then the open is unbound and no
   /// source event can reach it. Every earlier open is superseded.
-  int beginClockOpen(num targetEpoch) {
+  int beginClockOpen(num targetEpoch, {Duration? mediaStart, double? mediaEpochOrigin}) {
     activeClockSourceId = null;
     seekStatus = LiveTvSeekStatus.opening;
     final previousOpens = <_LiveClockOpen>{..._clockOpensByGeneration.values, ..._clockOpensBySource.values};
@@ -197,7 +199,12 @@ class LiveTvSessionState {
     _clockOpensByGeneration.clear();
     _clockOpensBySource.clear();
 
-    final open = _LiveClockOpen(generation: ++_nextClockGeneration, targetEpoch: targetEpoch.toDouble());
+    final open = _LiveClockOpen(
+      generation: ++_nextClockGeneration,
+      targetEpoch: targetEpoch.toDouble(),
+      mediaStart: mediaStart,
+      mediaEpochOrigin: mediaEpochOrigin,
+    );
     _clockOpensByGeneration[open.generation] = open;
     _latestClockGeneration = open.generation;
     pendingStreamEpoch = targetEpoch.toDouble();
@@ -241,10 +248,15 @@ class LiveTvSessionState {
     }
     if (open.canceled || open.generation != _latestClockGeneration) return false;
 
-    streamStartEpoch = open.targetEpoch - source.position.inMilliseconds / 1000.0;
+    final expected = open.mediaStart;
+    if (expected != null && (source.position - expected).inMilliseconds.abs() > 1000) {
+      _failClockOpen(open);
+      return false;
+    }
+    streamStartEpoch = open.mediaEpochOrigin ?? open.targetEpoch - source.position.inMilliseconds / 1000.0;
     activeClockSourceId = source.sourceId;
     _lastObservedPosition = source.position;
-    _lastPlaybackEpoch = open.targetEpoch;
+    _lastPlaybackEpoch = streamStartEpoch + source.position.inMilliseconds / 1000.0;
     seekStatus = LiveTvSeekStatus.idle;
     pendingStreamEpoch = null;
     _clockOpensByGeneration.remove(open.generation);
@@ -286,6 +298,12 @@ class LiveTvSessionState {
   void timeoutClockOpen(int generation) {
     final open = _clockOpensByGeneration[generation];
     if (open == null || open.canceled || generation != _latestClockGeneration) return;
+    // Retained HLS retires failed history. Late readiness must not resurrect
+    // its mapping; Plex keeps its existing late-estimate recovery below.
+    if (open.mediaStart != null) {
+      _failClockOpen(open);
+      return;
+    }
     pendingStreamEpoch = null;
     seekStatus = LiveTvSeekStatus.failed;
     if (!open.result.isCompleted) open.result.complete(false);

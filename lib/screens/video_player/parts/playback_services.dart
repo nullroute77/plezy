@@ -180,6 +180,11 @@ extension _VideoPlayerPlaybackServiceMethods on VideoPlayerScreenState {
         final activePlayer = player;
         if (activePlayer == null || activePlayer != currentPlayer) return;
         if (widget.isLive && _live.observePlayerPosition(position)) {
+          final session = _live.session;
+          if (session is LiveTvHlsTimeshiftSession) {
+            (session as LiveTvHlsTimeshiftSession).invalidateHistory();
+            _live.captureBuffer = null;
+          }
           appLogger.w('Live player timestamp moved backwards; broadcast mapping is now unknown');
           _setPlayerState(() {});
         }
