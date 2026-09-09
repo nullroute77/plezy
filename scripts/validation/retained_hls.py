@@ -37,7 +37,7 @@ class NativePlayer:
         if not self.handle:
             raise RuntimeError('mpv_create failed')
         for name, value in {'config': 'no', 'vo': 'null', 'ao': 'null', 'pause': 'yes',
-                            'idle': 'yes', 'cache': 'no', 'demuxer-max-bytes': '32768',
+                            'idle': 'yes', 'cache': 'no', 'demuxer-max-bytes': '4MiB',
                             'demuxer-max-back-bytes': '0', 'demuxer-readahead-secs': '0',
                             'screenshot-format': 'png',
                             'http-header-fields': 'User-Agent: Plezy-Live-HLS/1'}.items():
@@ -137,7 +137,8 @@ def run_case(args, root, container):
         before = len(state['requests'])
         if reopen:
             player.send('loadfile', url, 'replace', '-1',
-                        f'demuxer-lavf-o-append=live_start_index=0,demuxer-lavf-o-add=prefer_x_start=0,start={target}')
+                        f'demuxer-lavf-o-append=live_start_index=0,demuxer-lavf-o-add=prefer_x_start=0,start={target},'
+                        f'hr-seek-demuxer-offset={min(target, max(durations[:state["visible"]]))}')
         else:
             player.send('seek', target, 'absolute+exact')
         player.ready()

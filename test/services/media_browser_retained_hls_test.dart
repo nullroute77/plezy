@@ -115,6 +115,7 @@ void main() {
           reason: 'completed media is seekable before live hold-back fills',
         );
         expect(start.mediaStart, Duration.zero);
+        expect(start.mediaSeekPreRoll, const Duration(seconds: 1));
         final state = LiveTvSessionState(null)..adoptSession(playback);
         final opening = state.beginClockOpen(
           start.effectiveTargetEpoch!,
@@ -140,6 +141,20 @@ void main() {
         expect(timeline.visibleSeekEnd, window.endEpoch);
         final seek = await session.resolveSeek(targetEpoch: window.startEpoch + 3, buffer: state.captureBuffer!);
         expect(seek!.mediaStart, const Duration(seconds: 3));
+      });
+
+      test('HLS pre-roll covers a full completed segment without moving the seek target', () async {
+        segmentDuration = 4.487822;
+        final start = (await session.preparePlayback())!;
+        final seek = (await session.resolveSeek(
+          targetEpoch: start.mediaEpochOrigin! + 24,
+          buffer: playback.captureBuffer!,
+        ))!;
+        expect(seek.mediaStart, const Duration(seconds: 24));
+        expect(seek.effectiveTargetEpoch, start.mediaEpochOrigin! + 24);
+        expect(seek.mediaEpochOrigin, start.mediaEpochOrigin);
+        expect(seek.mediaSeekPreRoll!.inMicroseconds, inInclusiveRange(4487822, 4487823));
+        expect(seek.url, start.url);
       });
 
       test('cold media playlist exceeding the polling timeout still prepares a seekable source', () async {
