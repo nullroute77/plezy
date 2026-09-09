@@ -530,10 +530,14 @@ class _JellyfinLiveTvPlaybackSession implements LiveTvPlaybackSession, LiveTvHls
   LiveTvSeekWindow? seekWindow(CaptureBuffer buffer) {
     final current = captureBuffer;
     if (current == null || buffer.startedAt != current.startedAt) return null;
+    // Match native seek precision so EXTINF summation noise above an exact
+    // second cannot accidentally expose EOF as a whole-second target.
+    final endMicros = (current.seekEndSeconds * Duration.microsecondsPerSecond).round();
+    if (endMicros <= 0) return null;
     return LiveTvSeekWindow(
       startEpoch: current.startedAt + current.seekStartSeconds,
       // Whole-second targets strictly inside completed media, never its EOF.
-      endEpoch: current.startedAt + current.seekEndSeconds.ceil() - 1,
+      endEpoch: current.startedAt + (endMicros - 1) ~/ Duration.microsecondsPerSecond,
     );
   }
 
