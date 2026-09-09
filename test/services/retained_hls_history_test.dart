@@ -48,7 +48,23 @@ void main() {
     final inconsistent = eventPlaylist()
         .replaceFirst('segment-0.ts', 'segment-0.ts\n#EXT-X-PROGRAM-DATE-TIME:2026-09-09T11:00:00Z')
         .replaceFirst('segment-1.ts', 'segment-1.ts\n#EXT-X-PROGRAM-DATE-TIME:2026-09-09T12:00:00Z');
-    expect(RetainedHlsPlaylist.parse(uri, inconsistent), isNull);
+    final conflicting = parse(inconsistent);
+    expect(conflicting.epochOrigin, isNull);
+    expect(history.update(conflicting, now), isTrue);
+    expect(history.buffer(now), isNotNull);
+    expect(history.exactClock, isFalse);
+  });
+
+  test('bad or changing wall-clock tags do not remove valid retained media', () {
+    final history = RetainedHlsHistory();
+    history.update(parse(eventPlaylist(extra: '#EXT-X-PROGRAM-DATE-TIME:2026-09-09T11:00:00Z')), now);
+    final origin = history.epochOrigin;
+    for (final value in ['2026-09-09T12:00:00Z', 'bad-date', '2026-09-09T11:00:00']) {
+      expect(history.update(parse(eventPlaylist(extra: '#EXT-X-PROGRAM-DATE-TIME:$value')), now), isTrue);
+      expect(history.buffer(now), isNotNull);
+      expect(history.epochOrigin, origin);
+      expect(history.exactClock, isFalse);
+    }
   });
 
   for (final mutation in <String Function(String)>[
