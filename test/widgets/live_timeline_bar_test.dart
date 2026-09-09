@@ -137,7 +137,7 @@ void main() {
       final player = FakeSyncPlayer();
       addTearDown(player.dispose);
       Future<void> refresh() =>
-          _pump(tester, timeline: view(), timelineBuilder: view, seeks: [], player: player, showHeader: true);
+          _pump(tester, timeline: view(), timelineBuilder: (_) => view(), seeks: [], player: player, showHeader: true);
       final duration = formatDurationTextual(120000);
       await refresh();
       expect(find.text('Current · $duration'), findsOneWidget);
@@ -182,7 +182,7 @@ void main() {
       LiveTvProgram(title: 'Previous program', beginsAt: _start.toInt(), endsAt: _start.toInt() + 120),
       LiveTvProgram(title: 'Live program', beginsAt: _start.toInt() + 120, endsAt: _start.toInt() + 240),
     ];
-    LiveTvTimeline view() => LiveTvTimeline.resolve(
+    LiveTvTimeline view(Duration position) => LiveTvTimeline.resolve(
       playback: state.playbackPosition(position),
       pendingSeekEpoch: state.pendingTargetEpoch,
       seekStatus: state.seekStatus,
@@ -193,7 +193,7 @@ void main() {
     final first = state.beginClockOpen(_start + 180);
     state.bindClockOpen(first, 1);
     state.calibrateClockSource(const PlayerSourceReady(sourceId: 1, position: Duration.zero));
-    await _pump(tester, timeline: view(), seeks: [], showHeader: true);
+    await _pump(tester, timeline: view(position), seeks: [], showHeader: true);
     expect(find.text('Live program · $duration'), findsOneWidget);
     expect(find.text('Test channel'), findsOneWidget);
     expect(
@@ -202,25 +202,25 @@ void main() {
     );
 
     final rewind = state.beginClockOpen(_start + 60);
-    await _pump(tester, timeline: view(), seeks: [], showHeader: true);
+    await _pump(tester, timeline: view(position), seeks: [], showHeader: true);
     expect(find.text('Live program · $duration'), findsOneWidget);
     expect(find.text('Previous program · $duration'), findsNothing);
     state.bindClockOpen(rewind, 2);
     position = const Duration(seconds: 52);
     state.calibrateClockSource(PlayerSourceReady(sourceId: 2, position: position));
-    await _pump(tester, timeline: view(), seeks: [], showHeader: true);
+    await _pump(tester, timeline: view(position), seeks: [], showHeader: true);
     expect(find.text('Previous program · $duration'), findsOneWidget);
     expect(find.text(_clock(_start)), findsOneWidget);
     expect(find.text(_clock(_start + 120)), findsOneWidget);
     expect(_slider(tester).value, 60000);
-    expect(view().playback.confirmedEpoch, isNull);
+    expect(view(position).playback.confirmedEpoch, isNull);
 
     // A further pending seek must not revert the title to the live program.
     final next = state.beginClockOpen(_start + 30);
-    await _pump(tester, timeline: view(), seeks: [], showHeader: true);
+    await _pump(tester, timeline: view(position), seeks: [], showHeader: true);
     expect(find.text('Previous program · $duration'), findsOneWidget);
     state.failClockOpen(next);
-    await _pump(tester, timeline: view(), seeks: [], showHeader: true);
+    await _pump(tester, timeline: view(position), seeks: [], showHeader: true);
     expect(find.text('Previous program · $duration'), findsOneWidget);
 
     final resumed = state.beginClockOpen(_start + 60);
@@ -229,17 +229,30 @@ void main() {
     final tickingPlayer = _PositionPlayer();
     addTearDown(tickingPlayer.dispose);
     position = const Duration(seconds: 111, milliseconds: 999);
-    await _pump(tester, timeline: view(), seeks: [], showHeader: true);
+    tickingPlayer.setPosition(position);
+    await _pump(tester, timeline: view(position), seeks: [], showHeader: true);
     expect(find.text('Previous program · $duration'), findsOneWidget);
-    await _pump(tester, timeline: view(), timelineBuilder: view, seeks: [], showHeader: true, player: tickingPlayer);
-    position = const Duration(seconds: 112);
-    tickingPlayer.positions.add(position);
+    await _pump(
+      tester,
+      timeline: view(position),
+      timelineBuilder: view,
+      seeks: [],
+      showHeader: true,
+      player: tickingPlayer,
+    );
+    // Keep the player snapshot behind the event so both widgets must use
+    // the supplied stream position rather than an external variable or state.
+    tickingPlayer.positions.add(const Duration(seconds: 112));
     await tester.pump();
     await tester.pump();
     expect(find.text('Live program · $duration'), findsOneWidget);
     expect(find.text(_clock(_start + 120)), findsOneWidget);
     expect(find.text(_clock(_start + 240)), findsOneWidget);
     expect(_slider(tester).value, 0);
+    tickingPlayer.positions.add(const Duration(seconds: 113));
+    await tester.pump();
+    await tester.pump();
+    expect(_slider(tester).value, 1000);
   });
 
   testWidgets('accessibility relative skips use full buffer across the program boundary', (tester) async {
@@ -385,7 +398,7 @@ void main() {
   testWidgets('program changes while dragging cancel the old target', (tester) async {
     var current = _timeline();
     final seeks = <double>[];
-    await _pump(tester, timeline: current, timelineBuilder: () => current, seeks: seeks);
+    await _pump(tester, timeline: current, timelineBuilder: (_) => current, seeks: seeks);
     final gesture = await tester.startGesture(tester.getCenter(find.byType(TimelineSlider)));
     await tester.pump();
     current = _timeline(withProgram: false);
@@ -419,7 +432,7 @@ void main() {
     await refresh('News');
     LiveTvTimeline view() => _timeline(program: guide.programs.single, estimated: true);
     final seeks = <double>[];
-    await _pump(tester, timeline: view(), timelineBuilder: view, seeks: seeks);
+    await _pump(tester, timeline: view(), timelineBuilder: (_) => view(), seeks: seeks);
     final gesture = await tester.startGesture(tester.getCenter(find.byType(TimelineSlider)));
     await tester.pump();
     await refresh('Updated news title');
@@ -431,7 +444,7 @@ void main() {
   testWidgets('an unchanged airing without a server ID also survives guide refresh', (tester) async {
     var current = _timeline();
     final seeks = <double>[];
-    await _pump(tester, timeline: current, timelineBuilder: () => current, seeks: seeks);
+    await _pump(tester, timeline: current, timelineBuilder: (_) => current, seeks: seeks);
     final gesture = await tester.startGesture(tester.getCenter(find.byType(TimelineSlider)));
     await tester.pump();
     current = _timeline();
@@ -451,7 +464,7 @@ void main() {
       );
       var current = _timeline(program: program());
       final seeks = <double>[];
-      await _pump(tester, timeline: current, timelineBuilder: () => current, seeks: seeks);
+      await _pump(tester, timeline: current, timelineBuilder: (_) => current, seeks: seeks);
       final gesture = await tester.startGesture(tester.getCenter(find.byType(TimelineSlider)));
       await tester.pump();
       current = _timeline(program: program(changed: true));
@@ -550,7 +563,7 @@ Future<void> _pump(
   WidgetTester tester, {
   required LiveTvTimeline timeline,
   required List<double> seeks,
-  LiveTvTimeline Function()? timelineBuilder,
+  LiveTvTimeline Function(Duration)? timelineBuilder,
   List<int>? relative,
   bool enabled = true,
   bool showHeader = false,
@@ -583,13 +596,13 @@ Future<void> _pump(
                         VideoControlsHeader(
                           metadata: testMediaItem(title: 'Test channel', durationMs: 999000),
                           player: activePlayer,
-                          liveTimelineForPosition: (_) => timelineBuilder?.call() ?? timeline,
+                          liveTimelineForPosition: timelineBuilder ?? (_) => timeline,
                           showClock: false,
                           style: VideoHeaderStyle.singleLine,
                         ),
                       LiveTimelineBar(
                         player: activePlayer,
-                        timelineForPosition: (_) => timelineBuilder?.call() ?? timeline,
+                        timelineForPosition: timelineBuilder ?? (_) => timeline,
                         onSeekEnd: seeks.add,
                         onSeekBy: relative?.add,
                         enabled: enabled,
