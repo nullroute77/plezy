@@ -75,7 +75,17 @@ class LiveTvSeekRequest {
   /// from its retained origin. Null keeps the existing server-offset path.
   final Duration? mediaStart;
   final double? mediaEpochOrigin;
-  const LiveTvSeekRequest({required this.url, this.effectiveTargetEpoch, this.mediaStart, this.mediaEpochOrigin});
+
+  /// The retained origin segment may begin before its first decodable video
+  /// frame. Bounds this exception without relaxing later seek landings.
+  final Duration? mediaFirstSegmentEnd;
+  const LiveTvSeekRequest({
+    required this.url,
+    this.effectiveTargetEpoch,
+    this.mediaStart,
+    this.mediaEpochOrigin,
+    this.mediaFirstSegmentEnd,
+  });
 }
 
 /// HLS-specific negotiation/translation remains in the backend. Native MPV
