@@ -22,6 +22,9 @@ class RetainedHlsPlaylist {
 
   double get duration => segments.fold(0, (sum, segment) => sum + segment.duration);
 
+  /// Preferred normal live playback position, not the manual seek limit.
+  double get preferredLivePosition => (duration - 3 * targetDuration).clamp(0.0, duration);
+
   static RetainedHlsPlaylist? parse(Uri uri, String text) {
     final lines = text.trim().split(RegExp(r'\r?\n')).map((line) => line.trim()).toList();
     if (lines.isEmpty || lines.first != '#EXTM3U' || !lines.contains('#EXT-X-PLAYLIST-TYPE:EVENT')) return null;
@@ -163,9 +166,9 @@ class RetainedHlsHistory {
     if (snapshot == null || refreshedAt == null || now.difference(refreshedAt) > const Duration(seconds: 15)) {
       return null;
     }
-    // Three target durations behind the completed edge follows HLS's live
-    // safety guidance. The UI's newest target is available media, not RF live.
-    final end = snapshot.duration - 3 * snapshot.targetDuration;
+    // All completed media is retained. The session excludes the exact end
+    // when selecting a seek target; live-start latency is a separate policy.
+    final end = snapshot.duration;
     if (end <= 0) return null;
     return CaptureBuffer(startedAt: _origin!, seekStartSeconds: 0, seekEndSeconds: end);
   }

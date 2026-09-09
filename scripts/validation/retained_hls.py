@@ -142,13 +142,13 @@ def run_case(args, root, container):
             player.send('seek', target, 'absolute+exact')
         player.ready()
         position = float(player.get('time-pos'))
-        assert abs(position - target) < 0.15, (label, position, target)
         assert player.get('pause') == 'yes', label
         screenshot = root / f'{label}.png'
         player.send('screenshot-to-file', screenshot, 'video')
         pixels = subprocess.check_output([args.ffmpeg, '-v', 'error', '-i', str(screenshot),
                                           '-f', 'rawvideo', '-pix_fmt', 'gray', '-'])
         source_second = round((pixels[len(pixels) // 2] * 219 / 255 + 16 - 32) / 3)
+        assert abs(position - target) < 0.15, (label, position, target, source_second, player.get('video-pts'))
         assert math.floor(target - 0.15) <= source_second <= math.floor(target + 0.15), (label, source_second, target)
         fetched = state['requests'][before:]
         elapsed = 0
@@ -174,16 +174,34 @@ def run_case(args, root, container):
         verify('rewind-outside-cache', 3, reopen=False)
         verify('forward', 22)
         verify('rewind-paused', 4)
+        # Manual seeking can enter the live hold-back, but never exact EOF.
+        # Keep the playlist unfinished and verify the newest whole second.
+        near_edge = math.ceil(sum(durations[:state['visible']])) - 1
+        verify('newest-completed-paused', near_edge)
         print(json.dumps({'case': 'pause', 'container': container, 'seconds': args.pause_seconds}), flush=True)
         time.sleep(args.pause_seconds)
-        state['visible'] = len(segments)
+        state['visible'] = len(segments) - 3
         fresh = verify('new-history-after-pause', 48)
         assert original['origin'] == fresh['origin']
         verify('fractional-start', 0.48)
         verify('oldest', 0)
-        safe_edge = sum(durations) - 3 * float(next(line.split(':')[1] for line in prefix
+        completed = sum(durations[:state['visible']])
+        safe_edge = completed - 3 * float(next(line.split(':')[1] for line in prefix
                                                   if line.startswith('#EXT-X-TARGETDURATION:')))
         verify('toward-live', safe_edge)
+        near_edge = math.ceil(completed) - 1
+        verify('newest-completed-after-growth', near_edge)
+        player.send('set', 'pause', 'no')
+        time.sleep(1)
+        state['visible'] += 3
+        deadline = time.monotonic() + 12
+        while time.monotonic() < deadline and float(player.get('time-pos') or 0) < near_edge + 2:
+            time.sleep(0.1)
+        advanced = float(player.get('time-pos') or 0)
+        assert advanced >= near_edge + 2, ('resume-near-edge', near_edge, advanced)
+        player.send('set', 'pause', 'yes')
+        print(json.dumps({'case': 'resume-near-edge', 'container': container,
+                          'requested': near_edge, 'advancedTo': advanced}), flush=True)
     finally:
         player.close()
         server.shutdown()
