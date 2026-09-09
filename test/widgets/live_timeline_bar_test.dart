@@ -395,6 +395,19 @@ void main() {
     expect(painter.progressPosition, const Duration(seconds: 60));
   });
 
+  testWidgets('elapsed fill follows playback beyond the safe edge while scrubbing remains clamped', (tester) async {
+    final seeks = <double>[];
+    await _pump(tester, timeline: _timeline(position: 72, bufferStart: 30, bufferEnd: 60), seeks: seeks);
+    final painter = _painter(tester);
+    expect(painter.progressStart, const Duration(seconds: 30));
+    expect(painter.progressPosition, const Duration(seconds: 72));
+    expect(painter.ranges.single.end, const Duration(seconds: 60));
+    final rect = tester.getRect(find.byType(TimelineSlider));
+    await tester.tapAt(Offset(rect.left + rect.width * 70 / 120, rect.center.dy));
+    await tester.pump();
+    expect(seeks, [_start + 60]);
+  });
+
   testWidgets('program changes while dragging cancel the old target', (tester) async {
     var current = _timeline();
     final seeks = <double>[];

@@ -173,6 +173,10 @@ class _LiveTimelineBarState extends State<LiveTimelineBar> {
           showPosition: position != null,
           showProgress: false,
           bufferedProgressColor: Colors.red,
+          // Elapsed playback reaches the playhead even when the backend holds
+          // its newest seek target behind live playback for safe HLS reloads.
+          // Scrubbing and the buffer ahead still use the actual seek window.
+          progressStart: timeline.visibleSeekStart == null ? null : _offset(timeline, timeline.visibleSeekStart!),
           positionLabelBuilder: (offset) => timeline.startEpoch == null
               ? t.liveTv.timelineUnavailable
               : _clock(timeline.startEpoch! + offset.inMilliseconds / 1000, includeSeconds: true),

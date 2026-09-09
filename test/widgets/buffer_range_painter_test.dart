@@ -71,6 +71,37 @@ void main() {
     expect(await _pixels(coloredPainter, [200], y: 6), await _pixels(baselinePainter, [200], y: 6));
   });
 
+  test('elapsed fill reaches playback beyond safe seeks without filling earlier or future time', () async {
+    final baseline = BufferRangePainter(
+      ranges: [BufferRange(start: const Duration(seconds: 20), end: const Duration(seconds: 60))],
+      duration: const Duration(seconds: 100),
+      chapters: [MediaChapter(id: 1, startTimeOffset: 50000)],
+      progressPosition: const Duration(seconds: 72),
+      progressColor: Colors.red,
+    );
+    final filled = BufferRangePainter(
+      ranges: baseline.ranges,
+      duration: baseline.duration,
+      chapters: baseline.chapters,
+      progressPosition: baseline.progressPosition,
+      progressStart: const Duration(seconds: 20),
+      progressColor: Colors.red,
+    );
+    const samples = [100, 250, 500, 550, 650, 710, 750, 950];
+    final previous = await _pixels(baseline, samples);
+    expect(await _pixels(filled, samples), [
+      previous[0],
+      Colors.red.toARGB32(),
+      previous[2],
+      Colors.red.toARGB32(),
+      Colors.red.toARGB32(),
+      Colors.red.toARGB32(),
+      previous[6],
+      previous[7],
+    ]);
+    expect(filled.shouldRepaint(baseline), isTrue);
+  });
+
   test('position, color and unknown-position transitions invalidate the painter', () {
     expect(painter(seconds: 70).shouldRepaint(painter(seconds: 30)), isTrue);
     expect(painter(seconds: 30, color: Colors.blue).shouldRepaint(painter(seconds: 30)), isTrue);
