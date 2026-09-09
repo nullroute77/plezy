@@ -1,5 +1,15 @@
 # Plex timeline validation — fork draft
 
+## Skip-button program previews
+
+The user reported on Windows 11 that mouse clicks on the small skip buttons
+waited until seeking stopped to update the program. Those buttons were gated
+on keyboard input mode. They now always request the existing destination-program
+preview, while timeline dragging keeps its absolute-seek behavior. A real mouse
+click regression failed before the change and passes after it. The focused
+controls, timeline and accumulator suite passed 205 tests; analysis and formatting
+passed. Logs: `/tmp/plezy-live-skip-buttons-{before,tests,analyze}.log`.
+
 ## September 8: integration with the merged #2100 MPV fix
 
 The user accepted the pre-integration timeline at `1c242933`. Upstream main

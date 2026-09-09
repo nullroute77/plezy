@@ -75,9 +75,9 @@ replace playback. Playback has explicit unknown/estimated/confirmed/stale
 accuracy and active/last-known state. Confirmed playback selects a known program;
 active estimated playback now selects a program in an explicitly estimated model
 mode. A last-known position retains program context while reopening or failed,
-without showing an active playhead. Remote/keyboard seeks explicitly opt into
+without showing an active playhead. Remote/keyboard and skip-button seeks opt into
 destination-program preview; that preview stays until the accumulated seek
-settles and never changes the actual playback clock. Mouse scrubs, touch skips,
+settles and never changes the actual playback clock. Mouse scrubs, touch double-tap skips,
 and return-to-live do not opt in. Missing preview history uses the buffer range.
 Missing history or stale schedule data falls back to live metadata, then a buffer
 view, then unavailable state. Out-of-window thumbs are hidden.

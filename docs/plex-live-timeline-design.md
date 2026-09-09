@@ -23,7 +23,7 @@ remain distinct, with explicit unknown/estimated/confirmed/stale accuracy. Only
 confirmed playback selects a known playback program. Active estimates may select
 guide metadata in an estimated program mode, and last-known positions retain
 program context during reopen/failure. Neither changes playback accuracy.
-Explicit remote/keyboard program previews select the destination airing while
+Remote/keyboard and skip-button program previews select the destination airing while
 the seek is pending, including source readiness. Mouse scrubs retain their
 displayed-program behavior. Missing/stale preview guide data uses the buffer
 range so the target remains visible. Device time selects guide fallback metadata;

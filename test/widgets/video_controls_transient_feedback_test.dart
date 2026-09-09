@@ -1085,6 +1085,27 @@ void main() {
       await settleFeedback(tester);
     });
 
+    testWidgets('mouse clicks on live skip buttons request program preview', (tester) async {
+      final semantics = tester.ensureSemantics();
+      final ordinary = <int>[];
+      final preview = <int>[];
+      await pumpDesktopControls(tester, isLive: true, onLiveSeekBy: ordinary.add, onLiveSeekByWithPreview: preview.add);
+      chrome.show();
+      await tester.pump();
+      for (final label in [
+        t.videoControls.seekBackwardButton(seconds: 10),
+        t.videoControls.seekBackwardButton(seconds: 10),
+        t.videoControls.seekForwardButton(seconds: 10),
+      ]) {
+        await tester.tap(find.bySemanticsLabel(label), kind: PointerDeviceKind.mouse);
+        await tester.pump();
+      }
+      expect(preview, [-10, -10, 10]);
+      expect(ordinary, isEmpty);
+      semantics.dispose();
+      await settleFeedback(tester);
+    });
+
     testWidgets('mouse scrubbing commits an absolute seek without program preview', (tester) async {
       final preview = <int>[];
       final absolute = <double>[];

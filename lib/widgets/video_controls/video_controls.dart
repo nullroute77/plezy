@@ -655,7 +655,7 @@ class PlexVideoControls extends StatefulWidget {
   /// buttons/dpad/remote keys must use this rather than `onLiveSeek` (#1253).
   final ValueChanged<int>? onLiveSeekBy;
 
-  /// Remote/keyboard skips may preview the destination program while seeking.
+  /// Remote/keyboard and skip-button seeks may preview the destination program.
   final ValueChanged<int>? onLiveSeekByWithPreview;
 
   /// Jump to live edge callback

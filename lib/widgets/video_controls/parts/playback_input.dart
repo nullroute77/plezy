@@ -34,7 +34,7 @@ extension _PlexVideoControlsPlaybackInputMethods on _PlexVideoControlsState {
 
   Future<void> _seekByTime({required bool forward}) async {
     final delta = Duration(seconds: forward ? _seekTimeSmall : -_seekTimeSmall);
-    await _seekByOffset(delta, previewProgram: InputModeTracker.currentMode == InputMode.keyboard);
+    await _seekByOffset(delta, previewProgram: true);
   }
 
   /// Relative seek reported through the transient skip badge instead of the
