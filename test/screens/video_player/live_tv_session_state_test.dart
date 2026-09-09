@@ -14,6 +14,39 @@ MediaSubtitleTrack _track({required int id, int? index, String? languageCode}) =
     MediaSubtitleTrack(id: id, index: index, languageCode: languageCode, selected: false, forced: false);
 
 void main() {
+  test('origin segment accepts its first decodable frame without moving the media clock', () async {
+    final state = LiveTvSessionState(null);
+    final opening = state.beginClockOpen(
+      1000.009,
+      mediaStart: const Duration(milliseconds: 9),
+      mediaEpochOrigin: 1000,
+      mediaFirstSegmentEnd: const Duration(milliseconds: 3003),
+    );
+    final result = state.clockOpenResult(opening);
+    state.bindClockOpen(opening, 1);
+    state.calibrateClockSource(const PlayerSourceReady(sourceId: 1, position: Duration(milliseconds: 1236)));
+    expect(await result, isTrue);
+    expect(state.streamStartEpoch, 1000);
+    expect(state.playbackPosition(const Duration(milliseconds: 1236)).epoch, 1001.236);
+  });
+
+  test('origin exception cannot accept a frame from a later segment or relax later seeks', () async {
+    for (final target in [const Duration(milliseconds: 9), const Duration(seconds: 20)]) {
+      final state = LiveTvSessionState(null);
+      final opening = state.beginClockOpen(
+        1000 + target.inMilliseconds / 1000,
+        mediaStart: target,
+        mediaEpochOrigin: 1000,
+        mediaFirstSegmentEnd: const Duration(seconds: 3),
+      );
+      final result = state.clockOpenResult(opening);
+      state.bindClockOpen(opening, 1);
+      state.calibrateClockSource(PlayerSourceReady(sourceId: 1, position: target + const Duration(seconds: 4)));
+      expect(await result, isFalse);
+      expect(state.playbackPosition(target).active, isFalse);
+    }
+  });
+
   test('retained HLS timeout cannot adopt a late source from retired history', () async {
     final state = LiveTvSessionState(null);
     final opening = state.beginClockOpen(1020, mediaStart: const Duration(seconds: 20), mediaEpochOrigin: 1000);

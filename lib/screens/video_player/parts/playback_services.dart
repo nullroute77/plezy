@@ -149,7 +149,13 @@ extension _VideoPlayerPlaybackServiceMethods on VideoPlayerScreenState {
       _playerStreamSubscriptions.add(
         currentPlayer.streams.sourceReady.listen((source) {
           if (!mounted || player != currentPlayer) return;
-          if (_live.calibrateClockSource(source)) {
+          final accepted = _live.calibrateClockSource(source);
+          if (_live.session is LiveTvHlsTimeshiftSession) {
+            appLogger.d(
+              'Retained HLS source ready: position=${source.position.inMilliseconds / 1000}, accepted=$accepted',
+            );
+          }
+          if (accepted) {
             _setPlayerState(() {});
           }
         }),

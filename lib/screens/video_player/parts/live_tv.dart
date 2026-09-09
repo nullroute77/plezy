@@ -124,6 +124,12 @@ extension _VideoPlayerLiveTvMethods on VideoPlayerScreenState {
                   ..reset()
                   ..start();
               }
+              if (requestSession is LiveTvHlsTimeshiftSession) {
+                appLogger.d(
+                  'Retained HLS timeline: bufferEnd=${_live.captureBuffer?.seekEndSeconds}, '
+                  'seekEnabled=${_liveSeekBounds() != null}, clockActive=${_live.activeClockSourceId != null}',
+                );
+              }
             });
           },
         ),
@@ -313,6 +319,7 @@ extension _VideoPlayerLiveTvMethods on VideoPlayerScreenState {
       targetEpoch,
       mediaStart: hlsRequest?.mediaStart,
       mediaEpochOrigin: hlsRequest?.mediaEpochOrigin,
+      mediaFirstSegmentEnd: hlsRequest?.mediaFirstSegmentEnd,
     );
     final clockResult = _live.clockOpenResult(clockGeneration);
     final int? sourceId;

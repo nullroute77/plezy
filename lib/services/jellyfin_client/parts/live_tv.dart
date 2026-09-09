@@ -358,6 +358,7 @@ class _JellyfinLiveTvPlaybackSession implements LiveTvPlaybackSession, LiveTvHls
   bool _stopped = false;
   String? _originSegmentIdentity;
   String? _initializationIdentity;
+  int? _loggedSegmentCount;
 
   // Jellyfin's output-file key includes User-Agent. Metadata and MPV must
   // name the very same job, including through same-URL player reloads.
@@ -401,6 +402,14 @@ class _JellyfinLiveTvPlaybackSession implements LiveTvPlaybackSession, LiveTvHls
       } else {
         if (!_history.update(snapshot, DateTime.now())) {
           appLogger.d('${_client.dialect.productName} retained HLS origin is retired');
+        } else if (_loggedSegmentCount != snapshot.segments.length) {
+          _loggedSegmentCount = snapshot.segments.length;
+          final buffer = _history.buffer(DateTime.now());
+          appLogger.d(
+            '${_client.dialect.productName} retained HLS history: '
+            'segments=${snapshot.segments.length}, duration=${snapshot.duration}, '
+            'targetDuration=${snapshot.targetDuration}, seekEnd=${buffer?.seekEndSeconds}',
+          );
         }
       }
     } catch (error) {
@@ -484,6 +493,9 @@ class _JellyfinLiveTvPlaybackSession implements LiveTvPlaybackSession, LiveTvHls
     effectiveTargetEpoch: _history.epochOrigin! + seconds,
     mediaStart: Duration(microseconds: (seconds * Duration.microsecondsPerSecond).round()),
     mediaEpochOrigin: _history.epochOrigin,
+    mediaFirstSegmentEnd: Duration(
+      microseconds: (_history.playlist!.segments.first.duration * Duration.microsecondsPerSecond).round(),
+    ),
   );
 
   @override
