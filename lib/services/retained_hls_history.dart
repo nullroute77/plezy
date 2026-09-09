@@ -29,6 +29,7 @@ class RetainedHlsPlaylist {
     double? targetDuration;
     double? pendingDuration;
     double? origin;
+    var consistentClock = true;
     double elapsed = 0;
     String? initialization;
     final segments = <({Uri uri, double duration})>[];
@@ -61,11 +62,15 @@ class RetainedHlsPlaylist {
         if (mapUri.origin != uri.origin) return null;
         initialization = mapUri.toString();
       } else if (line.startsWith('#EXT-X-PROGRAM-DATE-TIME:')) {
-        final date = DateTime.tryParse(line.substring(25));
-        if (date == null) return null;
-        final candidate = date.millisecondsSinceEpoch / 1000.0 - elapsed;
-        if (origin != null && (candidate - origin).abs() > 0.1) return null;
-        origin = candidate;
+        final value = line.substring(25);
+        final date = DateTime.tryParse(value);
+        if (date == null || !RegExp(r'(Z|[+-]\d{2}:\d{2})$').hasMatch(value)) {
+          consistentClock = false;
+        } else {
+          final candidate = date.millisecondsSinceEpoch / 1000.0 - elapsed;
+          if (origin != null && (candidate - origin).abs() > 0.1) consistentClock = false;
+          origin = candidate;
+        }
       } else if (line.isNotEmpty && !line.startsWith('#')) {
         if (pendingDuration == null) return null;
         final segmentUri = uri.resolve(line);
@@ -90,7 +95,7 @@ class RetainedHlsPlaylist {
       targetDuration: targetDuration,
       segments: List.unmodifiable(segments),
       initialization: initialization,
-      epochOrigin: origin,
+      epochOrigin: consistentClock ? origin : null,
     );
   }
 
@@ -104,8 +109,7 @@ class RetainedHlsPlaylist {
     for (var i = 0; i < previous.segments.length; i++) {
       if (segments[i] != previous.segments[i]) return false;
     }
-    final previousEpoch = previous.epochOrigin;
-    return previousEpoch == null || epochOrigin == null || (previousEpoch - epochOrigin!).abs() <= 0.1;
+    return true;
   }
 }
 
@@ -121,6 +125,7 @@ class RetainedHlsHistory {
 
   RetainedHlsPlaylist? get playlist => _invalid ? null : _playlist;
   double? get epochOrigin => _invalid ? null : _origin;
+  bool get isRetired => _invalid;
 
   bool isFresh(DateTime now) =>
       !_invalid && _refreshedAt != null && now.difference(_refreshedAt!) <= const Duration(seconds: 15);
@@ -142,6 +147,10 @@ class RetainedHlsHistory {
     if (_origin == null) {
       _origin = next.epochOrigin ?? now.millisecondsSinceEpoch / 1000.0 - next.duration;
       exactClock = next.epochOrigin != null;
+    } else if (next.epochOrigin == null || (next.epochOrigin! - _origin!).abs() > 0.1) {
+      // Conflicting broadcast tags lower clock confidence, not seekability.
+      // Keep the already established continuous player mapping as an estimate.
+      exactClock = false;
     }
     _playlist = next;
     _refreshedAt = now;

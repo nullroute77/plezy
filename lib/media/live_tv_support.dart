@@ -40,10 +40,16 @@ class LiveTimelineUpdate {
   final CaptureBuffer? captureBuffer;
   final CaptureBuffer? playbackStream;
   final bool clearCaptureBuffer;
+  final bool clearPlaybackClock;
 
-  const LiveTimelineUpdate({this.captureBuffer, this.playbackStream, this.clearCaptureBuffer = false});
+  const LiveTimelineUpdate({
+    this.captureBuffer,
+    this.playbackStream,
+    this.clearCaptureBuffer = false,
+    this.clearPlaybackClock = false,
+  });
 
-  bool get isEmpty => captureBuffer == null && playbackStream == null && !clearCaptureBuffer;
+  bool get isEmpty => captureBuffer == null && playbackStream == null && !clearCaptureBuffer && !clearPlaybackClock;
 }
 
 /// Optional absolute-time capability, currently supplied by Plex. Existing

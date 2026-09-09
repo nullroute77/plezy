@@ -116,6 +116,7 @@ extension _VideoPlayerLiveTvMethods on VideoPlayerScreenState {
                 appLogger.d('Live clock re-anchored on playback transcode origin ${playbackStream.startedAt}');
               }
               final buffer = update.captureBuffer;
+              if (update.clearPlaybackClock) _live.invalidatePlayback();
               if (update.clearCaptureBuffer) _live.captureBuffer = null;
               if (buffer != null) {
                 _live.captureBuffer = buffer;

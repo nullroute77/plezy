@@ -20,6 +20,7 @@ void main() {
       var missingSegments = false;
       var unavailable = false;
       var unsupported = false;
+      var discontinuity = false;
       Completer<void>? manifestGate;
       final requests = <http.Request>[];
       late JellyfinClient client;
@@ -30,6 +31,7 @@ void main() {
         count = 20;
         originIdentity = 'origin-1';
         missingSegments = unavailable = unsupported = false;
+        discontinuity = false;
         manifestGate = null;
         requests.clear();
         client = JellyfinClient.forTesting(
@@ -73,7 +75,7 @@ void main() {
               );
             }
             if (path.endsWith('live.m3u8')) {
-              var text = eventPlaylist(count: count);
+              var text = eventPlaylist(count: count, extra: discontinuity ? '#EXT-X-DISCONTINUITY' : '');
               if (unsupported) text = text.replaceFirst('#EXT-X-PLAYLIST-TYPE:EVENT', '');
               return http.Response(text, 200, headers: {'content-type': 'application/vnd.apple.mpegurl'});
             }
@@ -144,6 +146,17 @@ void main() {
         expect(playback.captureBuffer, isNull);
         originIdentity = 'origin-1';
         expect(await session.preparePlayback(), isNull);
+      });
+
+      test('observed discontinuity retires history even if a later manifest hides the tag', () async {
+        await session.preparePlayback();
+        discontinuity = true;
+        final update = await playback.reportTimeline(state: 'paused', positionMs: 3000, durationMs: 0);
+        expect(update!.clearCaptureBuffer, isTrue);
+        expect(update.clearPlaybackClock, isTrue);
+        discontinuity = false;
+        expect(await session.preparePlayback(), isNull);
+        expect(playback.captureBuffer, isNull);
       });
 
       test('removed files never open; unsupported and stale manifests never invent bounds', () async {
