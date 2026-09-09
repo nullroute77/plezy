@@ -294,7 +294,9 @@ extension _VideoPlayerLiveTvMethods on VideoPlayerScreenState {
       start: hlsRequest?.mediaStart,
       headers: hls?.playbackHeaders ?? const {'Accept-Language': 'en'},
     );
-    final playNow = play ?? automotivePlaybackAllowedNow();
+    // The native playing flag also goes false on buffering/failure. Preserve
+    // the user's latest pause/play intent through automatic HLS recovery too.
+    final playNow = (play ?? automotivePlaybackAllowedNow()) && (hls == null || _playbackIntentShouldPlay);
     if (targetEpoch == null || player is! PlayerNative) {
       if (applyOptions) await _setLiveStreamOptions(player);
       if (!ownsStream()) return false;
@@ -489,7 +491,7 @@ extension _VideoPlayerLiveTvMethods on VideoPlayerScreenState {
           isCurrent: isCurrent,
           timeShifted: targetEpochSeconds != null,
           hlsRequest: request.mediaStart == null ? null : request,
-          play: session is LiveTvHlsTimeshiftSession ? currentPlayer.state.playing : null,
+          play: session is LiveTvHlsTimeshiftSession ? _playbackIntentShouldPlay : null,
         );
       },
     );
