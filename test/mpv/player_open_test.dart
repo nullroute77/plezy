@@ -655,6 +655,39 @@ void main() {
       );
     });
 
+    test('retained HLS honors fractional start and scopes both demuxer options to its load', () async {
+      final calls = <MethodCall>[];
+      await withMockPlayerChannels(
+        methodChannelName: 'com.plezy/mpv_player',
+        eventChannelName: 'com.plezy/mpv_player/events',
+        methodHandler: (call) async {
+          calls.add(call);
+          return call.method == 'initialize' ? true : null;
+        },
+        testBody: () async {
+          final player = PlayerNative();
+          try {
+            await player.open(
+              const Media('https://example.test/live.m3u8', start: Duration(milliseconds: 480)),
+              isLive: true,
+              play: false,
+              startLivePlaylistFromBeginning: true,
+            );
+            expect(_setPropertyValue(calls[_setPropertyCallIndex(calls, 'start')]), '0.48');
+            expect(
+              _loadfileArgs(calls).last,
+              'demuxer-lavf-o-append=live_start_index=0,demuxer-lavf-o-add=prefer_x_start=0',
+            );
+            calls.clear();
+            await player.open(const Media('https://example.test/ordinary.m3u8'), isLive: true);
+            expect(_loadfileArgs(calls), ['loadfile', 'https://example.test/ordinary.m3u8', 'replace']);
+          } finally {
+            await player.dispose();
+          }
+        },
+      );
+    });
+
     test('MPV passes external subtitles through loadfile options', () async {
       final calls = <MethodCall>[];
 

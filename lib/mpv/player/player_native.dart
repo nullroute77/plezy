@@ -434,7 +434,7 @@ class PlayerNative extends PlayerBase {
     // refused default must degrade to mpv's own behaviour, not abort the
     // open: the loadfile below is what actually starts playback.
     try {
-      if (startPosition.inSeconds > 0) {
+      if (startPosition.inMicroseconds > 0) {
         await setProperty('start', (startPosition.inMilliseconds / 1000.0).toString());
       } else {
         await setProperty('start', 'none');
@@ -465,6 +465,7 @@ class PlayerNative extends PlayerBase {
       // offset. FFmpeg's default (-3) can skip much of it before decoding.
       // Keep this file-local and append so other demuxer options survive.
       if (isLive && startLivePlaylistFromBeginning) 'demuxer-lavf-o-append=live_start_index=0',
+      if (isLive && startLivePlaylistFromBeginning && media.start != null) 'demuxer-lavf-o-add=prefer_x_start=0',
     ];
     if (loadfileOptions.isNotEmpty) {
       loadfileArgs.addAll(['-1', loadfileOptions.join(',')]);
