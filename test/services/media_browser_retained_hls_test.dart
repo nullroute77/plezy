@@ -21,6 +21,8 @@ void main() {
       var unavailable = false;
       var unsupported = false;
       var discontinuity = false;
+      var mediaDelay = Duration.zero;
+      var transientMediaFailures = 0;
       Completer<void>? manifestGate;
       final requests = <http.Request>[];
       late JellyfinClient client;
@@ -32,6 +34,8 @@ void main() {
         originIdentity = 'origin-1';
         missingSegments = unavailable = unsupported = false;
         discontinuity = false;
+        mediaDelay = Duration.zero;
+        transientMediaFailures = 0;
         manifestGate = null;
         requests.clear();
         client = JellyfinClient.forTesting(
@@ -75,6 +79,11 @@ void main() {
               );
             }
             if (path.endsWith('live.m3u8')) {
+              if (mediaDelay != Duration.zero) await Future<void>.delayed(mediaDelay);
+              if (transientMediaFailures > 0) {
+                transientMediaFailures--;
+                return http.Response('', 503);
+              }
               var text = eventPlaylist(count: count, extra: discontinuity ? '#EXT-X-DISCONTINUITY' : '');
               if (unsupported) text = text.replaceFirst('#EXT-X-PLAYLIST-TYPE:EVENT', '');
               return http.Response(text, 200, headers: {'content-type': 'application/vnd.apple.mpegurl'});
@@ -87,6 +96,42 @@ void main() {
       });
 
       tearDown(() => client.close());
+
+      test('cold media playlist exceeding the polling timeout still prepares a seekable source', () async {
+        // The real Windows failure: PlaybackInfo and master succeed, but the
+        // transcoder's media playlist is not ready inside five seconds.
+        mediaDelay = const Duration(seconds: 6);
+        final start = await session.preparePlayback();
+        expect(start, isNotNull);
+        expect(Uri.parse(start!.url).path, '/Videos/channel/live.m3u8');
+        expect(start.mediaStart, const Duration(seconds: 14));
+        expect(playback.captureBuffer, isNotNull);
+        expect(requests.where((r) => r.url.path.endsWith('live.m3u8')), hasLength(2));
+        expect(requests.where((r) => r.url.path.endsWith('/PlaybackInfo')), hasLength(1));
+        mediaDelay = Duration.zero;
+        final update = await playback.reportTimeline(state: 'paused', positionMs: 14000, durationMs: 0);
+        expect(update!.captureBuffer, isNotNull);
+        final seek = await session.resolveSeek(
+          targetEpoch: start.mediaEpochOrigin! + 3,
+          buffer: playback.captureBuffer!,
+        );
+        expect(seek!.mediaStart, const Duration(seconds: 3));
+        expect(requests.any((r) => r.url.path.endsWith('/Stopped') || r.url.path.endsWith('/Close')), isFalse);
+      });
+
+      test('transient startup response retries without renegotiating or enabling unsupported history', () async {
+        transientMediaFailures = 1;
+        expect(await session.preparePlayback(), isNotNull);
+        expect(requests.where((r) => r.url.path.endsWith('live.m3u8')), hasLength(2));
+        expect(requests.where((r) => r.url.path.endsWith('/PlaybackInfo')), hasLength(1));
+      });
+
+      test('unsupported initial playlist is not retried as a cold transcoder', () async {
+        unsupported = true;
+        expect(await session.preparePlayback(), isNull);
+        expect(playback.captureBuffer, isNull);
+        expect(requests.where((r) => r.url.path.endsWith('live.m3u8')), hasLength(1));
+      });
 
       test('copy permissions, fixed variant, headers, and seek coordinates', () async {
         final body = jsonDecode(requests.single.body) as Map<String, dynamic>;
