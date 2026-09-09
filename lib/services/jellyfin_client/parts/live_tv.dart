@@ -368,6 +368,7 @@ class _JellyfinLiveTvPlaybackSession implements LiveTvPlaybackSession, LiveTvHls
   Future<void> _readHistory() async {
     if (_stopped) return;
     try {
+      var unsupported = false;
       final snapshot = await fetchLiveHlsManifest(Uri.parse(_url), (uri) async {
         final response = await _client._http.get(
           _client._withApiKey(uri.toString()),
@@ -378,10 +379,14 @@ class _JellyfinLiveTvPlaybackSession implements LiveTvPlaybackSession, LiveTvHls
         // Redirects must not silently change the playlist-relative base.
         if (response.effectiveUri != null && response.effectiveUri != response.requestUri) return null;
         return response.data as String;
-      });
+      }, onUnsupported: () => unsupported = true);
       if (_stopped) return;
       if (snapshot == null) {
-        _history.unavailable();
+        if (unsupported && _history.playlist != null) {
+          invalidateHistory();
+        } else {
+          _history.unavailable();
+        }
       } else {
         if (!_history.update(snapshot, DateTime.now())) {
           appLogger.d('${_client.dialect.productName} retained HLS origin is retired');
@@ -559,7 +564,11 @@ class _JellyfinLiveTvPlaybackSession implements LiveTvPlaybackSession, LiveTvHls
       duration: Duration(milliseconds: durationMs),
     );
     if (!_stopped && _preparedHistory) await _refreshHistory();
-    return LiveTimelineUpdate(captureBuffer: captureBuffer, clearCaptureBuffer: captureBuffer == null);
+    return LiveTimelineUpdate(
+      captureBuffer: captureBuffer,
+      clearCaptureBuffer: captureBuffer == null,
+      clearPlaybackClock: _history.isRetired,
+    );
   }
 
   /// Reopen the existing negotiation without sending stop or closing the
