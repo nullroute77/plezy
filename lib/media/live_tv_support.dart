@@ -79,12 +79,17 @@ class LiveTvSeekRequest {
   /// The retained origin segment may begin before its first decodable video
   /// frame. Bounds this exception without relaxing later seek landings.
   final Duration? mediaFirstSegmentEnd;
+
+  /// Decode from an earlier segment before presenting [mediaStart], so HLS
+  /// keyframe selection cannot skip past an otherwise playable target.
+  final Duration? mediaSeekPreRoll;
   const LiveTvSeekRequest({
     required this.url,
     this.effectiveTargetEpoch,
     this.mediaStart,
     this.mediaEpochOrigin,
     this.mediaFirstSegmentEnd,
+    this.mediaSeekPreRoll,
   });
 }
 

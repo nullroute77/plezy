@@ -330,7 +330,13 @@ extension _VideoPlayerLiveTvMethods on VideoPlayerScreenState {
         return false;
       }
       onOpenStarted?.call();
-      sourceId = await player.open(media, play: playNow, isLive: true, startLivePlaylistFromBeginning: timeShifted);
+      sourceId = await player.open(
+        media,
+        play: playNow,
+        isLive: true,
+        startLivePlaylistFromBeginning: timeShifted,
+        seekPreRoll: hlsRequest?.mediaSeekPreRoll,
+      );
     } catch (_) {
       _live.failClockOpen(clockGeneration);
       rethrow;

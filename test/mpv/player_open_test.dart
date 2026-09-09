@@ -668,16 +668,35 @@ void main() {
           final player = PlayerNative();
           try {
             await player.open(
-              const Media('https://example.test/live.m3u8', start: Duration(milliseconds: 480)),
+              const Media('https://example.test/live.m3u8', start: Duration(microseconds: 480999)),
               isLive: true,
               play: false,
               startLivePlaylistFromBeginning: true,
+              seekPreRoll: const Duration(seconds: 4),
             );
             expect(_setPropertyValue(calls[_setPropertyCallIndex(calls, 'start')]), '0.48');
             expect(
               _loadfileArgs(calls).last,
-              'demuxer-lavf-o-append=live_start_index=0,demuxer-lavf-o-add=prefer_x_start=0',
+              'demuxer-lavf-o-append=live_start_index=0,demuxer-lavf-o-add=prefer_x_start=0,hr-seek-demuxer-offset=0.48',
             );
+            calls.clear();
+            await player.open(
+              const Media('https://example.test/live.m3u8', start: Duration(seconds: 24)),
+              isLive: true,
+              startLivePlaylistFromBeginning: true,
+              seekPreRoll: const Duration(microseconds: 4487822),
+            );
+            expect(_setPropertyValue(calls[_setPropertyCallIndex(calls, 'start')]), '24.0');
+            expect(_loadfileArgs(calls).last, contains('hr-seek-demuxer-offset=4.487822'));
+            calls.clear();
+            await player.open(
+              const Media('https://example.test/live.m3u8', start: Duration.zero),
+              isLive: true,
+              startLivePlaylistFromBeginning: true,
+              seekPreRoll: const Duration(seconds: 4),
+            );
+            expect(_setPropertyValue(calls[_setPropertyCallIndex(calls, 'start')]), 'none');
+            expect(_loadfileArgs(calls).last, contains('hr-seek-demuxer-offset=0.0'));
             calls.clear();
             await player.open(const Media('https://example.test/ordinary.m3u8'), isLive: true);
             expect(_loadfileArgs(calls), ['loadfile', 'https://example.test/ordinary.m3u8', 'replace']);
