@@ -354,6 +354,7 @@ class _JellyfinLiveTvPlaybackSession implements LiveTvPlaybackSession, LiveTvHls
   final _history = RetainedHlsHistory();
   Future<void>? _refreshingHistory;
   bool _preparedHistory = false;
+  bool _retryHistory = false;
   bool _stopped = false;
   String? _originSegmentIdentity;
   String? _initializationIdentity;
@@ -363,25 +364,35 @@ class _JellyfinLiveTvPlaybackSession implements LiveTvPlaybackSession, LiveTvHls
   @override
   Map<String, String> get playbackHeaders => const {'User-Agent': 'Plezy-Live-HLS/1', 'Accept-Language': 'en'};
 
-  Future<void> _refreshHistory() => _refreshingHistory ??= _readHistory().whenComplete(() => _refreshingHistory = null);
+  Future<void> _refreshHistory({Duration timeout = const Duration(seconds: 5)}) =>
+      _refreshingHistory ??= _readHistory(timeout).whenComplete(() => _refreshingHistory = null);
 
-  Future<void> _readHistory() async {
+  Future<void> _readHistory(Duration timeout) async {
     if (_stopped) return;
+    _retryHistory = false;
     try {
       var unsupported = false;
       final snapshot = await fetchLiveHlsManifest(Uri.parse(_url), (uri) async {
         final response = await _client._http.get(
           _client._withApiKey(uri.toString()),
           headers: {...playbackHeaders, 'Accept': 'application/vnd.apple.mpegurl', 'Cache-Control': 'no-cache'},
-          timeout: const Duration(seconds: 5),
+          timeout: timeout,
         );
-        if (response.statusCode != 200 || response.data is! String) return null;
+        if (response.statusCode != 200 || response.data is! String) {
+          _retryHistory = response.statusCode == 404 || response.statusCode == 408 || response.statusCode >= 500;
+          appLogger.d('${_client.dialect.productName} retained HLS manifest unavailable: HTTP ${response.statusCode}');
+          return null;
+        }
         // Redirects must not silently change the playlist-relative base.
-        if (response.effectiveUri != null && response.effectiveUri != response.requestUri) return null;
+        if (response.effectiveUri != null && response.effectiveUri != response.requestUri) {
+          appLogger.d('${_client.dialect.productName} retained HLS manifest redirected; history unavailable');
+          return null;
+        }
         return response.data as String;
       }, onUnsupported: () => unsupported = true);
       if (_stopped) return;
       if (snapshot == null) {
+        if (unsupported) appLogger.d('${_client.dialect.productName} retained HLS playlist shape unsupported');
         if (unsupported && _history.playlist != null) {
           invalidateHistory();
         } else {
@@ -392,7 +403,10 @@ class _JellyfinLiveTvPlaybackSession implements LiveTvPlaybackSession, LiveTvHls
           appLogger.d('${_client.dialect.productName} retained HLS origin is retired');
         }
       }
-    } catch (_) {
+    } catch (error) {
+      _retryHistory = error is MediaServerHttpException && !error.isCancellation;
+      final reason = error is MediaServerHttpException ? error.type.name : error.runtimeType.toString();
+      appLogger.d('${_client.dialect.productName} retained HLS manifest request failed: $reason');
       _history.unavailable();
     }
   }
@@ -475,8 +489,20 @@ class _JellyfinLiveTvPlaybackSession implements LiveTvPlaybackSession, LiveTvHls
   @override
   Future<LiveTvSeekRequest?> preparePlayback() async {
     await _refreshHistory();
+    if (!_stopped && !_preparedHistory && !_history.isRetired && _retryHistory) {
+      // A cold Live TV job can serve its master before FFmpeg has produced the
+      // first media playlist. The regular polling deadline is too short for
+      // that startup. Retry the same negotiation with a bounded warmup budget
+      // before opening MPV, so a transient timeout cannot silently select an
+      // unanchored player source for the entire session.
+      appLogger.d('${_client.dialect.productName} waiting for retained HLS startup (30-second retry)');
+      await _refreshHistory(timeout: const Duration(seconds: 30));
+    }
     final snapshot = _history.playlist;
-    if (_stopped || snapshot == null || !_history.isFresh(DateTime.now()) || _history.epochOrigin == null) return null;
+    if (_stopped || snapshot == null || !_history.isFresh(DateTime.now()) || _history.epochOrigin == null) {
+      appLogger.d('${_client.dialect.productName} opening live playback without a validated HLS history');
+      return null;
+    }
     _preparedHistory = true;
     final seconds = (snapshot.duration - 3 * snapshot.targetDuration).clamp(0.0, snapshot.duration);
     if (!await _validateFiles(seconds)) return null;
