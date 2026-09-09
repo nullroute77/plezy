@@ -9,12 +9,19 @@ import 'live_tv_session_args.dart';
 import 'live_timeline_report.dart';
 
 class _LiveClockOpen {
-  _LiveClockOpen({required this.generation, required this.targetEpoch, this.mediaStart, this.mediaEpochOrigin});
+  _LiveClockOpen({
+    required this.generation,
+    required this.targetEpoch,
+    this.mediaStart,
+    this.mediaEpochOrigin,
+    this.mediaFirstSegmentEnd,
+  });
 
   final int generation;
   final double targetEpoch;
   final Duration? mediaStart;
   final double? mediaEpochOrigin;
+  final Duration? mediaFirstSegmentEnd;
   final Completer<bool> result = Completer<bool>();
   int? sourceId;
   bool canceled = false;
@@ -188,7 +195,12 @@ class LiveTvSessionState {
   /// returned generation is the handle the caller binds to the source id the
   /// load reports ([bindClockOpen]); until then the open is unbound and no
   /// source event can reach it. Every earlier open is superseded.
-  int beginClockOpen(num targetEpoch, {Duration? mediaStart, double? mediaEpochOrigin}) {
+  int beginClockOpen(
+    num targetEpoch, {
+    Duration? mediaStart,
+    double? mediaEpochOrigin,
+    Duration? mediaFirstSegmentEnd,
+  }) {
     activeClockSourceId = null;
     seekStatus = LiveTvSeekStatus.opening;
     final previousOpens = <_LiveClockOpen>{..._clockOpensByGeneration.values, ..._clockOpensBySource.values};
@@ -204,6 +216,7 @@ class LiveTvSessionState {
       targetEpoch: targetEpoch.toDouble(),
       mediaStart: mediaStart,
       mediaEpochOrigin: mediaEpochOrigin,
+      mediaFirstSegmentEnd: mediaFirstSegmentEnd,
     );
     _clockOpensByGeneration[open.generation] = open;
     _latestClockGeneration = open.generation;
@@ -249,7 +262,19 @@ class LiveTvSessionState {
     if (open.canceled || open.generation != _latestClockGeneration) return false;
 
     final expected = open.mediaStart;
-    if (expected != null && (source.position - expected).inMilliseconds.abs() > 1000) {
+    final firstSegmentEnd = open.mediaFirstSegmentEnd;
+    // A tuner can be joined before a decodable video frame (audio or partial
+    // GOP packets can precede it). Accept the first available frame within the
+    // validated origin segment, using its actual position with the fixed
+    // origin. Never relabel that frame as the requested zero position.
+    final firstSegmentLanding =
+        expected != null &&
+        firstSegmentEnd != null &&
+        expected >= Duration.zero &&
+        expected < firstSegmentEnd &&
+        source.position >= expected &&
+        source.position < firstSegmentEnd;
+    if (expected != null && (source.position - expected).inMilliseconds.abs() > 1000 && !firstSegmentLanding) {
       _failClockOpen(open);
       return false;
     }

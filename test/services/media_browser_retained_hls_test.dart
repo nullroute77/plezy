@@ -5,6 +5,9 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 import 'package:plezy/media/live_tv_support.dart';
+import 'package:plezy/media/live_tv_timeline.dart';
+import 'package:plezy/mpv/player/player_streams.dart';
+import 'package:plezy/screens/video_player/live_tv_session_state.dart';
 import 'package:plezy/services/jellyfin_client.dart';
 
 import '../test_helpers/backend_client_fixtures.dart';
@@ -96,6 +99,37 @@ void main() {
       });
 
       tearDown(() => client.close());
+
+      test('a short initial playlist grows into a visible timeline with a decoded playhead', () async {
+        count = 3;
+        final start = (await session.preparePlayback())!;
+        expect(playback.captureBuffer, isNull, reason: 'not enough media for the live safety margin yet');
+        final state = LiveTvSessionState(null)..adoptSession(playback);
+        final opening = state.beginClockOpen(
+          start.effectiveTargetEpoch!,
+          mediaStart: start.mediaStart,
+          mediaEpochOrigin: start.mediaEpochOrigin,
+          mediaFirstSegmentEnd: start.mediaFirstSegmentEnd,
+        );
+        final ready = state.clockOpenResult(opening);
+        state.bindClockOpen(opening, 1);
+        state.calibrateClockSource(const PlayerSourceReady(sourceId: 1, position: Duration(milliseconds: 516)));
+        expect(await ready, isTrue);
+        count = 12;
+        final update = (await playback.reportTimeline(state: 'paused', positionMs: 516, durationMs: 0))!;
+        state.captureBuffer = update.captureBuffer;
+        final window = session.seekWindow(state.captureBuffer!)!;
+        final timeline = LiveTvTimeline.resolve(
+          playback: state.playbackPosition(const Duration(milliseconds: 516)),
+          seekable: window,
+          metadataNowEpoch: DateTime.now().millisecondsSinceEpoch / 1000,
+        );
+        expect(timeline.estimatedPlayheadEpoch, start.mediaEpochOrigin! + .516);
+        expect(timeline.visibleSeekStart, window.startEpoch);
+        expect(timeline.visibleSeekEnd, window.endEpoch);
+        final seek = await session.resolveSeek(targetEpoch: window.startEpoch + 3, buffer: state.captureBuffer!);
+        expect(seek!.mediaStart, const Duration(seconds: 3));
+      });
 
       test('cold media playlist exceeding the polling timeout still prepares a seekable source', () async {
         // The real Windows failure: PlaybackInfo and master succeed, but the
