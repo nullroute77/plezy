@@ -408,7 +408,8 @@ class _JellyfinLiveTvPlaybackSession implements LiveTvPlaybackSession, LiveTvHls
           appLogger.d(
             '${_client.dialect.productName} retained HLS history: '
             'segments=${snapshot.segments.length}, duration=${snapshot.duration}, '
-            'targetDuration=${snapshot.targetDuration}, seekEnd=${buffer?.seekEndSeconds}',
+            'targetDuration=${snapshot.targetDuration}, seekEnd=${buffer?.seekEndSeconds}, '
+            'preferredLive=${snapshot.preferredLivePosition}',
           );
         }
       }
@@ -516,7 +517,7 @@ class _JellyfinLiveTvPlaybackSession implements LiveTvPlaybackSession, LiveTvHls
       return null;
     }
     _preparedHistory = true;
-    final seconds = (snapshot.duration - 3 * snapshot.targetDuration).clamp(0.0, snapshot.duration);
+    final seconds = snapshot.preferredLivePosition;
     if (!await _validateFiles(seconds)) return null;
     appLogger.d(
       '${_client.dialect.productName} retained HLS open: '
@@ -531,7 +532,8 @@ class _JellyfinLiveTvPlaybackSession implements LiveTvPlaybackSession, LiveTvHls
     if (current == null || buffer.startedAt != current.startedAt) return null;
     return LiveTvSeekWindow(
       startEpoch: current.startedAt + current.seekStartSeconds,
-      endEpoch: current.startedAt + current.seekEndSeconds,
+      // Whole-second targets strictly inside completed media, never its EOF.
+      endEpoch: current.startedAt + current.seekEndSeconds.ceil() - 1,
     );
   }
 
@@ -544,7 +546,7 @@ class _JellyfinLiveTvPlaybackSession implements LiveTvPlaybackSession, LiveTvHls
     if (subtitleTrack != null || !_preparedHistory) return null;
     await _refreshHistory();
     final window = seekWindow(buffer);
-    final target = targetEpoch == null ? window?.endEpoch : window?.target(targetEpoch);
+    final target = targetEpoch == null ? (window == null ? null : preferredLiveEpoch) : window?.target(targetEpoch);
     if (target == null) return null;
     final seconds = target - _history.epochOrigin!;
     if (!await _validateFiles(seconds)) return null;
@@ -569,6 +571,10 @@ class _JellyfinLiveTvPlaybackSession implements LiveTvPlaybackSession, LiveTvHls
 
   @override
   CaptureBuffer? get captureBuffer => _stopped || !_preparedHistory ? null : _history.buffer(DateTime.now());
+
+  @override
+  double? get preferredLiveEpoch =>
+      captureBuffer == null ? null : _history.epochOrigin! + _history.playlist!.preferredLivePosition;
 
   /// Intentionally unsupported: the session plays one URL negotiated at
   /// start, so there is no rebuild through which a server-side subtitle
