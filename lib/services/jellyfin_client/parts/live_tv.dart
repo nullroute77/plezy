@@ -489,11 +489,24 @@ class _JellyfinLiveTvPlaybackSession implements LiveTvPlaybackSession, LiveTvHls
     return false;
   }
 
+  // HLS keyframe selection can discard a segment's first keyframe when its
+  // decode timestamp precedes the playlist interval (e.g. delayed video with
+  // B-frames). Start demuxing one segment earlier, then let MPV decode to the
+  // unchanged target. Use actual EXTINF lengths: target duration is rounded.
   LiveTvSeekRequest _historyRequest(double seconds) => LiveTvSeekRequest(
     url: _client._withApiKey(_history.playlist!.uri.toString()),
     effectiveTargetEpoch: _history.epochOrigin! + seconds,
     mediaStart: Duration(microseconds: (seconds * Duration.microsecondsPerSecond).round()),
     mediaEpochOrigin: _history.epochOrigin,
+    mediaSeekPreRoll: Duration(
+      microseconds:
+          (_history.playlist!.segments.fold<double>(
+                    0,
+                    (longest, segment) => segment.duration > longest ? segment.duration : longest,
+                  ) *
+                  Duration.microsecondsPerSecond)
+              .ceil(),
+    ),
     mediaFirstSegmentEnd: Duration(
       microseconds: (_history.playlist!.segments.first.duration * Duration.microsecondsPerSecond).round(),
     ),
