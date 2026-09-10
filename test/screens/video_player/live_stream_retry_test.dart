@@ -59,6 +59,22 @@ void main() {
       expect(harness.discarded, isFalse);
     });
 
+    test('opens the recovered session while the previous session still owns the caller', () async {
+      final harness = _RetryHarness();
+      harness.activeSession = Object();
+      harness.recoveredSession = Object();
+      expect(await harness.run(), LiveStreamRetryResult.succeeded);
+      expect(harness.openedSession, same(harness.recoveredSession));
+      expect(harness.openedSession, isNot(same(harness.activeSession)));
+    });
+
+    test('a false open result fails without adopting the replacement', () async {
+      final harness = _RetryHarness()..openSucceeds = false;
+      expect(await harness.run(), LiveStreamRetryResult.failed);
+      expect(harness.adopted, isFalse);
+      expect(harness.discarded, isTrue);
+    });
+
     test('stale operation does not report an async failure', () async {
       final harness = _RetryHarness(failAt: _Stage.lookup);
       harness.becomeStaleAt = _Stage.lookup;
@@ -117,6 +133,8 @@ class _RetryHarness {
   bool finished = false;
   bool adopted = false;
   bool discarded = false;
+  bool openSucceeds = true;
+  Object? openedSession;
 
   /// What the caller's `_live.session` currently holds; recover hands back
   /// [recoveredSession] when set, otherwise a fresh object.
@@ -127,7 +145,10 @@ class _RetryHarness {
     recover: () => _stage(_Stage.recover, () => recoveredSession ?? Object()),
     lookupStreamUrl: (_) => _stage(_Stage.lookup, () => 'https://example.com/live'),
     applyPlayerOptions: () => _stage<void>(_Stage.options, () {}),
-    open: (_) => _stage<void>(_Stage.open, () {}),
+    open: (session, _) => _stage<bool>(_Stage.open, () {
+      openedSession = session;
+      return openSucceeds;
+    }),
     isCurrent: () => current,
     adoptSession: (_) => adopted = true,
     currentSession: () => activeSession,

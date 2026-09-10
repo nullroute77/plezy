@@ -8,6 +8,7 @@ import 'package:plezy/media/live_tv_support.dart';
 import 'package:plezy/media/live_tv_timeline.dart';
 import 'package:plezy/mpv/player/player_streams.dart';
 import 'package:plezy/screens/video_player/live_tv_session_state.dart';
+import 'package:plezy/screens/video_player/live_tv_seek.dart';
 import 'package:plezy/services/jellyfin_client.dart';
 
 import '../test_helpers/backend_client_fixtures.dart';
@@ -22,6 +23,8 @@ void main() {
       var segmentDuration = 1.0;
       var originIdentity = 'origin-1';
       var missingSegments = false;
+      var segmentStatus = 206;
+      var segmentTimeout = false;
       var unavailable = false;
       var unsupported = false;
       var discontinuity = false;
@@ -36,6 +39,8 @@ void main() {
       setUp(() async {
         count = 20;
         segmentDuration = 1;
+        segmentStatus = 206;
+        segmentTimeout = false;
         originIdentity = 'origin-1';
         missingSegments = unavailable = unsupported = false;
         discontinuity = false;
@@ -66,9 +71,10 @@ void main() {
               );
             }
             if (path.endsWith('.ts')) {
+              if (segmentTimeout) throw TimeoutException('fixture segment timeout');
               return http.Response(
                 'x',
-                missingSegments ? 404 : 206,
+                missingSegments ? 404 : segmentStatus,
                 headers: {
                   'etag': path.endsWith('segment-0.ts') ? originIdentity : 'segment',
                   'content-range': 'bytes 0-0/1000',
@@ -105,6 +111,69 @@ void main() {
       });
 
       tearDown(() => client.close());
+
+      for (final failure in ['manifest', 'segment503', 'segmentTimeout']) {
+        test('a temporary $failure seek failure preserves the source clock and recovers', () async {
+          final initial = (await session.preparePlayback())!;
+          final state = LiveTvSessionState(null)..adoptSession(playback);
+          final clock = state.beginClockOpen(
+            initial.effectiveTargetEpoch!,
+            mediaStart: initial.mediaStart,
+            mediaEpochOrigin: initial.mediaEpochOrigin,
+          );
+          state.bindClockOpen(clock, 1);
+          state.calibrateClockSource(PlayerSourceReady(sourceId: 1, position: initial.mediaStart!));
+          var opens = 0;
+          Future<LiveTvSeekOutcome> seek() => runLiveTvSeek(
+            session: session,
+            targetEpoch: initial.mediaEpochOrigin! + 5,
+            currentBuffer: () => state.captureBuffer,
+            isCurrent: () => true,
+            open: (_) async {
+              opens++;
+              return true;
+            },
+          );
+          unavailable = failure == 'manifest';
+          segmentStatus = failure == 'segment503' ? 503 : 206;
+          segmentTimeout = failure == 'segmentTimeout';
+          expect(await seek(), LiveTvSeekOutcome.failed);
+          state.synchronizeHistoryAvailability(playback);
+          expect(opens, 0);
+          expect(session.historyRetired, isFalse);
+          expect(state.captureBuffer, isNull);
+          expect(state.activeClockSourceId, 1);
+          expect(state.playbackPosition(const Duration(seconds: 18)).active, isTrue);
+
+          unavailable = segmentTimeout = false;
+          segmentStatus = 206;
+          final update = await playback.reportTimeline(state: 'playing', positionMs: 18000, durationMs: 0);
+          state.captureBuffer = update!.captureBuffer;
+          expect(state.captureBuffer, isNotNull);
+          expect(await seek(), LiveTvSeekOutcome.opened);
+          expect(opens, 1);
+        });
+      }
+
+      test('missing required files still retire history and clear its clock', () async {
+        final initial = (await session.preparePlayback())!;
+        final state = LiveTvSessionState(null)..adoptSession(playback);
+        final clock = state.beginClockOpen(
+          initial.effectiveTargetEpoch!,
+          mediaStart: initial.mediaStart,
+          mediaEpochOrigin: initial.mediaEpochOrigin,
+        );
+        state.bindClockOpen(clock, 1);
+        state.calibrateClockSource(PlayerSourceReady(sourceId: 1, position: initial.mediaStart!));
+        missingSegments = true;
+        expect(
+          await session.resolveSeek(targetEpoch: initial.effectiveTargetEpoch, buffer: state.captureBuffer!),
+          isNull,
+        );
+        state.synchronizeHistoryAvailability(playback);
+        expect(session.historyRetired, isTrue);
+        expect(state.activeClockSourceId, isNull);
+      });
 
       test('a short initial playlist grows into a visible timeline with a decoded playhead', () async {
         count = 3;

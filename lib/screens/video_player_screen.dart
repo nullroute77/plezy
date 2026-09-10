@@ -951,6 +951,12 @@ class VideoPlayerScreenState extends State<VideoPlayerScreen> with WidgetsBindin
   PlayerChromeController get chromeController => _chromeController;
 
   @visibleForTesting
+  LiveTvSessionState get debugLiveStateForTesting => _live;
+
+  @visibleForTesting
+  Future<void> debugSwitchLiveChannelForTesting(int delta) => _switchLiveChannel(delta);
+
+  @visibleForTesting
   void debugBindWatchTogetherForTesting() {
     _attachToWatchTogetherSession(lease: widget.watchTogetherLease!);
   }

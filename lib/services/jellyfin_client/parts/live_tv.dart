@@ -424,10 +424,13 @@ class _JellyfinLiveTvPlaybackSession implements LiveTvPlaybackSession, LiveTvHls
   @override
   void invalidateHistory() => _history.invalidate();
 
+  @override
+  bool get historyRetired => _history.isRetired;
+
   /// Validate the actual files without buffering media in Dart. In particular,
   /// a restarted server job may reuse the same URL and segment names. Its first
   /// file validator must still match before a player reopen reuses the clock.
-  Future<String?> _segmentIdentity(Uri uri) async {
+  Future<({String? identity, bool temporary})> _segmentIdentity(Uri uri) async {
     final abort = Completer<void>();
     try {
       final request = http.AbortableRequest(
@@ -440,18 +443,21 @@ class _JellyfinLiveTvPlaybackSession implements LiveTvPlaybackSession, LiveTvHls
       await response.stream.listen((_) {}).cancel();
       if (response.statusCode != 200 && response.statusCode != 206) {
         appLogger.d('${_client.dialect.productName} retained HLS file unavailable: HTTP ${response.statusCode}');
-        return null;
+        return (
+          identity: null,
+          temporary: response.statusCode == 408 || response.statusCode == 429 || response.statusCode >= 500,
+        );
       }
       final etag = response.headers['etag'];
       final modified = response.headers['last-modified'];
       // No validator means no evidence that a same-named origin survived.
       if (etag == null && modified == null) {
         appLogger.d('${_client.dialect.productName} retained HLS file lacks an identity validator');
-        return null;
+        return (identity: null, temporary: false);
       }
-      return '${etag ?? ''}|${modified ?? ''}';
+      return (identity: '${etag ?? ''}|${modified ?? ''}', temporary: false);
     } catch (_) {
-      return null;
+      return (identity: null, temporary: true);
     } finally {
       abort.complete();
     }
@@ -460,28 +466,35 @@ class _JellyfinLiveTvPlaybackSession implements LiveTvPlaybackSession, LiveTvHls
   Future<bool> _validateFiles(double seconds) async {
     final snapshot = _history.playlist;
     if (snapshot == null) return false;
+
+    Future<String?> validate(Uri uri, {String? expected}) async {
+      final result = await _segmentIdentity(uri);
+      if (_stopped) return null;
+      if (result.temporary) {
+        _history.unavailable();
+        return null;
+      }
+      final identity = result.identity;
+      if (identity == null || (expected != null && expected != identity)) {
+        invalidateHistory();
+        return null;
+      }
+      return identity;
+    }
+
     final initialization = snapshot.initialization;
     if (initialization != null) {
-      final identity = await _segmentIdentity(Uri.parse(initialization));
-      if (identity == null || (_initializationIdentity != null && _initializationIdentity != identity)) {
-        invalidateHistory();
-        return false;
-      }
+      final identity = await validate(Uri.parse(initialization), expected: _initializationIdentity);
+      if (identity == null) return false;
       _initializationIdentity = identity;
     }
-    final origin = await _segmentIdentity(snapshot.segments.first.uri);
-    if (_stopped || origin == null || (_originSegmentIdentity != null && _originSegmentIdentity != origin)) {
-      invalidateHistory();
-      return false;
-    }
+    final origin = await validate(snapshot.segments.first.uri, expected: _originSegmentIdentity);
+    if (origin == null) return false;
     _originSegmentIdentity = origin;
     var elapsed = 0.0;
     for (final segment in snapshot.segments) {
       if (elapsed + segment.duration > seconds) {
-        if (segment != snapshot.segments.first && await _segmentIdentity(segment.uri) == null) {
-          invalidateHistory();
-          return false;
-        }
+        if (segment != snapshot.segments.first && await validate(segment.uri) == null) return false;
         return !_stopped && _history.isFresh(DateTime.now());
       }
       elapsed += segment.duration;
