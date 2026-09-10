@@ -61,6 +61,7 @@ class LiveTvSessionState {
 
   Timer? timelineTimer;
   int timelineGeneration = 0;
+  int? timelineOpenSuspension;
   final Stopwatch playbackElapsed = Stopwatch();
   late LiveTimelineReportQueue timelineReports = LiveTimelineReportQueue();
 
@@ -88,6 +89,8 @@ class LiveTvSessionState {
   int _nextClockGeneration = 0;
   int? _latestClockGeneration;
   int? activeClockSourceId;
+  // A replacement can render before its protocol session is adopted.
+  LiveTvPlaybackSession? clockSession;
   double? pendingStreamEpoch;
   double? get pendingTargetEpoch => pendingStreamEpoch;
   LiveTvSeekStatus seekStatus = LiveTvSeekStatus.idle;
@@ -114,6 +117,7 @@ class LiveTvSessionState {
   /// Invalidate the active mapping before a replacement or discontinuity.
   /// Retain only the last sampled playback epoch, never a failed request.
   void invalidatePlayback() {
+    clockSession = null;
     cancelClockOpens();
     activeClockSourceId = null;
     _unidentifiedStreamEstimate = false;
@@ -393,6 +397,14 @@ class LiveTvSessionState {
     session = newSession;
     captureBuffer = newSession.captureBuffer;
     selectedSubtitle = null;
+  }
+
+  /// Refresh availability after a failed seek without discarding the active
+  /// source clock merely because a playlist or segment request was unavailable.
+  void synchronizeHistoryAvailability(LiveTvPlaybackSession owner) {
+    if (!identical(session, owner) || owner is! LiveTvHlsTimeshiftSession) return;
+    captureBuffer = owner.captureBuffer;
+    if ((owner as LiveTvHlsTimeshiftSession).historyRetired) invalidatePlayback();
   }
 
   /// Re-map a subtitle selection onto a replacement session's track list.

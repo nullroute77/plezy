@@ -18,7 +18,7 @@ Future<LiveStreamRetryResult> runLiveStreamRetry<Session>({
   required LiveStreamRecovery<Session> recover,
   required LiveStreamUrlLookup<Session> lookupStreamUrl,
   required Future<void> Function() applyPlayerOptions,
-  required Future<void> Function(String streamUrl) open,
+  required Future<bool> Function(Session session, String streamUrl) open,
   required bool Function() isCurrent,
   required void Function(Session session) adoptSession,
   required Session? Function() currentSession,
@@ -40,8 +40,9 @@ Future<LiveStreamRetryResult> runLiveStreamRetry<Session>({
     await applyPlayerOptions();
     if (!isCurrent()) return LiveStreamRetryResult.stale;
 
-    await open(streamUrl);
+    final opened = await open(recovered, streamUrl);
     if (!isCurrent()) return LiveStreamRetryResult.stale;
+    if (!opened) throw StateError('Live stream recovery did not open a ready source');
 
     adoptSession(recovered);
     adopted = true;

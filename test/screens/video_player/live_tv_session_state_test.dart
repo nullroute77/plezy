@@ -159,7 +159,7 @@ void main() {
       recover: () => recovery.future,
       lookupStreamUrl: (_) async => 'unused',
       applyPlayerOptions: () async {},
-      open: (_) async {},
+      open: (_, _) async => true,
       isCurrent: () => intentCurrent && state.ownsRetry(owner),
       adoptSession: (_) => fail('obsolete recovery adopted'),
       currentSession: () => 'old',

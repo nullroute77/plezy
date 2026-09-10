@@ -18,6 +18,13 @@ extension _VideoPlayerErrorMethods on VideoPlayerScreenState {
   void _onPlayerError(PlayerError err) {
     appLogger.e('[Player ERROR] ${err.message}');
     if (!mounted || _isExiting.value) return;
+    if (widget.isLive && _transitionGate.transition == PlaybackTransition.switchingChannel) {
+      // Replacement readiness and rollback belong to the channel operation.
+      // A parallel ladder retry would reopen the still-adopted old session.
+      // Keep an old-source failure retryable if negotiation fails before open.
+      _live.retryFailed = true;
+      return;
+    }
 
     // A sidecar subtitle fetch can also log a status, but it never raises the
     // end-file error this handler is wired to, so a latched status belongs to
