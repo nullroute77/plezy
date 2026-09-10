@@ -101,6 +101,9 @@ abstract interface class LiveTvHlsTimeshiftSession implements LiveTvTimeshiftSes
   /// Null when no fresh, prepared history is available.
   double? get preferredLiveEpoch;
 
+  /// Permanent loss of retained history, distinct from a temporary fetch failure.
+  bool get historyRetired;
+
   Map<String, String> get playbackHeaders;
   Future<LiveTvSeekRequest?> preparePlayback();
   void invalidateHistory();
