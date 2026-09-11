@@ -10,29 +10,32 @@ Color airingFill(BuildContext context) {
   return Color.alphaBlend(tk.text.withValues(alpha: 0.08), tk.surface);
 }
 
-/// Tinted M3E status pill (LIVE / NEW badge, recording / error state).
-/// [dense] trims the padding to fit inside a single line of body text, as in
-/// the guide's fixed-height program blocks.
+/// Tinted M3E status pill (LIVE badge, recording / error state).
 class StatusPill extends StatelessWidget {
   final String label;
   final Color color;
-  final bool dense;
+  final bool _compact;
 
-  const StatusPill({super.key, required this.label, required this.color, this.dense = false});
+  const StatusPill({super.key, required this.label, required this.color}) : _compact = false;
+
+  /// Solid, compact badge for inline guide titles. Keep its white foreground
+  /// independent of the card's inverted focus colors.
+  const StatusPill.compact({super.key, required this.label, required this.color}) : _compact = true;
 
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: dense
-          ? const EdgeInsets.symmetric(horizontal: 5, vertical: 1)
-          : const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      padding: EdgeInsets.symmetric(horizontal: _compact ? 4 : 8, vertical: _compact ? 1 : 4),
       decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.15),
-        borderRadius: const BorderRadius.all(Radius.circular(MonoTokens.radiusFull)),
+        color: _compact ? color : color.withValues(alpha: 0.15),
+        borderRadius: BorderRadius.all(Radius.circular(_compact ? 3 : MonoTokens.radiusFull)),
       ),
       child: Text(
         label,
-        style: Theme.of(context).textTheme.labelSmall?.copyWith(color: color, fontWeight: .w700),
+        style: Theme.of(
+          context,
+        ).textTheme.labelSmall?.copyWith(color: _compact ? Colors.white : color, fontWeight: .w700),
+        maxLines: _compact ? 1 : null,
       ),
     );
   }
