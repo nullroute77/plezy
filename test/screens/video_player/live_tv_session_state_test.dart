@@ -14,6 +14,79 @@ MediaSubtitleTrack _track({required int id, int? index, String? languageCode}) =
     MediaSubtitleTrack(id: id, index: index, languageCode: languageCode, selected: false, forced: false);
 
 void main() {
+  test('origin segment accepts its first decodable frame without moving the media clock', () async {
+    final state = LiveTvSessionState(null);
+    final opening = state.beginClockOpen(
+      1000.009,
+      mediaStart: const Duration(milliseconds: 9),
+      mediaEpochOrigin: 1000,
+      mediaFirstSegmentEnd: const Duration(milliseconds: 3003),
+    );
+    final result = state.clockOpenResult(opening);
+    state.bindClockOpen(opening, 1);
+    state.calibrateClockSource(const PlayerSourceReady(sourceId: 1, position: Duration(milliseconds: 1236)));
+    expect(await result, isTrue);
+    expect(state.streamStartEpoch, 1000);
+    expect(state.playbackPosition(const Duration(milliseconds: 1236)).epoch, 1001.236);
+  });
+
+  test('origin exception cannot accept a frame from a later segment or relax later seeks', () async {
+    for (final target in [const Duration(milliseconds: 9), const Duration(seconds: 20)]) {
+      final state = LiveTvSessionState(null);
+      final opening = state.beginClockOpen(
+        1000 + target.inMilliseconds / 1000,
+        mediaStart: target,
+        mediaEpochOrigin: 1000,
+        mediaFirstSegmentEnd: const Duration(seconds: 3),
+      );
+      final result = state.clockOpenResult(opening);
+      state.bindClockOpen(opening, 1);
+      state.calibrateClockSource(PlayerSourceReady(sourceId: 1, position: target + const Duration(seconds: 4)));
+      expect(await result, isFalse);
+      expect(state.playbackPosition(target).active, isFalse);
+    }
+  });
+
+  test('retained HLS timeout cannot adopt a late source from retired history', () async {
+    final state = LiveTvSessionState(null);
+    final opening = state.beginClockOpen(1020, mediaStart: const Duration(seconds: 20), mediaEpochOrigin: 1000);
+    final result = state.clockOpenResult(opening);
+    state.bindClockOpen(opening, 1);
+    state.timeoutClockOpen(opening);
+    expect(await result, isFalse);
+    expect(state.calibrateClockSource(const PlayerSourceReady(sourceId: 1, position: Duration(seconds: 20))), isFalse);
+    expect(state.playbackPosition(const Duration(seconds: 20)).active, isFalse);
+  });
+
+  test('retained HLS requires an observed landing and keeps its stable origin', () async {
+    final state = LiveTvSessionState(null);
+    final opening = state.beginClockOpen(1020, mediaStart: const Duration(seconds: 20), mediaEpochOrigin: 1000);
+    final result = state.clockOpenResult(opening);
+    state.bindClockOpen(opening, 1);
+    state.calibrateClockSource(const PlayerSourceReady(sourceId: 1, position: Duration(milliseconds: 20040)));
+    expect(await result, isTrue);
+    expect(state.streamStartEpoch, 1000);
+    expect(state.playbackPosition(const Duration(seconds: 21)).epoch, 1021);
+    final rewind = state.beginClockOpen(1003, mediaStart: const Duration(seconds: 3), mediaEpochOrigin: 1000);
+    final rewindResult = state.clockOpenResult(rewind);
+    // Readiness can precede the loadfile reply, including paused first frames.
+    state.calibrateClockSource(const PlayerSourceReady(sourceId: 2, position: Duration(seconds: 3)));
+    state.bindClockOpen(rewind, 2);
+    expect(await rewindResult, isTrue);
+    expect(state.streamStartEpoch, 1000);
+  });
+
+  test('retained HLS wrong landing is never calibrated to the requested program', () async {
+    final state = LiveTvSessionState(null);
+    final opening = state.beginClockOpen(1048, mediaStart: const Duration(seconds: 48), mediaEpochOrigin: 1000);
+    final result = state.clockOpenResult(opening);
+    state.bindClockOpen(opening, 1);
+    state.calibrateClockSource(const PlayerSourceReady(sourceId: 1, position: Duration.zero));
+    expect(await result, isFalse);
+    expect(state.playbackPosition(Duration.zero).active, isFalse);
+    expect(state.seekStatus, LiveTvSeekStatus.failed);
+  });
+
   group('LiveTvSessionState.remapSubtitleSelection', () {
     test('null previous selection stays off', () {
       expect(LiveTvSessionState.remapSubtitleSelection([_track(id: 1)], null), isNull);
@@ -86,7 +159,7 @@ void main() {
       recover: () => recovery.future,
       lookupStreamUrl: (_) async => 'unused',
       applyPlayerOptions: () async {},
-      open: (_) async {},
+      open: (_, _) async => true,
       isCurrent: () => intentCurrent && state.ownsRetry(owner),
       adoptSession: (_) => fail('obsolete recovery adopted'),
       currentSession: () => 'old',

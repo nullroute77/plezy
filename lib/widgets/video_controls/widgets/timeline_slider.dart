@@ -62,8 +62,13 @@ class TimelineSlider extends StatefulWidget {
   final bool showProgress;
 
   /// Tint buffered content before the displayed position and the playhead.
-  /// Use with [showProgress] false to leave unbuffered time unfilled.
+  /// Use with [showProgress] false to leave unbuffered time unfilled, unless
+  /// [progressStart] supplies an independent elapsed fill.
   final Color? bufferedProgressColor;
+
+  /// Start of a continuous elapsed fill in [bufferedProgressColor], independent
+  /// of buffer ranges and scrub limits. Omit to tint only buffered content.
+  final Duration? progressStart;
 
   const TimelineSlider({
     super.key,
@@ -88,6 +93,7 @@ class TimelineSlider extends StatefulWidget {
     this.showPosition = true,
     this.showProgress = true,
     this.bufferedProgressColor,
+    this.progressStart,
   });
 
   @override
@@ -386,6 +392,7 @@ class _TimelineSliderState extends State<TimelineSlider> {
                           ? displayPosition
                           : null,
                       progressColor: widget.bufferedProgressColor ?? Colors.white,
+                      progressStart: widget.progressStart,
                       chapters: widget.chaptersLoaded && widget.showChapterMarkersOnTimeline
                           ? widget.chapters
                           : const [],

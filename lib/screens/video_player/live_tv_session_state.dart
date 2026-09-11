@@ -9,10 +9,19 @@ import 'live_tv_session_args.dart';
 import 'live_timeline_report.dart';
 
 class _LiveClockOpen {
-  _LiveClockOpen({required this.generation, required this.targetEpoch});
+  _LiveClockOpen({
+    required this.generation,
+    required this.targetEpoch,
+    this.mediaStart,
+    this.mediaEpochOrigin,
+    this.mediaFirstSegmentEnd,
+  });
 
   final int generation;
   final double targetEpoch;
+  final Duration? mediaStart;
+  final double? mediaEpochOrigin;
+  final Duration? mediaFirstSegmentEnd;
   final Completer<bool> result = Completer<bool>();
   int? sourceId;
   bool canceled = false;
@@ -52,6 +61,7 @@ class LiveTvSessionState {
 
   Timer? timelineTimer;
   int timelineGeneration = 0;
+  int? timelineOpenSuspension;
   final Stopwatch playbackElapsed = Stopwatch();
   late LiveTimelineReportQueue timelineReports = LiveTimelineReportQueue();
 
@@ -79,6 +89,8 @@ class LiveTvSessionState {
   int _nextClockGeneration = 0;
   int? _latestClockGeneration;
   int? activeClockSourceId;
+  // A replacement can render before its protocol session is adopted.
+  LiveTvPlaybackSession? clockSession;
   double? pendingStreamEpoch;
   double? get pendingTargetEpoch => pendingStreamEpoch;
   LiveTvSeekStatus seekStatus = LiveTvSeekStatus.idle;
@@ -105,6 +117,7 @@ class LiveTvSessionState {
   /// Invalidate the active mapping before a replacement or discontinuity.
   /// Retain only the last sampled playback epoch, never a failed request.
   void invalidatePlayback() {
+    clockSession = null;
     cancelClockOpens();
     activeClockSourceId = null;
     _unidentifiedStreamEstimate = false;
@@ -186,7 +199,12 @@ class LiveTvSessionState {
   /// returned generation is the handle the caller binds to the source id the
   /// load reports ([bindClockOpen]); until then the open is unbound and no
   /// source event can reach it. Every earlier open is superseded.
-  int beginClockOpen(num targetEpoch) {
+  int beginClockOpen(
+    num targetEpoch, {
+    Duration? mediaStart,
+    double? mediaEpochOrigin,
+    Duration? mediaFirstSegmentEnd,
+  }) {
     activeClockSourceId = null;
     seekStatus = LiveTvSeekStatus.opening;
     final previousOpens = <_LiveClockOpen>{..._clockOpensByGeneration.values, ..._clockOpensBySource.values};
@@ -197,7 +215,13 @@ class LiveTvSessionState {
     _clockOpensByGeneration.clear();
     _clockOpensBySource.clear();
 
-    final open = _LiveClockOpen(generation: ++_nextClockGeneration, targetEpoch: targetEpoch.toDouble());
+    final open = _LiveClockOpen(
+      generation: ++_nextClockGeneration,
+      targetEpoch: targetEpoch.toDouble(),
+      mediaStart: mediaStart,
+      mediaEpochOrigin: mediaEpochOrigin,
+      mediaFirstSegmentEnd: mediaFirstSegmentEnd,
+    );
     _clockOpensByGeneration[open.generation] = open;
     _latestClockGeneration = open.generation;
     pendingStreamEpoch = targetEpoch.toDouble();
@@ -241,10 +265,27 @@ class LiveTvSessionState {
     }
     if (open.canceled || open.generation != _latestClockGeneration) return false;
 
-    streamStartEpoch = open.targetEpoch - source.position.inMilliseconds / 1000.0;
+    final expected = open.mediaStart;
+    final firstSegmentEnd = open.mediaFirstSegmentEnd;
+    // A tuner can be joined before a decodable video frame (audio or partial
+    // GOP packets can precede it). Accept the first available frame within the
+    // validated origin segment, using its actual position with the fixed
+    // origin. Never relabel that frame as the requested zero position.
+    final firstSegmentLanding =
+        expected != null &&
+        firstSegmentEnd != null &&
+        expected >= Duration.zero &&
+        expected < firstSegmentEnd &&
+        source.position >= expected &&
+        source.position < firstSegmentEnd;
+    if (expected != null && (source.position - expected).inMilliseconds.abs() > 1000 && !firstSegmentLanding) {
+      _failClockOpen(open);
+      return false;
+    }
+    streamStartEpoch = open.mediaEpochOrigin ?? open.targetEpoch - source.position.inMilliseconds / 1000.0;
     activeClockSourceId = source.sourceId;
     _lastObservedPosition = source.position;
-    _lastPlaybackEpoch = open.targetEpoch;
+    _lastPlaybackEpoch = streamStartEpoch + source.position.inMilliseconds / 1000.0;
     seekStatus = LiveTvSeekStatus.idle;
     pendingStreamEpoch = null;
     _clockOpensByGeneration.remove(open.generation);
@@ -286,6 +327,12 @@ class LiveTvSessionState {
   void timeoutClockOpen(int generation) {
     final open = _clockOpensByGeneration[generation];
     if (open == null || open.canceled || generation != _latestClockGeneration) return;
+    // Retained HLS retires failed history. Late readiness must not resurrect
+    // its mapping; Plex keeps its existing late-estimate recovery below.
+    if (open.mediaStart != null) {
+      _failClockOpen(open);
+      return;
+    }
     pendingStreamEpoch = null;
     seekStatus = LiveTvSeekStatus.failed;
     if (!open.result.isCompleted) open.result.complete(false);
@@ -350,6 +397,14 @@ class LiveTvSessionState {
     session = newSession;
     captureBuffer = newSession.captureBuffer;
     selectedSubtitle = null;
+  }
+
+  /// Refresh availability after a failed seek without discarding the active
+  /// source clock merely because a playlist or segment request was unavailable.
+  void synchronizeHistoryAvailability(LiveTvPlaybackSession owner) {
+    if (!identical(session, owner) || owner is! LiveTvHlsTimeshiftSession) return;
+    captureBuffer = owner.captureBuffer;
+    if ((owner as LiveTvHlsTimeshiftSession).historyRetired) invalidatePlayback();
   }
 
   /// Re-map a subtitle selection onto a replacement session's track list.

@@ -39,10 +39,17 @@ class LiveProgramInfo {
 class LiveTimelineUpdate {
   final CaptureBuffer? captureBuffer;
   final CaptureBuffer? playbackStream;
+  final bool clearCaptureBuffer;
+  final bool clearPlaybackClock;
 
-  const LiveTimelineUpdate({this.captureBuffer, this.playbackStream});
+  const LiveTimelineUpdate({
+    this.captureBuffer,
+    this.playbackStream,
+    this.clearCaptureBuffer = false,
+    this.clearPlaybackClock = false,
+  });
 
-  bool get isEmpty => captureBuffer == null && playbackStream == null;
+  bool get isEmpty => captureBuffer == null && playbackStream == null && !clearCaptureBuffer && !clearPlaybackClock;
 }
 
 /// Optional absolute-time capability, currently supplied by Plex. Existing
@@ -63,7 +70,43 @@ abstract interface class LiveTvTimeshiftSession {
 class LiveTvSeekRequest {
   final String url;
   final double? effectiveTargetEpoch;
-  const LiveTvSeekRequest({required this.url, this.effectiveTargetEpoch});
+
+  /// A player-only seek within the unchanged server playlist, in seconds
+  /// from its retained origin. Null keeps the existing server-offset path.
+  final Duration? mediaStart;
+  final double? mediaEpochOrigin;
+
+  /// The retained origin segment may begin before its first decodable video
+  /// frame. Bounds this exception without relaxing later seek landings.
+  final Duration? mediaFirstSegmentEnd;
+
+  /// Decode from an earlier segment before presenting [mediaStart], so HLS
+  /// keyframe selection cannot skip past an otherwise playable target.
+  final Duration? mediaSeekPreRoll;
+  const LiveTvSeekRequest({
+    required this.url,
+    this.effectiveTargetEpoch,
+    this.mediaStart,
+    this.mediaEpochOrigin,
+    this.mediaFirstSegmentEnd,
+    this.mediaSeekPreRoll,
+  });
+}
+
+/// HLS-specific negotiation/translation remains in the backend. Native MPV
+/// currently supplies the required stable-origin open and observed landing;
+/// ExoPlayer needs its own window-relative timeline contract.
+abstract interface class LiveTvHlsTimeshiftSession implements LiveTvTimeshiftSession {
+  /// Preferred live playback position, distinct from the newest manual seek.
+  /// Null when no fresh, prepared history is available.
+  double? get preferredLiveEpoch;
+
+  /// Permanent loss of retained history, distinct from a temporary fetch failure.
+  bool get historyRetired;
+
+  Map<String, String> get playbackHeaders;
+  Future<LiveTvSeekRequest?> preparePlayback();
+  void invalidateHistory();
 }
 
 /// One live-TV playback session, produced by [LiveTvSupport.startPlayback].
@@ -76,7 +119,7 @@ class LiveTvSeekRequest {
 ///   the server has seekable history) and rebuilds its stream URL for
 ///   time-shift; heartbeats go to `/:/timeline` and return capture-buffer
 ///   updates.
-/// - **Jellyfin** negotiates one HLS transcode URL up front; no time-shift,
+/// - **Jellyfin/Emby** negotiate HLS, optionally exposing retained EVENT history;
 ///   heartbeats go through `/Sessions/Playing*`, and [recover] re-uses the
 ///   same URL.
 ///
@@ -129,10 +172,9 @@ abstract class LiveTvPlaybackSession {
 
   /// Re-establish playback after stream death. Plex re-tunes (the previous
   /// capture session expires while the player exhausts its reconnect
-  /// attempts) applying the degradation flags. Jellyfin re-negotiates a
-  /// forced transcode when a direct-play session is asked to drop
-  /// [directStream] — releasing the direct session's live stream — and
-  /// otherwise returns itself so its negotiated HLS URL is re-opened.
+  /// attempts) applying the degradation flags. Jellyfin reopens its
+  /// negotiated HLS stream without changing server-session identity; retained
+  /// playlist history is revalidated separately.
   /// Returns `null` on failure.
   Future<LiveTvPlaybackSession?> recover({required bool directStream, required bool directStreamAudio});
 }
@@ -208,9 +250,9 @@ abstract class LiveTvSupport {
   /// Start a playback session for [channelKey] — the single entry the player
   /// uses for initial launch and channel switching. Plex requires [dvrKey]
   /// (tune + transcode-session setup); Jellyfin ignores it. [quality] is the
-  /// viewer's preset: on `original` Jellyfin asks the server for direct play
-  /// with no bitrate ceiling and falls back to an uncapped transcode, while a
-  /// capped preset forces a transcode at that ceiling. Plex does not consume
+  /// viewer's preset: Jellyfin/Emby request HLS with audio/video copy permitted;
+  /// Original uses the normal high negotiation ceiling, while a capped preset
+  /// applies its bitrate limit. Plex does not consume
   /// [quality] yet — its live path still hardcodes a transcode (#2072).
   /// Returns `null` when the channel can't be started.
   Future<LiveTvPlaybackSession?> startPlayback(

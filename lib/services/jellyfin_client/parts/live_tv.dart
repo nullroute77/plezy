@@ -197,29 +197,15 @@ class _JellyfinLiveTvSupport implements LiveTvSupport {
     return _client.fetchLiveTvPrograms(beginsAt: toEpoch(from), endsAt: toEpoch(to));
   }
 
-  /// Negotiate a stream URL + session identity for [channelKey].
-  /// Jellyfin-only: Plex live URLs are only valid after a tune, so the shared
-  /// entry point is [startPlayback].
-  ///
-  /// The server yields one of two real outcomes — HTTP direct *stream* is
-  /// hard-disabled server-side, so `SupportsDirectStream` never comes back
-  /// without `SupportsDirectPlay`:
-  ///
-  /// - **DirectPlay**: no `TranscodingUrl`; the client streams the source
-  ///   through `/Videos/{id}/stream.{container}?Static=true`. Granted when the
-  ///   source matches a `DirectPlayProfiles` entry and fits under the ceiling
-  ///   this negotiation sends, which the server checks itself — a capped preset
-  ///   is a ceiling, not a request to re-encode, so direct play is asked for on
-  ///   every preset and the server makes the call (#2306).
-  /// - **Transcode**: an HLS `TranscodingUrl`, capped by the preset's
-  ///   bitrate when one is set. That is what a source above the ceiling comes
-  ///   back with, and what [forceTranscode] recovery asks for outright.
+  /// Request HLS using this dialect's live profile, preserving codec-copy
+  /// permission and the selected bitrate ceiling. Only an inspected EVENT
+  /// media playlist can subsequently supply retained-history seeking.
   Future<LiveTvStreamResolution?> _resolveStreamUrl(
     String channelKey, {
     required TranscodeQualityPreset quality,
-    bool forceTranscode = false,
   }) async {
-    final wantsDirect = !forceTranscode;
+    // Both dialects negotiate HLS for server-retained history. Copy remains
+    // permitted: an HLS TranscodingUrl can be a remux, not an encode.
     final info = await _client.getPlaybackInfo(
       channelKey,
       isLiveTv: true,
@@ -229,8 +215,8 @@ class _JellyfinLiveTvSupport implements LiveTvSupport {
       // unknown-live estimate without inheriting that implicit 8 Mbps cap.
       maxStreamingBitrate: quality.isOriginal ? 100_000_000 : (quality.videoBitrateKbps ?? 100_000) * 1000,
       autoOpenLiveStream: true,
-      enableDirectPlay: wantsDirect,
-      enableDirectStream: wantsDirect,
+      enableDirectPlay: false,
+      enableDirectStream: false,
       enableTranscoding: true,
       allowVideoStreamCopy: true,
       allowAudioStreamCopy: true,
@@ -251,30 +237,6 @@ class _JellyfinLiveTvSupport implements LiveTvSupport {
     var playSessionId = nonEmptyString(info['PlaySessionId']);
     var mediaSourceId = nonEmptyString(source['Id']);
     var liveStreamId = nonEmptyString(source['LiveStreamId']);
-
-    final container = nonEmptyString(source['Container']);
-    if (wantsDirect && source['SupportsDirectPlay'] == true && container != null) {
-      // The server-proxied direct URL jellyfin-web builds (raw tuner `Path`
-      // needs client-side reachability probing, so it is deliberately not
-      // used). No PlaySessionId in the URL — it travels in the heartbeats.
-      final query = <String, String>{
-        'Static': 'true',
-        'MediaSourceId': ?mediaSourceId,
-        'LiveStreamId': ?liveStreamId,
-        'DeviceId': _client.connection.deviceId,
-      };
-      final directPath = Uri(
-        path: '/Videos/${_segment(channelKey)}/stream.$container',
-        queryParameters: query,
-      ).toString();
-      return LiveTvStreamResolution(
-        url: _client._withApiKey(directPath),
-        playSessionId: playSessionId,
-        mediaSourceId: mediaSourceId,
-        liveStreamId: liveStreamId,
-        playMethod: 'DirectPlay',
-      );
-    }
 
     final rawUrl = nonEmptyString(source['TranscodingUrl']);
     final rawUri = rawUrl == null ? null : Uri.tryParse(rawUrl);
@@ -309,7 +271,7 @@ class _JellyfinLiveTvSupport implements LiveTvSupport {
   }) async {
     final resolution = await _resolveStreamUrl(channelKey, quality: quality);
     if (resolution == null) return null;
-    return _JellyfinLiveTvPlaybackSession(_client, channelKey, quality, resolution);
+    return _JellyfinLiveTvPlaybackSession(_client, channelKey, resolution);
   }
 
   /// SharedPreferences key for the locally-persisted favorite-channel list.
@@ -396,22 +358,249 @@ class _JellyfinLiveTvSupport implements LiveTvSupport {
   }
 }
 
-/// A MediaBrowser live playback session: one negotiated stream URL — direct
-/// play or HLS transcode — plus `/Sessions/Playing*` heartbeats via
-/// [JellyfinLiveSessionTracker]. No program-scoped session and no time-shift.
-class _JellyfinLiveTvPlaybackSession implements LiveTvPlaybackSession {
+/// One MediaBrowser HLS job with its reporting identity and validated EVENT
+/// history. Jellyfin and Emby retain their dialect-specific device profiles;
+/// neither receives Plex URL-offset parameters.
+class _JellyfinLiveTvPlaybackSession implements LiveTvPlaybackSession, LiveTvHlsTimeshiftSession {
   final JellyfinClient _client;
   final String _channelKey;
-  final TranscodeQualityPreset _quality;
   final String _url;
-  final String? _playMethod;
-  final String? _liveStreamId;
   final JellyfinLiveSessionTracker _tracker;
+  final _history = RetainedHlsHistory();
+  Future<void>? _refreshingHistory;
+  bool _preparedHistory = false;
+  bool _retryHistory = false;
+  bool _stopped = false;
+  String? _originSegmentIdentity;
+  String? _initializationIdentity;
+  int? _loggedSegmentCount;
 
-  _JellyfinLiveTvPlaybackSession(this._client, this._channelKey, this._quality, LiveTvStreamResolution resolution)
+  // Jellyfin's output-file key includes User-Agent. Metadata and MPV must
+  // name the very same job, including through same-URL player reloads.
+  @override
+  Map<String, String> get playbackHeaders => const {'User-Agent': 'Plezy-Live-HLS/1', 'Accept-Language': 'en'};
+
+  Future<void> _refreshHistory({Duration timeout = const Duration(seconds: 5)}) =>
+      _refreshingHistory ??= _readHistory(timeout).whenComplete(() => _refreshingHistory = null);
+
+  Future<void> _readHistory(Duration timeout) async {
+    if (_stopped) return;
+    _retryHistory = false;
+    try {
+      var unsupported = false;
+      final snapshot = await fetchLiveHlsManifest(Uri.parse(_url), (uri) async {
+        final response = await _client._http.get(
+          _client._withApiKey(uri.toString()),
+          headers: {...playbackHeaders, 'Accept': 'application/vnd.apple.mpegurl', 'Cache-Control': 'no-cache'},
+          timeout: timeout,
+        );
+        if (response.statusCode != 200 || response.data is! String) {
+          _retryHistory = response.statusCode == 404 || response.statusCode == 408 || response.statusCode >= 500;
+          appLogger.d('${_client.dialect.productName} retained HLS manifest unavailable: HTTP ${response.statusCode}');
+          return null;
+        }
+        // Redirects must not silently change the playlist-relative base.
+        if (response.effectiveUri != null && response.effectiveUri != response.requestUri) {
+          appLogger.d('${_client.dialect.productName} retained HLS manifest redirected; history unavailable');
+          return null;
+        }
+        return response.data as String;
+      }, onUnsupported: () => unsupported = true);
+      if (_stopped) return;
+      if (snapshot == null) {
+        if (unsupported) appLogger.d('${_client.dialect.productName} retained HLS playlist shape unsupported');
+        if (unsupported && _history.playlist != null) {
+          invalidateHistory();
+        } else {
+          _history.unavailable();
+        }
+      } else {
+        if (!_history.update(snapshot, DateTime.now())) {
+          appLogger.d('${_client.dialect.productName} retained HLS origin is retired');
+        } else if (_loggedSegmentCount != snapshot.segments.length) {
+          _loggedSegmentCount = snapshot.segments.length;
+          final buffer = _history.buffer(DateTime.now());
+          appLogger.d(
+            '${_client.dialect.productName} retained HLS history: '
+            'segments=${snapshot.segments.length}, duration=${snapshot.duration}, '
+            'targetDuration=${snapshot.targetDuration}, seekEnd=${buffer?.seekEndSeconds}, '
+            'preferredLive=${snapshot.preferredLivePosition}',
+          );
+        }
+      }
+    } catch (error) {
+      _retryHistory = error is MediaServerHttpException && !error.isCancellation;
+      final reason = error is MediaServerHttpException ? error.type.name : error.runtimeType.toString();
+      appLogger.d('${_client.dialect.productName} retained HLS manifest request failed: $reason');
+      _history.unavailable();
+    }
+  }
+
+  @override
+  void invalidateHistory() => _history.invalidate();
+
+  @override
+  bool get historyRetired => _history.isRetired;
+
+  /// Validate the actual files without buffering media in Dart. In particular,
+  /// a restarted server job may reuse the same URL and segment names. Its first
+  /// file validator must still match before a player reopen reuses the clock.
+  Future<({String? identity, bool temporary})> _segmentIdentity(Uri uri) async {
+    final abort = Completer<void>();
+    try {
+      final request = http.AbortableRequest(
+        'GET',
+        Uri.parse(_client._withApiKey(uri.toString())),
+        abortTrigger: abort.future,
+      )..followRedirects = false;
+      request.headers.addAll({..._client._http.defaultHeaders, ...playbackHeaders, 'Range': 'bytes=0-0'});
+      final response = await _client._http.inner.send(request).timeout(const Duration(seconds: 5));
+      await response.stream.listen((_) {}).cancel();
+      if (response.statusCode != 200 && response.statusCode != 206) {
+        appLogger.d('${_client.dialect.productName} retained HLS file unavailable: HTTP ${response.statusCode}');
+        return (
+          identity: null,
+          temporary: response.statusCode == 408 || response.statusCode == 429 || response.statusCode >= 500,
+        );
+      }
+      final etag = response.headers['etag'];
+      final modified = response.headers['last-modified'];
+      // No validator means no evidence that a same-named origin survived.
+      if (etag == null && modified == null) {
+        appLogger.d('${_client.dialect.productName} retained HLS file lacks an identity validator');
+        return (identity: null, temporary: false);
+      }
+      return (identity: '${etag ?? ''}|${modified ?? ''}', temporary: false);
+    } catch (_) {
+      return (identity: null, temporary: true);
+    } finally {
+      abort.complete();
+    }
+  }
+
+  Future<bool> _validateFiles(double seconds) async {
+    final snapshot = _history.playlist;
+    if (snapshot == null) return false;
+
+    Future<String?> validate(Uri uri, {String? expected}) async {
+      final result = await _segmentIdentity(uri);
+      if (_stopped) return null;
+      if (result.temporary) {
+        _history.unavailable();
+        return null;
+      }
+      final identity = result.identity;
+      if (identity == null || (expected != null && expected != identity)) {
+        invalidateHistory();
+        return null;
+      }
+      return identity;
+    }
+
+    final initialization = snapshot.initialization;
+    if (initialization != null) {
+      final identity = await validate(Uri.parse(initialization), expected: _initializationIdentity);
+      if (identity == null) return false;
+      _initializationIdentity = identity;
+    }
+    final origin = await validate(snapshot.segments.first.uri, expected: _originSegmentIdentity);
+    if (origin == null) return false;
+    _originSegmentIdentity = origin;
+    var elapsed = 0.0;
+    for (final segment in snapshot.segments) {
+      if (elapsed + segment.duration > seconds) {
+        if (segment != snapshot.segments.first && await validate(segment.uri) == null) return false;
+        return !_stopped && _history.isFresh(DateTime.now());
+      }
+      elapsed += segment.duration;
+    }
+    return false;
+  }
+
+  // HLS keyframe selection can discard a segment's first keyframe when its
+  // decode timestamp precedes the playlist interval (e.g. delayed video with
+  // B-frames). Start demuxing one segment earlier, then let MPV decode to the
+  // unchanged target. Use actual EXTINF lengths: target duration is rounded.
+  LiveTvSeekRequest _historyRequest(double seconds) => LiveTvSeekRequest(
+    url: _client._withApiKey(_history.playlist!.uri.toString()),
+    effectiveTargetEpoch: _history.epochOrigin! + seconds,
+    mediaStart: Duration(microseconds: (seconds * Duration.microsecondsPerSecond).round()),
+    mediaEpochOrigin: _history.epochOrigin,
+    mediaSeekPreRoll: Duration(
+      microseconds:
+          (_history.playlist!.segments.fold<double>(
+                    0,
+                    (longest, segment) => segment.duration > longest ? segment.duration : longest,
+                  ) *
+                  Duration.microsecondsPerSecond)
+              .ceil(),
+    ),
+    mediaFirstSegmentEnd: Duration(
+      microseconds: (_history.playlist!.segments.first.duration * Duration.microsecondsPerSecond).round(),
+    ),
+  );
+
+  @override
+  Future<LiveTvSeekRequest?> preparePlayback() async {
+    await _refreshHistory();
+    if (!_stopped && !_preparedHistory && !_history.isRetired && _retryHistory) {
+      // A cold Live TV job can serve its master before FFmpeg has produced the
+      // first media playlist. The regular polling deadline is too short for
+      // that startup. Retry the same negotiation with a bounded warmup budget
+      // before opening MPV, so a transient timeout cannot silently select an
+      // unanchored player source for the entire session.
+      appLogger.d('${_client.dialect.productName} waiting for retained HLS startup (30-second retry)');
+      await _refreshHistory(timeout: const Duration(seconds: 30));
+    }
+    final snapshot = _history.playlist;
+    if (_stopped || snapshot == null || !_history.isFresh(DateTime.now()) || _history.epochOrigin == null) {
+      appLogger.d('${_client.dialect.productName} opening live playback without a validated HLS history');
+      return null;
+    }
+    _preparedHistory = true;
+    final seconds = snapshot.preferredLivePosition;
+    if (!await _validateFiles(seconds)) return null;
+    appLogger.d(
+      '${_client.dialect.productName} retained HLS open: '
+      'position=$seconds, segments=${snapshot.segments.length}, clock=${_history.exactClock ? 'PDT' : 'estimated'}',
+    );
+    return _historyRequest(seconds);
+  }
+
+  @override
+  LiveTvSeekWindow? seekWindow(CaptureBuffer buffer) {
+    final current = captureBuffer;
+    if (current == null || buffer.startedAt != current.startedAt) return null;
+    // Match native seek precision so EXTINF summation noise above an exact
+    // second cannot accidentally expose EOF as a whole-second target.
+    final endMicros = (current.seekEndSeconds * Duration.microsecondsPerSecond).round();
+    if (endMicros <= 0) return null;
+    return LiveTvSeekWindow(
+      startEpoch: current.startedAt + current.seekStartSeconds,
+      // Whole-second targets strictly inside completed media, never its EOF.
+      endEpoch: current.startedAt + (endMicros - 1) ~/ Duration.microsecondsPerSecond,
+    );
+  }
+
+  @override
+  Future<LiveTvSeekRequest?> resolveSeek({
+    required double? targetEpoch,
+    required CaptureBuffer buffer,
+    MediaSubtitleTrack? subtitleTrack,
+  }) async {
+    if (subtitleTrack != null || !_preparedHistory) return null;
+    await _refreshHistory();
+    final window = seekWindow(buffer);
+    final target = targetEpoch == null ? (window == null ? null : preferredLiveEpoch) : window?.target(targetEpoch);
+    if (target == null) return null;
+    final seconds = target - _history.epochOrigin!;
+    if (!await _validateFiles(seconds)) return null;
+    appLogger.d('${_client.dialect.productName} retained HLS seek: position=$seconds');
+    return _historyRequest(seconds);
+  }
+
+  _JellyfinLiveTvPlaybackSession(this._client, this._channelKey, LiveTvStreamResolution resolution)
     : _url = resolution.url,
-      _playMethod = resolution.playMethod,
-      _liveStreamId = resolution.liveStreamId,
       _tracker = JellyfinLiveSessionTracker(
         playSessionId: resolution.playSessionId,
         mediaSourceId: resolution.mediaSourceId,
@@ -426,7 +615,11 @@ class _JellyfinLiveTvPlaybackSession implements LiveTvPlaybackSession {
   LiveTvBackgroundPolicy get backgroundPolicy => LiveTvBackgroundPolicy.stopAndExit;
 
   @override
-  CaptureBuffer? get captureBuffer => null;
+  CaptureBuffer? get captureBuffer => _stopped || !_preparedHistory ? null : _history.buffer(DateTime.now());
+
+  @override
+  double? get preferredLiveEpoch =>
+      captureBuffer == null ? null : _history.epochOrigin! + _history.playlist!.preferredLivePosition;
 
   /// Intentionally unsupported: the session plays one URL negotiated at
   /// start, so there is no rebuild through which a server-side subtitle
@@ -448,6 +641,10 @@ class _JellyfinLiveTvPlaybackSession implements LiveTvPlaybackSession {
     required int positionMs,
     required int durationMs,
   }) async {
+    if (state == 'stopped') {
+      _stopped = true;
+      invalidateHistory();
+    }
     await _tracker.report(
       client: _client,
       itemId: _channelKey,
@@ -455,29 +652,18 @@ class _JellyfinLiveTvPlaybackSession implements LiveTvPlaybackSession {
       position: Duration(milliseconds: positionMs),
       duration: Duration(milliseconds: durationMs),
     );
-    return null;
+    if (!_stopped && _preparedHistory) await _refreshHistory();
+    return LiveTimelineUpdate(
+      captureBuffer: captureBuffer,
+      clearCaptureBuffer: captureBuffer == null,
+      clearPlaybackClock: _history.isRetired,
+    );
   }
 
-  /// A transcode session returns itself so its negotiated HLS URL is
-  /// re-opened — the server rebuilds the transcode job for the same
-  /// PlaySessionId. A direct-play session asked to drop [directStream]
-  /// re-negotiates a forced transcode instead: that negotiation opens its own
-  /// live stream, and the player adopts the replacement without ever
-  /// stop-reporting this session, so the old stream is released here. On a
-  /// failed re-negotiation this session stays current and is stop-reported by
-  /// the normal teardown, which also closes its stream. [directStreamAudio]
-  /// has no server-side lever beyond the transcode fallback and is ignored.
+  /// Reopen the existing negotiation without sending stop or closing the
+  /// live stream. preparePlayback revalidates the playlist and origin file;
+  /// lost history cannot inherit a replacement job's timing.
   @override
-  Future<LiveTvPlaybackSession?> recover({required bool directStream, required bool directStreamAudio}) async {
-    if (_playMethod != 'DirectPlay' || directStream) return this;
-    final replacement = await _JellyfinLiveTvSupport(
-      _client,
-    )._resolveStreamUrl(_channelKey, quality: _quality, forceTranscode: true);
-    if (replacement == null) return null;
-    final liveStreamId = _liveStreamId;
-    if (liveStreamId != null) {
-      unawaited(_client._closeLiveStream(liveStreamId));
-    }
-    return _JellyfinLiveTvPlaybackSession(_client, _channelKey, _quality, replacement);
-  }
+  Future<LiveTvPlaybackSession?> recover({required bool directStream, required bool directStreamAudio}) async =>
+      _stopped ? null : this;
 }

@@ -387,6 +387,8 @@ class PlayerNative extends PlayerBase {
   /// [startLivePlaylistFromBeginning] makes mpv start server-positioned live
   /// HLS at its first available segment instead of FFmpeg's default live position.
   /// It applies only to this live open, preserving later opens' defaults.
+  /// [seekPreRoll] starts demuxing earlier while keeping the exact presentation
+  /// target. Bound it at the media origin to avoid a negative demuxer seek.
   @override
   Future<int?> open(
     Media media, {
@@ -395,6 +397,7 @@ class PlayerNative extends PlayerBase {
     List<SubtitleTrack>? externalSubtitles,
     Duration? timelineDuration,
     bool startLivePlaylistFromBeginning = false,
+    Duration? seekPreRoll,
   }) async {
     if (_nativeCoreUnavailable) return null;
     await _ensureInitialized();
@@ -440,7 +443,7 @@ class PlayerNative extends PlayerBase {
     // refused default must degrade to mpv's own behaviour, not abort the
     // open: the loadfile below is what actually starts playback.
     try {
-      if (startPosition.inSeconds > 0) {
+      if (startPosition.inMicroseconds > 0) {
         await setProperty('start', (startPosition.inMilliseconds / 1000.0).toString());
       } else {
         await setProperty('start', 'none');
@@ -474,6 +477,11 @@ class PlayerNative extends PlayerBase {
       // offset. FFmpeg's default (-3) can skip much of it before decoding.
       // Keep this file-local and append so other demuxer options survive.
       if (isLive && startLivePlaylistFromBeginning) 'demuxer-lavf-o-append=live_start_index=0',
+      if (isLive && startLivePlaylistFromBeginning && media.start != null) 'demuxer-lavf-o-add=prefer_x_start=0',
+      // Match the millisecond precision used for `start` above; a fractional
+      // excess here would send the demuxer before the retained origin.
+      if (seekPreRoll != null && startPosition >= Duration.zero)
+        'hr-seek-demuxer-offset=${seekPreRoll.inMicroseconds.clamp(0, startPosition.inMilliseconds * Duration.microsecondsPerMillisecond) / Duration.microsecondsPerSecond}',
     ];
     loadfileArgs.addAll(['-1', loadfileOptions.join(',')]);
     if (audioOnly) _expectOpenFileLoad = true;
