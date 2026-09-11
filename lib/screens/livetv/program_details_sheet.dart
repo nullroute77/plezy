@@ -12,12 +12,12 @@ import '../../theme/mono_tokens.dart';
 import '../../utils/app_logger.dart';
 import '../../utils/formatters.dart';
 import '../../utils/media_image_helper.dart';
+import '../../widgets/status_pill.dart';
 import '../../widgets/app_icon.dart';
 import '../../widgets/collapsible_text.dart';
 import '../../widgets/overlay_sheet.dart';
 import '../../widgets/optimized_media_image.dart' show blurArtwork;
 import 'livetv_recording_actions.dart';
-import 'livetv_styles.dart';
 
 /// Shows a bottom sheet with program details and actions (Play / Watch Channel /
 /// Record / Manage recording).
@@ -355,7 +355,7 @@ class _ProgramDetailsSheetContentState extends State<_ProgramDetailsSheetContent
                     Row(
                       children: [
                         Expanded(child: Text(program.displayTitle, style: theme.textTheme.titleMedium)),
-                        if (program.isCurrentlyAiring) StatusPill(label: t.liveTv.live, color: Colors.red),
+                        if (program.isCurrentlyAiring) StatusPill.live(),
                       ],
                     ),
                     const SizedBox(height: 4),

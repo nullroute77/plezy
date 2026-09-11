@@ -32,6 +32,7 @@ import '../../../utils/live_tv_grouping.dart';
 import '../../../utils/live_tv_matching.dart';
 import '../../../utils/platform_detector.dart';
 import '../../../utils/tone_mapped_logo_image.dart';
+import '../../../widgets/status_pill.dart';
 import '../../../widgets/app_icon.dart';
 import '../../../widgets/app_menu.dart';
 import '../../../widgets/clickable_cursor.dart';
@@ -1783,15 +1784,14 @@ class _GuideProgramText extends StatelessWidget {
                       ),
                       if (showBadge) ...[
                         const SizedBox(width: 4),
-                        StatusPill.compact(
-                          label: badge,
-                          color: program.guideBadge == GuideProgramBadge.live
-                              ? Colors.red.shade700
-                              : Color.alphaBlend(titleColor.withValues(alpha: 0.2), backgroundColor),
-                          foregroundColor: program.guideBadge == GuideProgramBadge.live
-                              ? Colors.white
-                              : titleColor.withValues(alpha: 1),
-                        ),
+                        if (program.guideBadge == GuideProgramBadge.live)
+                          StatusPill.live()
+                        else
+                          StatusPill.compact(
+                            label: badge,
+                            color: Color.alphaBlend(titleColor.withValues(alpha: 0.2), backgroundColor),
+                            foregroundColor: titleColor.withValues(alpha: 1),
+                          ),
                       ],
                     ],
                   ),
