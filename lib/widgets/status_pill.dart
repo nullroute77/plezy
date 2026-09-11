@@ -20,6 +20,15 @@ class StatusPill extends StatelessWidget {
   /// One localized LIVE appearance shared by guide, player, and details.
   factory StatusPill.live({Key? key}) => StatusPill.compact(key: key, label: t.liveTv.live, color: Colors.red.shade700);
 
+  /// Neutral NEW appearance shared by guide cards and program details.
+  factory StatusPill.newProgram({Key? key, required Color foregroundColor, required Color backgroundColor}) =>
+      StatusPill.compact(
+        key: key,
+        label: t.liveTv.newProgram,
+        color: Color.alphaBlend(foregroundColor.withValues(alpha: 0.2), backgroundColor),
+        foregroundColor: foregroundColor.withValues(alpha: 1),
+      );
+
   @override
   Widget build(BuildContext context) {
     return Container(
