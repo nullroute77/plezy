@@ -314,7 +314,7 @@ void main() {
             expect((luminances.last + 0.05) / (luminances.first + 0.05), greaterThanOrEqualTo(4.5));
           }
           final livePill = tester.widget<StatusPill>(find.descendant(of: card, matching: find.byType(StatusPill)));
-          expect(livePill.color, Colors.red.shade700);
+          expect(livePill.color, Colors.red);
           expect(livePill.foregroundColor, Colors.white);
           for (final pill in [newPill, livePill]) {
             final decoration =
