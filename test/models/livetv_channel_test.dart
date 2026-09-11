@@ -2,6 +2,13 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:plezy/models/livetv_channel.dart';
 
 void main() {
+  test('Plex channel age rating survives JSON parsing and source decoration', () {
+    final channel = LiveTvChannel.fromJson({'key': 'channel', 'contentRating': 'gb/15'});
+    expect(channel.contentRating, 'gb/15');
+    expect(channel.copyWith(serverId: 'server', liveDvrKey: 'dvr').contentRating, 'gb/15');
+    expect(LiveTvChannel.fromJson({'key': 'unrated'}).contentRating, isNull);
+  });
+
   test('favoriteChannelKey includes source and id', () {
     expect(favoriteChannelKey('server://a/provider', '101'), isNot(favoriteChannelKey('server://b/provider', '101')));
     expect(
