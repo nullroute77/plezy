@@ -209,7 +209,7 @@ void _expectLiveBadge(WidgetTester tester) {
   final decoration =
       tester.widget<Container>(find.descendant(of: badge, matching: find.byType(Container))).decoration!
           as BoxDecoration;
-  expect(decoration.color, Colors.red.shade700);
+  expect(decoration.color, Colors.red);
   expect(decoration.border, isNull);
   expect(decoration.borderRadius, BorderRadius.circular(3));
   final badgeRect = tester.getRect(badge);
