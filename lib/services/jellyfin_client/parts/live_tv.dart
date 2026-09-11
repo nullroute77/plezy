@@ -90,6 +90,8 @@ mixin _JellyfinLiveTvMethods on _JellyfinClientInternals {
       // feeds it to /LiveTv/Timers/Defaults?programId=.
       guid: id,
       title: json['Name'] as String? ?? t.liveTv.unknownProgram,
+      programTitle: json['Name'] as String? ?? t.liveTv.unknownProgram,
+      episodeTitle: json['EpisodeTitle'] as String?,
       summary: json['Overview'] as String?,
       type: 'episode',
       year: (json['ProductionYear'] as num?)?.toInt(),
@@ -105,6 +107,12 @@ mixin _JellyfinLiveTvMethods on _JellyfinClientInternals {
       channelCallSign: json['ChannelCallSign'] as String? ?? json['ChannelName'] as String?,
       live: json['IsLive'] as bool?,
       premiere: json['IsPremiere'] as bool?,
+      // Emby exposes IsNew. Jellyfin conveys new series airings via an
+      // explicit IsRepeat=false; a missing repeat flag is not evidence.
+      isNew:
+          json['IsNew'] as bool? ??
+          (json['IsSeries'] == true && json['IsRepeat'] is bool ? json['IsRepeat'] == false : null),
+      repeat: json['IsRepeat'] as bool?,
       subscriptionId: recording ? '$_jfTimerRuleKeyPrefix$timerId' : null,
       grandparentSubscriptionId: recording && seriesTimerId != null && seriesTimerId.isNotEmpty
           ? '$_jfSeriesRuleKeyPrefix$seriesTimerId'

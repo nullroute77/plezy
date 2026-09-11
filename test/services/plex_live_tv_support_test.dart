@@ -17,6 +17,7 @@ import 'package:plezy/exceptions/media_server_exceptions.dart';
 import 'package:plezy/media/media_server_client.dart';
 import 'package:plezy/models/media_subscription.dart';
 import 'package:plezy/models/livetv_channel.dart';
+import 'package:plezy/models/livetv_program.dart';
 import 'package:plezy/models/plex/plex_config.dart';
 import 'package:plezy/services/plex_api_cache.dart';
 import 'package:plezy/services/plex_client.dart';
@@ -719,6 +720,38 @@ void main() {
 
     expect(operations.single.program?.ratingKey, 'plex%3A%2F%2Fepisode%2F6a5860d74ec32227cf90b41d');
     expect(operations.single.program?.guid, 'plex://episode/6a5860d74ec32227cf90b41d');
+  });
+
+  test('EPG expands airing-specific badges and preserves normalized episode titles', () async {
+    final client = makeClient(
+      (request) async => jsonResponse({
+        'MediaContainer': {
+          'Metadata': [
+            {
+              'title': 'The 100',
+              'grandparentTitle': 'Science',
+              'type': 'episode',
+              'parentIndex': 2,
+              'index': 4,
+              'premiere': true,
+              'Media': [
+                {'beginsAt': 1000, 'endsAt': 2800, 'channelIdentifier': '004', 'live': 1, 'new': 1},
+                {'beginsAt': 2800, 'endsAt': 4600, 'channelIdentifier': '004', 'live': 0, 'premiere': 0, 'repeat': 1},
+                {'beginsAt': 4600, 'endsAt': 6400, 'channelIdentifier': '004', 'live': 0, 'premiere': 1},
+              ],
+            },
+          ],
+        },
+      }),
+    );
+    addTearDown(client.close);
+    final programs = await client.liveTv.fetchSchedule();
+    expect(programs.map((p) => p.guideBadge), [GuideProgramBadge.live, null, GuideProgramBadge.newProgram]);
+    expect(programs.map((p) => p.guideTitle), everyElement('Science'));
+    expect(programs.map((p) => p.guideSubtitle), everyElement('The 100'));
+    expect(programs.map((p) => p.beginsAt), [1000, 2800, 4600]);
+    expect(programs.map((p) => p.durationMinutes), everyElement(30));
+    expect(programs.map((p) => p.providerIdentifier), everyElement('provider-a'));
   });
 
   test('EPG grid airings keep their subscription attributes', () async {

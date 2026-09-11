@@ -1,4 +1,8 @@
 import 'dart:async';
+import 'dart:io';
+import 'dart:ui' as ui;
+import 'package:clock/clock.dart';
+import 'package:flutter/rendering.dart';
 
 import 'package:fake_async/fake_async.dart';
 import 'package:flutter/material.dart';
@@ -22,6 +26,7 @@ import 'package:plezy/providers/multi_server_provider.dart';
 import 'package:plezy/services/multi_server_manager.dart';
 import 'package:plezy/theme/mono_theme.dart';
 import 'package:plezy/utils/platform_detector.dart';
+import 'package:plezy/utils/formatters.dart';
 import 'package:plezy/widgets/app_icon.dart';
 import 'package:provider/provider.dart';
 
@@ -49,7 +54,15 @@ LiveTvProgram _program({String ratingKey = 'program/42', int beginsAt = 1_800_00
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
-  setUpAll(() => initializeDateFormatting('en'));
+  setUpAll(() async {
+    await initializeDateFormatting('en');
+    if (const String.fromEnvironment('GUIDE_SCREENSHOT_DIR').isNotEmpty) {
+      await (FontLoader('GuidePreview')..addFont(rootBundle.load('assets/go-noto-current-regular.ttf'))).load();
+      await (FontLoader(
+        'packages/material_symbols_icons/MaterialSymbolsRounded',
+      )..addFont(rootBundle.load('packages/material_symbols_icons/lib/fonts/MaterialSymbolsRounded.ttf'))).load();
+    }
+  });
   setUp(() {
     LocaleSettings.setLocaleSync(AppLocale.en);
     TvDetectionService.debugSetAppleTVOverride(false);
@@ -58,6 +71,210 @@ void main() {
     SelectKeyUpSuppressor.clearSuppression();
     TvDetectionService.debugSetAppleTVOverride(null);
   });
+
+  test('half-hour floor covers boundaries, fractions, midnight, month/year changes', () {
+    for (final time in [
+      DateTime(2026, 9, 10, 20),
+      DateTime(2026, 9, 10, 20, 29, 59, 999, 999),
+      DateTime(2026, 9, 10, 20, 30),
+      DateTime(2026, 9, 10, 20, 51),
+      DateTime(2026, 12, 31, 23, 59),
+      DateTime(2027, 1, 1, 0, 1),
+      DateTime(2026, 10, 1, 0, 29),
+    ]) {
+      expect(guideHalfHourStart(time), DateTime(time.year, time.month, time.day, time.hour, time.minute ~/ 30 * 30));
+    }
+  });
+
+  test('half-hour floor preserves both occurrences of a repeated DST hour', () {
+    // Run with TZ=America/Chicago as well as the ordinary suite. Epochs remove
+    // the ambiguity of constructing the repeated 01:xx wall-clock hour.
+    for (final utc in [
+      DateTime.utc(2026, 11, 1, 6, 51),
+      DateTime.utc(2026, 11, 1, 7, 51),
+      DateTime.utc(2026, 3, 8, 7, 59),
+      DateTime.utc(2026, 3, 8, 8, 1),
+    ]) {
+      final time = utc.toLocal();
+      final floor = guideHalfHourStart(time);
+      expect(floor.timeZoneOffset, time.timeZoneOffset);
+      expect(floor.minute, time.minute ~/ 30 * 30);
+      expect(floor.hour, time.hour);
+      expect(time.difference(floor), Duration(minutes: time.minute % 30));
+      expect(floor.isUtc, isFalse);
+    }
+  });
+
+  for (final is24Hour in [false, true]) {
+    testWidgets('entry and Now start at local half hour (${is24Hour ? 24 : 12}-hour labels)', (tester) async {
+      var now = DateTime(2026, 9, 10, 20, 51);
+      await withClock(Clock(() => now), () async {
+        final harness = _GuideHarness.oneServer();
+        addTearDown(harness.dispose);
+        await harness.pump(tester, size: const Size(480, 400), is24Hour: is24Hour);
+        await harness.completeInitial(tester);
+        expect(harness.serverA.schedule.requests.first.from, DateTime(2026, 9, 10, 20, 30).toUtc());
+        final label = find.text(formatClockTime(DateTime(2026, 9, 10, 20, 30), is24Hour: is24Hour)).last;
+        expect(label, findsOneWidget);
+        expect(tester.getTopLeft(label).dx, closeTo(140, 1));
+        await tester.tap(_leftTimeButton());
+        harness.serverA.schedule.complete(1, 'History');
+        await tester.pumpAndSettle();
+        now = DateTime(2026, 9, 11, 0, 29, 59);
+        // Open the day picker by mouse and explicitly choose Now.
+        await tester.tap(find.text(t.liveTv.today));
+        await tester.pumpAndSettle();
+        await tester.tap(find.text(t.liveTv.now));
+        harness.serverA.schedule.complete(2, 'Back to now');
+        await tester.pumpAndSettle();
+        expect(harness.serverA.schedule.requests.last.from, DateTime(2026, 9, 11).toUtc());
+        expect(
+          tester.getTopLeft(find.text(formatClockTime(DateTime(2026, 9, 11), is24Hour: is24Hour)).last).dx,
+          closeTo(140, 1),
+        );
+      });
+    });
+  }
+
+  testWidgets('backward schedule remains browsable across refresh after live window expires', (tester) async {
+    var now = DateTime(2026, 9, 10, 20, 51);
+    await withClock(Clock(() => now), () async {
+      final harness = _GuideHarness.oneServer();
+      addTearDown(harness.dispose);
+      await harness.pump(tester);
+      await harness.completeInitial(tester);
+      await tester.tap(_leftTimeButton());
+      final history = harness.serverA.schedule.requests.last;
+      expect(history.from, DateTime(2026, 9, 10, 18, 30).toUtc());
+      harness.serverA.schedule.complete(1, 'Earlier program');
+      await tester.pumpAndSettle();
+      // This manual window includes Now initially; it still must not follow it.
+      now = now.add(const Duration(hours: 8));
+      tester.state<GuideTabState>(find.byType(GuideTab)).onRefreshTick();
+      await tester.pump();
+      expect(harness.serverA.schedule.requests, hasLength(2));
+      expect(find.text('Earlier program'), findsOneWidget);
+      await tester.tap(_rightTimeButton());
+      expect(harness.serverA.schedule.requests.last.from, history.from.add(const Duration(hours: 2)));
+      harness.serverA.schedule.complete(2, 'Forward again');
+      await tester.pumpAndSettle();
+    });
+  });
+
+  for (final tv in [false, true]) {
+    testWidgets('guide badges and subtext fit short cards with pointer and ${tv ? 'TV remote' : 'keyboard'} focus', (
+      tester,
+    ) async {
+      TvDetectionService.debugSetAppleTVOverride(tv);
+      final harness = _GuideHarness.oneServer();
+      addTearDown(harness.dispose);
+      await harness.pump(tester);
+      final request = harness.serverA.schedule.requests.single;
+      final start = request.from.millisecondsSinceEpoch ~/ 1000;
+      request.completer.complete([
+        LiveTvProgram(
+          title: 'Live sports',
+          episodeTitle: 'Final 2026',
+          live: true,
+          isNew: true,
+          beginsAt: start,
+          endsAt: start + 1800,
+          channelIdentifier: 'station-a',
+          serverId: 'server-a',
+        ),
+        LiveTvProgram(
+          title: 'New series',
+          episodeTitle: 'The 100',
+          isNew: true,
+          beginsAt: start + 1800,
+          endsAt: start + 3600,
+          channelIdentifier: 'station-a',
+          serverId: 'server-a',
+        ),
+        LiveTvProgram(
+          title: 'Tiny recording',
+          episodeTitle: 'Episode 2000',
+          live: true,
+          subscriptionId: 'recording',
+          beginsAt: start + 3600,
+          endsAt: start + 3660,
+          channelIdentifier: 'station-a',
+          serverId: 'server-a',
+        ),
+        LiveTvProgram(
+          title: 'Narrow series',
+          episodeTitle: 'Episode 9 from Outer Space',
+          premiere: true,
+          subscriptionId: 'recording',
+          beginsAt: start + 3660,
+          endsAt: start + 4560,
+          channelIdentifier: 'station-a',
+          serverId: 'server-a',
+        ),
+        LiveTvProgram(
+          title: 'Missing metadata',
+          beginsAt: start + 4560,
+          endsAt: start + 6360,
+          channelIdentifier: 'station-a',
+          serverId: 'server-a',
+        ),
+      ]);
+      await tester.pumpAndSettle();
+      expect(tester.takeException(), isNull);
+      expect(find.text(t.liveTv.live), findsOneWidget);
+      final newCard = find.ancestor(of: find.text('New series'), matching: find.byType(InkWell)).first;
+      expect(find.descendant(of: newCard, matching: find.text(t.liveTv.newProgram)), findsOneWidget);
+      final tinyCard = find.ancestor(of: find.text('Tiny recording'), matching: find.byType(InkWell)).first;
+      expect(find.descendant(of: tinyCard, matching: find.text(t.liveTv.live)), findsNothing);
+      expect(find.text('Episode 2000'), findsNothing);
+      expect(find.text('Final 2026'), findsOneWidget);
+      expect(find.text('The 100'), findsOneWidget);
+      final card = find.ancestor(of: find.text('Live sports'), matching: find.byType(InkWell)).first;
+      expect(find.descendant(of: card, matching: find.byType(Text)), findsNWidgets(3));
+      expect(tester.getSize(card).width, closeTo(176, 4));
+      final mouse = await tester.createGesture(kind: ui.PointerDeviceKind.mouse);
+      await mouse.addPointer(location: tester.getCenter(card));
+      await tester.pump();
+      expect(tester.takeException(), isNull);
+      await mouse.removePointer();
+      await _focusGrid(tester);
+      for (var i = 0; i < 5; i++) {
+        await tester.sendKeyEvent(LogicalKeyboardKey.arrowRight);
+        await tester.pumpAndSettle();
+        expect(tester.takeException(), isNull);
+      }
+      for (var i = 0; i < 3; i++) {
+        await tester.sendKeyEvent(LogicalKeyboardKey.arrowLeft);
+        await tester.pumpAndSettle();
+      }
+      expect(find.ancestor(of: find.text('New series'), matching: _focusedCellFinder(tester)), findsOneWidget);
+      final focusedBadge = tester.widget<Text>(find.descendant(of: newCard, matching: find.text(t.liveTv.newProgram)));
+      expect(focusedBadge.style?.color, Theme.of(tester.element(newCard)).colorScheme.onPrimary);
+      // Capture actual Flutter rendering when explicitly requested; no golden
+      // baseline tied to the machine's wall clock or font rasterizer.
+      const screenshotDir = String.fromEnvironment('GUIDE_SCREENSHOT_DIR');
+      if (screenshotDir.isNotEmpty) {
+        final boundary = tester.renderObject<RenderRepaintBoundary>(find.byKey(const ValueKey('guide-capture')));
+        await tester.runAsync(() async {
+          final image = await boundary.toImage();
+          try {
+            final bytes = await image.toByteData(format: ui.ImageByteFormat.png);
+            Directory(screenshotDir).createSync(recursive: true);
+            File(
+              '$screenshotDir/guide-${tv ? 'remote' : 'keyboard'}.png',
+            ).writeAsBytesSync(bytes!.buffer.asUint8List());
+          } finally {
+            image.dispose();
+          }
+        });
+      }
+      // The very narrow card and its recording indicator also survive scaling.
+      tester.platformDispatcher.textScaleFactorTestValue = 1.5;
+      addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
+      await tester.pumpAndSettle();
+      expect(tester.takeException(), isNull);
+    });
+  }
 
   test('SELECT hold survives equivalent fresh guide objects and opens details once', () {
     fakeAsync((async) {
@@ -448,6 +665,13 @@ void main() {
   });
 }
 
+Finder _leftTimeButton() => find
+    .ancestor(
+      of: find.byWidgetPredicate((widget) => widget is AppIcon && widget.icon == Symbols.chevron_left_rounded),
+      matching: find.byType(IconButton),
+    )
+    .first;
+
 Finder _rightTimeButton() {
   final icon = find.byWidgetPredicate((widget) => widget is AppIcon && widget.icon == Symbols.chevron_right_rounded);
   return find.ancestor(of: icon, matching: find.byType(IconButton));
@@ -544,9 +768,9 @@ final class _GuideHarness {
   final MultiServerProvider provider;
   final List<LiveTvChannel> channels;
 
-  Future<void> pump(WidgetTester tester) async {
+  Future<void> pump(WidgetTester tester, {Size size = const Size(1280, 720), bool is24Hour = false}) async {
     tester.view.devicePixelRatio = 1;
-    tester.view.physicalSize = const Size(1280, 720);
+    tester.view.physicalSize = size;
     addTearDown(() {
       tester.view.resetDevicePixelRatio();
       tester.view.resetPhysicalSize();
@@ -558,8 +782,19 @@ final class _GuideHarness {
           child: ChangeNotifierProvider<MultiServerProvider>.value(
             value: provider,
             child: MaterialApp(
-              theme: monoTheme(dark: true),
-              home: Scaffold(body: GuideTab(channels: channels)),
+              theme: const String.fromEnvironment('GUIDE_SCREENSHOT_DIR').isEmpty
+                  ? monoTheme(dark: true)
+                  : monoTheme(
+                      dark: true,
+                    ).copyWith(textTheme: monoTheme(dark: true).textTheme.apply(fontFamily: 'GuidePreview')),
+              builder: (context, child) => MediaQuery(
+                data: MediaQuery.of(context).copyWith(alwaysUse24HourFormat: is24Hour),
+                child: child!,
+              ),
+              home: RepaintBoundary(
+                key: const ValueKey('guide-capture'),
+                child: Scaffold(body: GuideTab(channels: channels)),
+              ),
             ),
           ),
         ),

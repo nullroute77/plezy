@@ -1425,6 +1425,7 @@
     "channelNumber": "${number}. csatorna",
     "unknownChannel": "Ismeretlen csatorna",
     "live": "ÉLŐ",
+    "newProgram": "",
     "reloadGuide": "Műsorújság újratöltése",
     "searchGuide": "Keresés a műsorújságban",
     "searchHint": "Csatornák és műsorok keresése",
