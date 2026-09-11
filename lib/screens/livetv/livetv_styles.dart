@@ -14,20 +14,28 @@ Color airingFill(BuildContext context) {
 class StatusPill extends StatelessWidget {
   final String label;
   final Color color;
+  final bool _compact;
 
-  const StatusPill({super.key, required this.label, required this.color});
+  const StatusPill({super.key, required this.label, required this.color}) : _compact = false;
+
+  /// Solid, compact badge for inline guide titles. Keep its white foreground
+  /// independent of the card's inverted focus colors.
+  const StatusPill.compact({super.key, required this.label, required this.color}) : _compact = true;
 
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      padding: EdgeInsets.symmetric(horizontal: _compact ? 4 : 8, vertical: _compact ? 1 : 4),
       decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.15),
-        borderRadius: const BorderRadius.all(Radius.circular(MonoTokens.radiusFull)),
+        color: _compact ? color : color.withValues(alpha: 0.15),
+        borderRadius: BorderRadius.all(Radius.circular(_compact ? 3 : MonoTokens.radiusFull)),
       ),
       child: Text(
         label,
-        style: Theme.of(context).textTheme.labelSmall?.copyWith(color: color, fontWeight: .w700),
+        style: Theme.of(
+          context,
+        ).textTheme.labelSmall?.copyWith(color: _compact ? Colors.white : color, fontWeight: .w700),
+        maxLines: _compact ? 1 : null,
       ),
     );
   }
