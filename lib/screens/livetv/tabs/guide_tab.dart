@@ -1742,7 +1742,7 @@ class _GuideProgramText extends StatelessWidget {
       null => null,
     };
     final subtitle = program.guideSubtitle;
-    final badgeStyle = theme.textTheme.labelSmall?.copyWith(color: titleColor, fontWeight: .w700);
+    final badgeStyle = theme.textTheme.labelSmall?.copyWith(fontWeight: .w700);
     return Semantics(
       label: [program.guideTitle, ?badge, ?subtitle, if (isRecordingScheduled) t.liveTv.recordingScheduled].join(', '),
       excludeSemantics: true,
@@ -1754,7 +1754,7 @@ class _GuideProgramText extends StatelessWidget {
             textScaler: MediaQuery.textScalerOf(context),
             maxLines: 1,
           )..layout();
-          final badgeWidth = badgePainter.width + 10;
+          final badgeWidth = badgePainter.width + 8;
           badgePainter.dispose();
           final showRecording = isRecordingScheduled && constraints.maxWidth >= 28;
           final showBadge = badge != null && constraints.maxWidth >= badgeWidth + 36 + (showRecording ? 13 : 0);
@@ -1780,13 +1780,11 @@ class _GuideProgramText extends StatelessWidget {
                       ),
                       if (showBadge) ...[
                         const SizedBox(width: 4),
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 4),
-                          decoration: BoxDecoration(
-                            border: Border.all(color: titleColor.withValues(alpha: 0.6)),
-                            borderRadius: BorderRadius.circular(tokens(context).radiusXs),
-                          ),
-                          child: Text(badge, style: badgeStyle, maxLines: 1),
+                        StatusPill.compact(
+                          label: badge,
+                          color: program.guideBadge == GuideProgramBadge.live
+                              ? Colors.red.shade700
+                              : Colors.grey.shade700,
                         ),
                       ],
                     ],
