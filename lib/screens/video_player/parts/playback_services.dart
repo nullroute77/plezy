@@ -151,7 +151,13 @@ extension _VideoPlayerPlaybackServiceMethods on VideoPlayerScreenState {
       _playerStreamSubscriptions.add(
         currentPlayer.streams.sourceReady.listen((source) {
           if (!mounted || player != currentPlayer) return;
-          if (_live.calibrateClockSource(source)) {
+          final accepted = _live.calibrateClockSource(source);
+          if (_live.session is LiveTvHlsTimeshiftSession) {
+            appLogger.d(
+              'Retained HLS source ready: position=${source.position.inMilliseconds / 1000}, accepted=$accepted',
+            );
+          }
+          if (accepted) {
             _setPlayerState(() {});
           }
         }),
@@ -181,7 +187,13 @@ extension _VideoPlayerPlaybackServiceMethods on VideoPlayerScreenState {
       currentPlayer.streams.position.listen((position) {
         final activePlayer = player;
         if (activePlayer == null || activePlayer != currentPlayer) return;
+        final clockSession = _live.clockSession;
         if (widget.isLive && _live.observePlayerPosition(position)) {
+          final session = clockSession ?? _live.session;
+          if (session is LiveTvHlsTimeshiftSession) {
+            (session as LiveTvHlsTimeshiftSession).invalidateHistory();
+            if (identical(_live.session, session)) _live.captureBuffer = null;
+          }
           appLogger.w('Live player timestamp moved backwards; broadcast mapping is now unknown');
           _setPlayerState(() {});
         }

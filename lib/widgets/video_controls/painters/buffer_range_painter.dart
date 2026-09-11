@@ -11,6 +11,10 @@ class BufferRangePainter extends CustomPainter {
   final Duration duration;
   final List<MediaChapter> chapters;
   final Duration? progressPosition;
+
+  /// Optional start of a continuous elapsed fill, independent of seek ranges.
+  /// Live playback can advance beyond the backend's newest safe seek target.
+  final Duration? progressStart;
   final Color progressColor;
 
   BufferRangePainter({
@@ -18,6 +22,7 @@ class BufferRangePainter extends CustomPainter {
     required this.duration,
     this.chapters = const [],
     this.progressPosition,
+    this.progressStart,
     this.progressColor = Colors.white,
   });
 
@@ -85,7 +90,7 @@ class BufferRangePainter extends CustomPainter {
           Radius.circular(radius),
         );
         canvas.drawRRect(bufferRect, bufPaint);
-        if (progressX != null && progressX > clippedLeft) {
+        if (progressStart == null && progressX != null && progressX > clippedLeft) {
           // Reuse the buffer shape, preserving its rounded ends and chapter
           // gaps. The tint can never extend beyond retained content.
           final progressRight = progressX.clamp(clippedLeft, clippedRight);
@@ -96,12 +101,27 @@ class BufferRangePainter extends CustomPainter {
         }
       }
     }
+
+    final start = progressStart;
+    if (start != null && progressX != null) {
+      final startX = (start.inMilliseconds / durationMs).clamp(0.0, 1.0) * size.width;
+      for (final (segLeft, segRight) in segments) {
+        final left = startX.clamp(segLeft, segRight);
+        final right = progressX.clamp(segLeft, segRight);
+        if (right <= left) continue;
+        canvas.drawRRect(
+          RRect.fromRectAndRadius(Rect.fromLTWH(left, y, right - left, trackHeight), Radius.circular(radius)),
+          progressPaint,
+        );
+      }
+    }
   }
 
   @override
   bool shouldRepaint(BufferRangePainter oldDelegate) {
     return oldDelegate.duration != duration ||
         oldDelegate.progressPosition != progressPosition ||
+        oldDelegate.progressStart != progressStart ||
         oldDelegate.progressColor != progressColor ||
         !listEquals(oldDelegate.ranges, ranges) ||
         !_chapterSplitsEqual(oldDelegate.chapters, chapters);

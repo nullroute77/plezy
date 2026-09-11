@@ -9,7 +9,7 @@ on:
   workflow_dispatch:
 
 env:
-  TEST_SOURCE_COMMIT: c32afd3b563390f7db1d0054061ec666110b89ea
+  TEST_SOURCE_COMMIT: 0ab6f1b9d11ec3b41d98541b42bda406dcdb900b
 
 permissions:
   contents: read
@@ -37,7 +37,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          test "$(git rev-parse HEAD^)" = "$TEST_SOURCE_COMMIT"
+          git merge-base --is-ancestor "$TEST_SOURCE_COMMIT" HEAD
           git diff --exit-code "$TEST_SOURCE_COMMIT" HEAD -- . ':!.github/workflows/merged-feature-test.yml'
 
       # Reuse the repository's immutable Flutter pin, avoiding archive lookup.
@@ -93,11 +93,11 @@ jobs:
             "Plezy Windows x64 test build",
             "Commit: $env:TEST_COMMIT",
             "Branch: $env:TEST_REF",
-            "Source commit: c32afd3b563390f7db1d0054061ec666110b89ea",
+            "Source commit: 0ab6f1b9d11ec3b41d98541b42bda406dcdb900b",
             "Source branch: merged-feature-test",
             "Extract the complete ZIP and run plezy.exe.",
             "Automatic update checks and Sentry are disabled for this test build.",
-            "Plex program timeline and TV guide improvements combined. Real-device validation pending."
+            "Plex program timeline, TV guide improvements, and Jellyfin/Emby retained HLS timeshifting combined. Real-device validation pending."
           ) | Set-Content -LiteralPath (Join-Path $bundle "TEST-BUILD.txt") -Encoding utf8
 
       # GitHub packages the complete folder as a downloadable ZIP artifact.
@@ -124,7 +124,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          test "$(git rev-parse HEAD^)" = "$TEST_SOURCE_COMMIT"
+          git merge-base --is-ancestor "$TEST_SOURCE_COMMIT" HEAD
           git diff --exit-code "$TEST_SOURCE_COMMIT" HEAD -- . ':!.github/workflows/merged-feature-test.yml'
 
       - name: Set up Java
@@ -226,7 +226,7 @@ jobs:
           pathlib.Path('test-artifacts/TEST-BUILD.txt').write_text(
               'Plezy Android ARM64 release test build\n'
               f'Build commit: {os.environ["TEST_COMMIT"]}\n'
-              'Source commit: c32afd3b563390f7db1d0054061ec666110b89ea\n'
+              'Source commit: 0ab6f1b9d11ec3b41d98541b42bda406dcdb900b\n'
               'Source branch: merged-feature-test\n'
               'Release mode, test signed. Updates and Sentry disabled. Real-device validation pending.\n')
           pathlib.Path(str(apk) + '.sha256').write_text(hashlib.sha256(apk.read_bytes()).hexdigest() + '  ' + apk.name + '\n')

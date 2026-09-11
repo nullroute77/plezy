@@ -42,7 +42,11 @@ extension _VideoPlayerPlaybackStartMethods on VideoPlayerScreenState {
         // Presentation chooses an epoch; only the backend translates offsets.
         final captureBuffer = session.captureBuffer;
         final timeshift = session is LiveTvTimeshiftSession ? session as LiveTvTimeshiftSession : null;
-        final window = captureBuffer == null ? null : timeshift?.seekWindow(captureBuffer);
+        // Plex supplies shared capture history during tuning for the join prompt.
+        // Jellyfin/Emby start at live; their HLS history is prepared when opening.
+        final window = _currentMetadata.backend == MediaBackend.plex && captureBuffer != null
+            ? timeshift?.seekWindow(captureBuffer)
+            : null;
         double? requestedEpoch;
         if (window != null) {
           final programStart = session.program.beginsAt?.toDouble() ?? window.startEpoch;
@@ -77,15 +81,17 @@ extension _VideoPlayerPlaybackStartMethods on VideoPlayerScreenState {
             ..start();
         }
 
-        await _openLiveStream(
+        final opened = await _openLiveStream(
           currentPlayer,
           streamUrl,
+          session: session,
           targetEpoch: targetEpoch,
           play: !PlatformDetector.isAutomotive(),
           isCurrent: () => attempt.isCurrent && identical(_live.session, session),
           timeShifted: requestedEpoch != null,
         );
         if (!attempt.isCurrent) return;
+        if (!opened) throw PlaybackException(t.liveTv.liveStreamFailed, reason: PlaybackFailureReason.noPlayableSource);
 
         _trackManager?.cacheExternalSubtitles(const []);
 
