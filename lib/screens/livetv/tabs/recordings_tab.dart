@@ -21,6 +21,7 @@ import '../../../widgets/settings_section.dart';
 import '../live_tv_refresh_mixin.dart';
 import '../live_tv_server_iteration.dart';
 import '../livetv_recording_actions.dart';
+import '../../../widgets/status_pill.dart';
 import '../livetv_styles.dart';
 
 class RecordingsTab extends StatefulWidget {
