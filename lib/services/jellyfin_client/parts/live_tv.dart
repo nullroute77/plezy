@@ -54,6 +54,8 @@ mixin _JellyfinLiveTvMethods on _JellyfinClientInternals {
     final params = <String, dynamic>{
       'userId': connection.userId,
       'enableImages': 'true',
+      // Overview is opt-in on both servers; the program popup reads it.
+      'fields': 'Overview',
       'sortBy': 'StartDate',
       'sortOrder': 'Ascending',
       if (channelIds.isNotEmpty) 'channelIds': channelIds.join(','),
@@ -93,6 +95,7 @@ mixin _JellyfinLiveTvMethods on _JellyfinClientInternals {
       programTitle: json['Name'] as String? ?? t.liveTv.unknownProgram,
       episodeTitle: json['EpisodeTitle'] as String?,
       summary: json['Overview'] as String?,
+      contentRating: json['OfficialRating'] as String?,
       type: 'episode',
       year: (json['ProductionYear'] as num?)?.toInt(),
       beginsAt: jellyfinIsoToEpochSeconds(json['StartDate'] as String?),
@@ -139,6 +142,7 @@ mixin _JellyfinLiveTvMethods on _JellyfinClientInternals {
       identifier: id,
       callSign: json['CallSign'] as String?,
       title: name,
+      contentRating: json['OfficialRating'] as String?,
       thumb: thumbPath,
       art: null,
       number: number,

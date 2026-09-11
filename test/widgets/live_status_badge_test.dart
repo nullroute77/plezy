@@ -129,6 +129,7 @@ void main() {
       final program = LiveTvProgram(
         title: 'Evening News',
         summary: 'The latest headlines and local weather.',
+        contentRating: 'us/TV-PG',
         // Keep the sheet's existing currently-airing condition, independently
         // of the broadcast-designation condition used by the guide cards.
         live: !airing,

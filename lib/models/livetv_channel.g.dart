@@ -14,6 +14,7 @@ LiveTvChannel _$LiveTvChannelFromJson(Map<String, dynamic> json) =>
       title: _readChannelTitle(json, 'title') as String?,
       thumb: json['thumb'] as String?,
       art: json['art'] as String?,
+      contentRating: json['contentRating'] as String?,
       number: _readChannelNumber(json, 'number') as String?,
       hd: json['hd'] == null ? false : flexibleBool(json['hd']),
       lineup: json['lineup'] as String?,

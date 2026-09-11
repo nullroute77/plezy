@@ -16,6 +16,7 @@ class LiveTvProgram {
   final String? programTitle;
   final String? episodeTitle;
   final String? summary;
+  final String? contentRating;
   final String? type;
   final int? year;
   final int? beginsAt; // epoch seconds
@@ -53,6 +54,7 @@ class LiveTvProgram {
     this.programTitle,
     this.episodeTitle,
     this.summary,
+    this.contentRating,
     this.type,
     this.year,
     this.beginsAt,
@@ -111,6 +113,7 @@ class LiveTvProgram {
       guid: json['guid'] as String?,
       title: json['title'] as String? ?? t.liveTv.unknownProgram,
       summary: json['summary'] as String?,
+      contentRating: pickString('contentRating'),
       type: json['type'] as String?,
       year: flexibleInt(json['year']),
       beginsAt: pickInt('beginsAt'),
@@ -141,6 +144,7 @@ class LiveTvProgram {
       programTitle: programTitle,
       episodeTitle: episodeTitle,
       summary: summary,
+      contentRating: contentRating,
       type: type,
       year: year,
       beginsAt: beginsAt,

@@ -7,6 +7,49 @@ import '../test_helpers/http_fixtures.dart';
 
 void main() {
   for (final dialect in MediaBrowserDialect.values) {
+    test('${dialect.name} requests popup descriptions and preserves program/channel age ratings', () async {
+      final requests = <Uri>[];
+      final client = testJellyfinClient(
+        connection: testJellyfinConnection(dialect: dialect),
+        handler: (request) async {
+          requests.add(request.url);
+          if (request.url.path.endsWith('/Channels')) {
+            return jsonResponse({
+              'Items': [
+                {'Id': 'channel', 'Name': 'News', 'OfficialRating': 'TV-14'},
+              ],
+            });
+          }
+          // Model the servers' opt-in field: an unrequested overview is absent.
+          final fields = request.url.queryParameters['fields']?.split(',') ?? [];
+          return jsonResponse({
+            'Items': [
+              {
+                'Id': 'program',
+                'Name': 'News',
+                'OfficialRating': 'US/TV-PG',
+                if (fields.contains('Overview')) 'Overview': 'The latest headlines.',
+              },
+              {'Id': 'unrated', 'Name': 'No description or rating'},
+            ],
+          });
+        },
+      );
+      addTearDown(client.close);
+      final programs = await client.liveTv.fetchSchedule();
+      expect(requests.single.queryParameters['fields'], contains('Overview'));
+      expect(programs.first.summary, 'The latest headlines.');
+      expect(programs.first.contentRating, 'US/TV-PG');
+      final copied = programs.first.copyWith(serverName: 'Tagged');
+      expect(copied.summary, programs.first.summary);
+      expect(copied.contentRating, programs.first.contentRating);
+      expect(programs.last.summary, isNull);
+      expect(programs.last.contentRating, isNull);
+      final channels = await client.fetchLiveTvChannels();
+      expect(channels.single.contentRating, 'TV-14');
+      expect(channels.single.copyWith(serverName: 'Tagged').contentRating, 'TV-14');
+    });
+
     test('${dialect.name} preserves primary/episode titles and normalizes explicit broadcast flags', () async {
       final client = testJellyfinClient(
         connection: testJellyfinConnection(dialect: dialect),
