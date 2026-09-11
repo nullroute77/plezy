@@ -125,8 +125,8 @@ final class _GuideChannelRow extends _GuideRow {
 
 class GuideTabState extends State<GuideTab>
     with LiveTvActionsMixin<GuideTab>, MountedSetStateMixin, WidgetsBindingObserver, LiveTvRefreshMixin<GuideTab> {
-  static const _slotWidth = 180.0;
-  static const _channelColumnWidth = 132.0;
+  static const _slotWidth = 240.0;
+  double get _channelColumnWidth => PlatformDetector.isMobile(context) ? 96.0 : 132.0;
   static const _rowHeight = 64.0;
   static const _sourceHeaderRowHeight = 40.0;
   static const _timeHeaderHeight = 40.0;
@@ -1113,7 +1113,7 @@ class GuideTabState extends State<GuideTab>
               children: [
                 Row(
                   children: [
-                    const SizedBox(width: _channelColumnWidth, height: _timeHeaderHeight),
+                    SizedBox(width: _channelColumnWidth, height: _timeHeaderHeight),
                     Expanded(
                       child: SingleChildScrollView(
                         controller: _headerHorizontalController,

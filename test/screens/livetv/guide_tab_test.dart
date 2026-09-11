@@ -33,6 +33,22 @@ import 'package:provider/provider.dart';
 
 import '../../test_helpers/multi_server_fixtures.dart';
 
+Future<void> _captureGuide(WidgetTester tester, String name) async {
+  const screenshotDir = String.fromEnvironment('GUIDE_SCREENSHOT_DIR');
+  if (screenshotDir.isEmpty) return;
+  final boundary = tester.renderObject<RenderRepaintBoundary>(find.byKey(const ValueKey('guide-capture')));
+  await tester.runAsync(() async {
+    final image = await boundary.toImage();
+    try {
+      final bytes = await image.toByteData(format: ui.ImageByteFormat.png);
+      Directory(screenshotDir).createSync(recursive: true);
+      File('$screenshotDir/$name.png').writeAsBytesSync(bytes!.buffer.asUint8List());
+    } finally {
+      image.dispose();
+    }
+  });
+}
+
 const _selectDown = KeyDownEvent(
   physicalKey: PhysicalKeyboardKey.enter,
   logicalKey: LogicalKeyboardKey.enter,
@@ -58,7 +74,11 @@ void main() {
   setUpAll(() async {
     await initializeDateFormatting('en');
     if (const String.fromEnvironment('GUIDE_SCREENSHOT_DIR').isNotEmpty) {
-      await (FontLoader('GuidePreview')..addFont(rootBundle.load('assets/go-noto-current-regular.ttf'))).load();
+      const previewFontPath = String.fromEnvironment('GUIDE_PREVIEW_FONT_PATH');
+      final font = previewFontPath.isEmpty
+          ? rootBundle.load('assets/go-noto-current-regular.ttf')
+          : Future.value(ByteData.sublistView(File(previewFontPath).readAsBytesSync()));
+      await (FontLoader('GuidePreview')..addFont(font)).load();
       await (FontLoader(
         'packages/material_symbols_icons/MaterialSymbolsRounded',
       )..addFont(rootBundle.load('packages/material_symbols_icons/lib/fonts/MaterialSymbolsRounded.ttf'))).load();
@@ -260,7 +280,7 @@ void main() {
           expect(find.text('The 100'), findsOneWidget);
           final card = find.ancestor(of: find.text('Live sports'), matching: find.byType(InkWell)).first;
           expect(find.descendant(of: card, matching: find.byType(Text)), findsNWidgets(3));
-          expect(tester.getSize(card).width, closeTo(176, 4));
+          expect(tester.getSize(card).width, closeTo(236, 4));
           final mouse = await tester.createGesture(kind: ui.PointerDeviceKind.mouse);
           await mouse.addPointer(location: tester.getCenter(card));
           await tester.pump();
@@ -308,22 +328,7 @@ void main() {
           }
           // Capture actual Flutter rendering when explicitly requested; no golden
           // baseline tied to the machine's wall clock or font rasterizer.
-          const screenshotDir = String.fromEnvironment('GUIDE_SCREENSHOT_DIR');
-          if (screenshotDir.isNotEmpty) {
-            final boundary = tester.renderObject<RenderRepaintBoundary>(find.byKey(const ValueKey('guide-capture')));
-            await tester.runAsync(() async {
-              final image = await boundary.toImage();
-              try {
-                final bytes = await image.toByteData(format: ui.ImageByteFormat.png);
-                Directory(screenshotDir).createSync(recursive: true);
-                File(
-                  '$screenshotDir/guide-${appearance.name}-${tv ? 'remote' : 'keyboard'}.png',
-                ).writeAsBytesSync(bytes!.buffer.asUint8List());
-              } finally {
-                image.dispose();
-              }
-            });
-          }
+          await _captureGuide(tester, 'guide-${appearance.name}-${tv ? 'remote' : 'keyboard'}');
           // The very narrow card and its recording indicator also survive scaling.
           tester.platformDispatcher.textScaleFactorTestValue = 1.5;
           addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
@@ -332,6 +337,60 @@ void main() {
         },
       );
     }
+  }
+
+  for (final device in [
+    (name: 'Android phone', platform: TargetPlatform.android, tv: false, column: 96.0),
+    (name: 'iPhone', platform: TargetPlatform.iOS, tv: false, column: 96.0),
+    (name: 'Windows', platform: TargetPlatform.windows, tv: false, column: 132.0),
+    (name: 'Android TV', platform: TargetPlatform.android, tv: true, column: 132.0),
+  ]) {
+    testWidgets('${device.name} aligns the channel column and Now line at 240 pixels per half hour', (tester) async {
+      TvDetectionService.debugSetAppleTVOverride(device.tv);
+      final now = DateTime(2026, 9, 10, 20, 15);
+      await withClock(Clock.fixed(now), () async {
+        final harness = _GuideHarness.oneServer();
+        addTearDown(harness.dispose);
+        await harness.pump(tester, platform: device.platform, size: const Size(430, 720));
+        final request = harness.serverA.schedule.requests.single;
+        final start = request.from.millisecondsSinceEpoch ~/ 1000;
+        request.completer.complete([
+          LiveTvProgram(
+            title: 'First program',
+            beginsAt: start,
+            endsAt: start + 1800,
+            channelIdentifier: 'station-a',
+            serverId: 'server-a',
+          ),
+          LiveTvProgram(
+            title: 'Second program',
+            beginsAt: start + 1800,
+            endsAt: start + 3600,
+            channelIdentifier: 'station-a',
+            serverId: 'server-a',
+          ),
+        ]);
+        await tester.pumpAndSettle();
+        final first = find.ancestor(of: find.text('First program'), matching: find.byType(InkWell)).first;
+        final second = find.ancestor(of: find.text('Second program'), matching: find.byType(InkWell)).first;
+        expect(tester.getTopLeft(first).dx, device.column);
+        expect(tester.getTopLeft(second).dx - tester.getTopLeft(first).dx, 240);
+        final label = find.text(formatClockTime(now.subtract(const Duration(minutes: 15)), is24Hour: false)).last;
+        expect(tester.getTopLeft(label).dx, device.column + 8);
+        final nowLine = find.byWidgetPredicate(
+          (widget) => widget is Container && widget.color == Colors.red && widget.constraints?.maxWidth == 2,
+        );
+        expect(nowLine, findsOneWidget);
+        expect(tester.getTopLeft(nowLine).dx, device.column + 120);
+        await _captureGuide(tester, 'guide-${device.name.toLowerCase().replaceAll(' ', '-')}');
+        // The timeline and header remain synchronized after a horizontal drag.
+        await tester.drag(first, const Offset(-100, 0));
+        await tester.pumpAndSettle();
+        expect(tester.getTopLeft(label).dx - tester.getTopLeft(first).dx, closeTo(8, 0.01));
+        expect(tester.getTopLeft(nowLine).dx - tester.getTopLeft(first).dx, closeTo(120, 0.01));
+        expect(tester.takeException(), isNull);
+      });
+    });
   }
 
   test('SELECT hold survives equivalent fresh guide objects and opens details once', () {
@@ -832,6 +891,7 @@ final class _GuideHarness {
     bool is24Hour = false,
     bool dark = true,
     bool oled = false,
+    TargetPlatform platform = TargetPlatform.windows,
   }) async {
     tester.view.devicePixelRatio = 1;
     tester.view.physicalSize = size;
@@ -847,8 +907,9 @@ final class _GuideHarness {
             value: provider,
             child: MaterialApp(
               theme: const String.fromEnvironment('GUIDE_SCREENSHOT_DIR').isEmpty
-                  ? monoTheme(dark: dark, oled: oled)
+                  ? monoTheme(dark: dark, oled: oled).copyWith(platform: platform)
                   : monoTheme(dark: dark, oled: oled).copyWith(
+                      platform: platform,
                       textTheme: monoTheme(dark: dark, oled: oled).textTheme.apply(fontFamily: 'GuidePreview'),
                     ),
               builder: (context, child) => MediaQuery(

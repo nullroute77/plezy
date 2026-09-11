@@ -32,7 +32,11 @@ void main() {
   setUpAll(() async {
     await initializeDateFormatting('en');
     if (_screenshotDir.isNotEmpty) {
-      await (FontLoader('BadgePreview')..addFont(rootBundle.load('assets/go-noto-current-regular.ttf'))).load();
+      const previewFontPath = String.fromEnvironment('GUIDE_PREVIEW_FONT_PATH');
+      final font = previewFontPath.isEmpty
+          ? rootBundle.load('assets/go-noto-current-regular.ttf')
+          : Future.value(ByteData.sublistView(File(previewFontPath).readAsBytesSync()));
+      await (FontLoader('BadgePreview')..addFont(font)).load();
       await (FontLoader(
         'packages/material_symbols_icons/MaterialSymbolsRounded',
       )..addFont(rootBundle.load('packages/material_symbols_icons/lib/fonts/MaterialSymbolsRounded.ttf'))).load();
@@ -162,7 +166,7 @@ void main() {
   }
 
   for (final scale in [1.0, 1.5, 2.0]) {
-    testWidgets('shared LIVE badge keeps symmetric bounds with text scale $scale', (tester) async {
+    testWidgets('shared LIVE badge keeps compact bounds and optical alignment with text scale $scale', (tester) async {
       await tester.pumpWidget(
         _shell(
           MediaQuery(
@@ -211,9 +215,10 @@ void _expectLiveBadge(WidgetTester tester) {
   final badgeRect = tester.getRect(badge);
   final labelRect = tester.getRect(label);
   expect(labelRect.center.dx, closeTo(badgeRect.center.dx, 0.01));
-  expect(labelRect.center.dy, closeTo(badgeRect.center.dy, 0.01));
+  expect(labelRect.center.dy, closeTo(badgeRect.center.dy - 1, 0.01));
   expect(labelRect.left - badgeRect.left, closeTo(4, 0.01));
-  expect(labelRect.top - badgeRect.top, closeTo(1, 0.01));
+  expect(labelRect.top - badgeRect.top, closeTo(0, 0.01));
+  expect(badgeRect.bottom - labelRect.bottom, closeTo(2, 0.01));
 }
 
 Future<void> _capture(WidgetTester tester, String name) async {
