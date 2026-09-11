@@ -75,11 +75,11 @@ jobs:
             "Plezy Windows x64 test build",
             "Commit: $env:TEST_COMMIT",
             "Branch: $env:TEST_REF",
-            "Source commit: 5d804e470ad9813e066f782de3e6662f66257de8",
+            "Source commit: 9626576786954191a3675e7114f3d88f3029e253",
             "Upstream base: 04b0cda922accfbdb510462a3eb96fabccd76002",
             "Extract the complete ZIP and run plezy.exe.",
             "Automatic update checks and Sentry are disabled for this test build.",
-            "Independent TV guide improvements: badges, wider programs, mobile columns, half-hour entry, popup descriptions and age ratings. Real-server validation pending."
+            "Independent TV guide improvements: badges, wider programs, mobile columns, half-hour entry, popup descriptions, episode subtext, age ratings, and shared Plezy-red LIVE badges. Real-server validation pending."
           ) | Set-Content -LiteralPath (Join-Path $bundle "TEST-BUILD.txt") -Encoding utf8
 
       # GitHub packages the complete folder as a downloadable ZIP artifact.
@@ -88,5 +88,127 @@ jobs:
         with:
           name: plezy-windows-x64-tv-guide-test-${{ github.sha }}
           path: build/windows/x64/runner/Release/
+          if-no-files-found: error
+          retention-days: 14
+
+  android:
+    name: Android ARM64 release APK
+    if: github.repository == 'nullroute77/plezy' && github.ref == 'refs/heads/codex/tv-guide-improvements-build'
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+
+      - name: Set up Java
+        uses: actions/setup-java@03ad4de0992f5dab5e18fcb136590ce7c4a0ac95 # v5
+        with:
+          distribution: temurin
+          java-version: "21"
+
+      - name: Set up repository-pinned Flutter SDK
+        shell: bash
+        run: |
+          set -euo pipefail
+          # Read the same immutable pin used by the Windows setup action.
+          python3 - <<'PYSDK'
+          import os, pathlib, re
+          source = pathlib.Path('.github/actions/setup-flutter-git/action.yml').read_text()
+          version = re.search(r'\$version = "([0-9.]+)"', source).group(1)
+          commit = re.search(r'\$expectedCommit = "([0-9a-f]{40})"', source).group(1)
+          with open(os.environ['GITHUB_ENV'], 'a') as output:
+              output.write(f'TEST_FLUTTER_VERSION={version}\nTEST_FLUTTER_COMMIT={commit}\n')
+          PYSDK
+
+      - name: Bootstrap pinned Flutter on Linux
+        shell: bash
+        run: |
+          set -euo pipefail
+          sdk="$RUNNER_TEMP/flutter"
+          git init "$sdk"
+          git -C "$sdk" remote add origin https://github.com/flutter/flutter.git
+          git -C "$sdk" fetch --depth 1 origin "refs/tags/$TEST_FLUTTER_VERSION:refs/tags/$TEST_FLUTTER_VERSION"
+          git -C "$sdk" checkout --detach "refs/tags/$TEST_FLUTTER_VERSION"
+          test "$(git -C "$sdk" rev-parse HEAD)" = "$TEST_FLUTTER_COMMIT"
+          echo "$sdk/bin" >> "$GITHUB_PATH"
+          "$sdk/bin/flutter" --version
+          "$sdk/bin/flutter" --version --machine > "$RUNNER_TEMP/flutter-version.json"
+          python3 - <<'PYSDK'
+          import json, os, pathlib
+          version = json.loads((pathlib.Path(os.environ['RUNNER_TEMP']) / 'flutter-version.json').read_text())
+          assert version['frameworkVersion'] == os.environ['TEST_FLUTTER_VERSION']
+          PYSDK
+
+      - name: Install locked dependencies
+        run: flutter pub get --enforce-lockfile --no-example
+
+      - name: Configure isolated test signing
+        shell: bash
+        run: |
+          set -euo pipefail
+          keytool -genkeypair -keystore "$RUNNER_TEMP/tv-guide-test.jks" -storepass android -keypass android -alias androiddebugkey -dname "CN=Plezy TV Guide Test" -keyalg RSA -keysize 2048 -validity 3650
+          cat > android/key.properties <<EOF
+          storePassword=android
+          keyPassword=android
+          keyAlias=androiddebugkey
+          storeFile=$RUNNER_TEMP/tv-guide-test.jks
+          EOF
+
+      - name: Build ARM64 release APK
+        run: >-
+          flutter build apk --release --target-platform android-arm64 --split-per-abi
+          --dart-define=ENABLE_UPDATE_CHECK=false
+          --dart-define=ENABLE_SENTRY=false
+          --dart-define=GIT_COMMIT=${{ github.sha }}
+
+      - name: Verify APK and record identity
+        shell: bash
+        env:
+          TEST_COMMIT: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          mkdir -p test-artifacts
+          cp build/app/outputs/flutter-apk/app-arm64-v8a-release.apk test-artifacts/plezy-android-arm64-tv-guide-test.apk
+          apk=test-artifacts/plezy-android-arm64-tv-guide-test.apk
+          build_tools="$ANDROID_HOME/build-tools/36.1.0"
+          "$build_tools/apksigner" verify --verbose --print-certs "$apk" | tee test-artifacts/apk-signature.txt
+          "$build_tools/zipalign" -c -P 16 -v 4 "$apk" > test-artifacts/apk-alignment.txt
+          "$build_tools/aapt" dump badging "$apk" > test-artifacts/apk-badging.txt
+          python3 - <<'PYAPK'
+          import hashlib, os, pathlib, struct, zipfile
+          apk = pathlib.Path('test-artifacts/plezy-android-arm64-tv-guide-test.apk')
+          with zipfile.ZipFile(apk) as archive:
+              assert archive.testzip() is None
+              names = archive.namelist()
+              abis = {name.split('/')[1] for name in names if name.startswith('lib/') and name.endswith('.so')}
+              assert abis == {'arm64-v8a'}, abis
+              for library in ['libapp.so', 'libflutter.so', 'libmpv.so', 'libplayer.so', 'libc++_shared.so', 'libffmpegJNI.so', 'libdovi_bridge.so']:
+                  assert archive.getinfo(f'lib/arm64-v8a/{library}').file_size > 0, library
+              for name in names:
+                  if name.startswith('lib/') and name.endswith('.so'):
+                      data = archive.read(name)
+                      assert data[:4] == b'\x7fELF' and data[4:6] == bytes([2, 1]), name
+                      assert struct.unpack_from('<H', data, 18)[0] == 183, name
+              assert os.environ['TEST_COMMIT'].encode() in archive.read('lib/arm64-v8a/libapp.so')
+              pathlib.Path('test-artifacts/apk-files.txt').write_text('\n'.join(names) + '\n')
+          pathlib.Path('test-artifacts/TEST-BUILD.txt').write_text(
+              'Plezy Android ARM64 release test build\n'
+              f'Build commit: {os.environ["TEST_COMMIT"]}\n'
+              'Source commit: 9626576786954191a3675e7114f3d88f3029e253\n'
+              'Upstream base: 04b0cda922accfbdb510462a3eb96fabccd76002\n'
+              'Release mode, test signed. Updates and Sentry disabled. Real-device validation pending.\n')
+          pathlib.Path(str(apk) + '.sha256').write_text(hashlib.sha256(apk.read_bytes()).hexdigest() + '  ' + apk.name + '\n')
+          PYAPK
+
+      - name: Remove temporary signing files
+        if: always()
+        run: rm -f android/key.properties "$RUNNER_TEMP/tv-guide-test.jks"
+
+      - name: Upload ARM64 test package
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: plezy-android-arm64-tv-guide-test-${{ github.sha }}
+          path: test-artifacts/
           if-no-files-found: error
           retention-days: 14
