@@ -22,6 +22,7 @@ import 'package:plezy/focus/dpad_select_long_press_controller.dart';
 import 'package:plezy/models/livetv_channel.dart';
 import 'package:plezy/models/livetv_program.dart';
 import 'package:plezy/screens/livetv/tabs/guide_tab.dart';
+import 'package:plezy/screens/livetv/livetv_styles.dart';
 import 'package:plezy/providers/multi_server_provider.dart';
 import 'package:plezy/services/multi_server_manager.dart';
 import 'package:plezy/theme/mono_theme.dart';
@@ -249,7 +250,21 @@ void main() {
       }
       expect(find.ancestor(of: find.text('New series'), matching: _focusedCellFinder(tester)), findsOneWidget);
       final focusedBadge = tester.widget<Text>(find.descendant(of: newCard, matching: find.text(t.liveTv.newProgram)));
-      expect(focusedBadge.style?.color, Theme.of(tester.element(newCard)).colorScheme.onPrimary);
+      expect(focusedBadge.style?.color, Colors.white);
+      final newPill = tester.widget<StatusPill>(find.descendant(of: newCard, matching: find.byType(StatusPill)));
+      expect(newPill.color, Colors.grey.shade700);
+      final livePill = tester.widget<StatusPill>(find.descendant(of: card, matching: find.byType(StatusPill)));
+      expect(livePill.color, Colors.red.shade700);
+      for (final pill in [newPill, livePill]) {
+        final decoration =
+            tester
+                    .widget<Container>(find.descendant(of: find.byWidget(pill), matching: find.byType(Container)))
+                    .decoration!
+                as BoxDecoration;
+        expect(decoration.color, pill.color);
+        expect(decoration.border, isNull);
+        expect(decoration.borderRadius, BorderRadius.circular(3));
+      }
       // Capture actual Flutter rendering when explicitly requested; no golden
       // baseline tied to the machine's wall clock or font rasterizer.
       const screenshotDir = String.fromEnvironment('GUIDE_SCREENSHOT_DIR');
