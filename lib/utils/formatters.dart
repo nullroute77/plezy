@@ -173,9 +173,9 @@ String toBulletedString(List<String> parts) {
   return parts.join(' · ');
 }
 
-String? formatSeasonEpisodeLabel(int? season, int? episode) {
+String? formatSeasonEpisodeLabel(int? season, int? episode, {bool compact = false}) {
   if (season == null || episode == null) return null;
-  return 'S$season E$episode';
+  return compact ? 'S${season}E$episode' : 'S$season E$episode';
 }
 
 String formatRating(double value) =>

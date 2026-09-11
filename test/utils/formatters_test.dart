@@ -143,6 +143,8 @@ void main() {
     test('formats season and episode numbers', () {
       expect(formatSeasonEpisodeLabel(1, 2), 'S1 E2');
       expect(formatSeasonEpisodeLabel(0, 10), 'S0 E10');
+      expect(formatSeasonEpisodeLabel(1, 9, compact: true), 'S1E9');
+      expect(formatSeasonEpisodeLabel(0, 10, compact: true), 'S0E10');
     });
 
     test('requires both season and episode numbers', () {

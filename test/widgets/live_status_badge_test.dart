@@ -124,14 +124,13 @@ void main() {
   }
 
   for (final airing in [false, true]) {
-    testWidgets('program popup shares badge and preserves airing=$airing visibility', (tester) async {
+    testWidgets('program popup shares broadcast badge independently of airing=$airing', (tester) async {
       final now = DateTime.now().millisecondsSinceEpoch ~/ 1000;
       final program = LiveTvProgram(
         title: 'Evening News',
         summary: 'The latest headlines and local weather.',
         contentRating: 'us/TV-PG',
-        // Keep the sheet's existing currently-airing condition, independently
-        // of the broadcast-designation condition used by the guide cards.
+        // The popup follows the guide's broadcast designation, not the clock.
         live: !airing,
         beginsAt: airing ? now - 300 : now + 3600,
         endsAt: airing ? now + 1500 : now + 5400,
@@ -154,7 +153,7 @@ void main() {
       );
       await tester.tap(find.text('Open program'));
       await tester.pumpAndSettle();
-      if (airing) {
+      if (!airing) {
         _expectLiveBadge(tester);
         await _capture(tester, 'program-popup');
       } else {
@@ -210,7 +209,7 @@ void _expectLiveBadge(WidgetTester tester) {
   final decoration =
       tester.widget<Container>(find.descendant(of: badge, matching: find.byType(Container))).decoration!
           as BoxDecoration;
-  expect(decoration.color, Colors.red.shade700);
+  expect(decoration.color, Colors.red);
   expect(decoration.border, isNull);
   expect(decoration.borderRadius, BorderRadius.circular(3));
   final badgeRect = tester.getRect(badge);

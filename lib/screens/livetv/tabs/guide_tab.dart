@@ -1787,11 +1787,7 @@ class _GuideProgramText extends StatelessWidget {
                         if (program.guideBadge == GuideProgramBadge.live)
                           StatusPill.live()
                         else
-                          StatusPill.compact(
-                            label: badge,
-                            color: Color.alphaBlend(titleColor.withValues(alpha: 0.2), backgroundColor),
-                            foregroundColor: titleColor.withValues(alpha: 1),
-                          ),
+                          StatusPill.newProgram(foregroundColor: titleColor, backgroundColor: backgroundColor),
                       ],
                     ],
                   ),
