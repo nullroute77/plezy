@@ -3,6 +3,21 @@ import 'package:plezy/media/ids.dart';
 import 'package:plezy/models/livetv_program.dart';
 
 void main() {
+  test('Plex program descriptions and age ratings survive server tagging and selected airings', () {
+    final program = LiveTvProgram.fromJson({'title': 'News', 'summary': 'Latest headlines', 'contentRating': 'TV-PG'});
+    final tagged = program.copyWith(serverName: 'Tagged');
+    expect(tagged.summary, 'Latest headlines');
+    expect(tagged.contentRating, 'TV-PG');
+    expect(LiveTvProgram.fromJson({'title': 'Unrated'}).contentRating, isNull);
+    expect(
+      LiveTvProgram.fromJson(
+        {'title': 'News', 'contentRating': 'TV-PG'},
+        mediaOverride: {'contentRating': 'TV-14'},
+      ).contentRating,
+      'TV-14',
+    );
+  });
+
   test('broadcast designation, not current airing, controls LIVE; LIVE wins', () {
     final now = DateTime.now().millisecondsSinceEpoch ~/ 1000;
     final airing = LiveTvProgram(title: 'Repeat', beginsAt: now - 60, endsAt: now + 60);

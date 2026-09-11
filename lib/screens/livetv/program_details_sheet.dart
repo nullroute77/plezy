@@ -10,6 +10,7 @@ import '../../models/livetv_program.dart';
 import '../../models/media_subscription.dart';
 import '../../theme/mono_tokens.dart';
 import '../../utils/app_logger.dart';
+import '../../utils/content_utils.dart';
 import '../../utils/formatters.dart';
 import '../../utils/media_image_helper.dart';
 import '../../widgets/status_pill.dart';
@@ -315,7 +316,10 @@ class _ProgramDetailsSheetContentState extends State<_ProgramDetailsSheetContent
     final channel = widget.channel;
     final actions = _buildActions();
     _ensureFocusNodes(actions.length);
-    final summary = program.summary;
+    final summary = program.summary?.trim();
+    final programRating = formatContentRating(program.contentRating?.trim());
+    final channelRating = formatContentRating(channel?.contentRating?.trim());
+    final contentRating = programRating.isNotEmpty ? programRating : channelRating;
     final hasSummary = summary != null && summary.isNotEmpty;
     final canFocusSummary = hasSummary && _summaryOverflows;
 
@@ -365,6 +369,7 @@ class _ProgramDetailsSheetContentState extends State<_ProgramDetailsSheetContent
                         if (program.startTime != null && program.endTime != null)
                           '${formatClockTime(program.startTime!, is24Hour: MediaQuery.alwaysUse24HourFormatOf(context))} - ${formatClockTime(program.endTime!, is24Hour: MediaQuery.alwaysUse24HourFormatOf(context))}',
                         if (program.durationMinutes > 0) formatDurationTextual(program.durationMinutes * 60_000),
+                        if (contentRating.isNotEmpty) contentRating,
                       ].join(' · '),
                       style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.onSurfaceVariant),
                     ),

@@ -75,11 +75,11 @@ jobs:
             "Plezy Windows x64 test build",
             "Commit: $env:TEST_COMMIT",
             "Branch: $env:TEST_REF",
-            "Source commit: f3787aebc2fa092ca9af4859f8eaad49d40f3a3c",
+            "Source commit: 5d804e470ad9813e066f782de3e6662f66257de8",
             "Upstream base: 04b0cda922accfbdb510462a3eb96fabccd76002",
             "Extract the complete ZIP and run plezy.exe.",
             "Automatic update checks and Sentry are disabled for this test build.",
-            "Independent TV guide improvements: badges, useful subtext, and half-hour entry. Real-server validation pending."
+            "Independent TV guide improvements: badges, wider programs, mobile columns, half-hour entry, popup descriptions and age ratings. Real-server validation pending."
           ) | Set-Content -LiteralPath (Join-Path $bundle "TEST-BUILD.txt") -Encoding utf8
 
       # GitHub packages the complete folder as a downloadable ZIP artifact.
