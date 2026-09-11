@@ -1774,6 +1774,7 @@ class GuideTabState extends State<GuideTab>
                 ),
                 child: _GuideProgramText(
                   program: program,
+                  backgroundColor: fillColor,
                   titleColor: titleColor,
                   subtitleColor: subtitleColor,
                   isRecordingScheduled: isRecordingScheduled,
@@ -1802,12 +1803,14 @@ class GuideTabState extends State<GuideTab>
 class _GuideProgramText extends StatelessWidget {
   const _GuideProgramText({
     required this.program,
+    required this.backgroundColor,
     required this.titleColor,
     required this.subtitleColor,
     required this.isRecordingScheduled,
   });
 
   final LiveTvProgram program;
+  final Color backgroundColor;
   final Color titleColor;
   final Color subtitleColor;
   final bool isRecordingScheduled;
@@ -1863,7 +1866,10 @@ class _GuideProgramText extends StatelessWidget {
                           label: badge,
                           color: program.guideBadge == GuideProgramBadge.live
                               ? Colors.red.shade700
-                              : Colors.grey.shade700,
+                              : Color.alphaBlend(titleColor.withValues(alpha: 0.2), backgroundColor),
+                          foregroundColor: program.guideBadge == GuideProgramBadge.live
+                              ? Colors.white
+                              : titleColor.withValues(alpha: 1),
                         ),
                       ],
                     ],
