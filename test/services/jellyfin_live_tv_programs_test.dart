@@ -73,7 +73,7 @@ void main() {
               'IsRepeat': true,
               'IsNew': true,
             },
-            {'Name': 'Unknown', 'IsSeries': true},
+            {'Name': 'Series with omitted repeat', 'IsSeries': true},
             {'Name': 'Premiere', 'IsPremiere': true},
             {'Name': 'New', 'IsNew': true},
             {'Name': 'Explicit old', 'IsNew': false, 'IsSeries': true, 'IsRepeat': false},
@@ -88,7 +88,7 @@ void main() {
         GuideProgramBadge.live,
         GuideProgramBadge.newProgram,
         null,
-        null,
+        dialect == MediaBrowserDialect.jellyfin ? GuideProgramBadge.newProgram : null,
         GuideProgramBadge.newProgram,
         GuideProgramBadge.newProgram,
         null,
@@ -107,6 +107,47 @@ void main() {
       expect(programs.last.guideTitle, 'No episode');
       expect(programs.last.guideSubtitle, isNull);
       expect(programs.first.copyWith(serverName: 'Tagged').guideSubtitle, 'The 100');
+    });
+  }
+
+  for (final dialect in MediaBrowserDialect.values) {
+    test('${dialect.name} sparse repeat flags retain explicit NEW, LIVE, and unknown metadata rules', () async {
+      final client = testJellyfinClient(
+        connection: testJellyfinConnection(dialect: dialect),
+        handler: (_) async => jsonResponse({
+          'Items': [
+            {'Name': 'Missing repeat', 'IsSeries': true},
+            {'Name': 'Null repeat', 'IsSeries': true, 'IsRepeat': null},
+            {'Name': 'Repeat', 'IsSeries': true, 'IsRepeat': true},
+            {'Name': 'Explicit old', 'IsSeries': true, 'IsNew': false},
+            {'Name': 'Live series', 'IsSeries': true, 'IsLive': true},
+            {'Name': 'Explicit new', 'IsNew': true},
+            {'Name': 'No flags'},
+            {'Name': 'Not a series', 'IsSeries': false},
+            {'Name': 'Null series', 'IsSeries': null},
+          ],
+        }),
+      );
+      addTearDown(client.close);
+      final programs = await client.liveTv.fetchSchedule();
+      expect(
+        programs.map((p) => p.guideBadge),
+        dialect == MediaBrowserDialect.jellyfin
+            ? [
+                GuideProgramBadge.newProgram,
+                GuideProgramBadge.newProgram,
+                null,
+                null,
+                GuideProgramBadge.live,
+                GuideProgramBadge.newProgram,
+                null,
+                null,
+                null,
+              ]
+            : [null, null, null, null, GuideProgramBadge.live, GuideProgramBadge.newProgram, null, null, null],
+      );
+      expect(programs.first.repeat, isNull);
+      expect(programs.first.copyWith(serverName: 'Decorated').guideBadge, programs.first.guideBadge);
     });
   }
 
