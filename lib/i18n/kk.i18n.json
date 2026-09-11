@@ -1429,6 +1429,7 @@
     "channelNumber": "${number}-арна",
     "unknownChannel": "Белгісіз арна",
     "live": "ТІКЕЛЕЙ ЭФИР",
+    "newProgram": "",
     "reloadGuide": "Бағдарламаны жаңарту",
     "searchGuide": "Телебағдарламадан іздеу",
     "searchHint": "Арналар мен бағдарламаларды іздеу",

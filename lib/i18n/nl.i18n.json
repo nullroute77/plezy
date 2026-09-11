@@ -1429,6 +1429,7 @@
     "channelNumber": "Kanaal ${number}",
     "unknownChannel": "Onbekend kanaal",
     "live": "LIVE",
+    "newProgram": "",
     "reloadGuide": "Gids herladen",
     "searchGuide": "Zoeken in gids",
     "searchHint": "Zoek zenders en programma's",

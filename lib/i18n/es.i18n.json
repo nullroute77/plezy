@@ -1429,6 +1429,7 @@
     "channelNumber": "Canal ${number}",
     "unknownChannel": "Canal desconocido",
     "live": "EN VIVO",
+    "newProgram": "",
     "reloadGuide": "Recargar guía",
     "searchGuide": "Buscar en la guía",
     "searchHint": "Buscar canales y programas",

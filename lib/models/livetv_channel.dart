@@ -58,6 +58,7 @@ class LiveTvChannel {
   final String? title;
   final String? thumb;
   final String? art;
+  final String? contentRating;
   @JsonKey(readValue: _readChannelNumber)
   final String? number;
   @JsonKey(fromJson: flexibleBool)
@@ -87,6 +88,7 @@ class LiveTvChannel {
     this.title,
     this.thumb,
     this.art,
+    this.contentRating,
     this.number,
     this.hd = false,
     this.lineup,
@@ -117,6 +119,7 @@ class LiveTvChannel {
       title: title,
       thumb: thumb,
       art: art,
+      contentRating: contentRating,
       number: number,
       hd: hd,
       lineup: lineup,

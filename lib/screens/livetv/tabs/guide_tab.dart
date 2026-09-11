@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'package:clock/clock.dart';
 import '../../../media/ids.dart';
 
 import 'package:flutter/foundation.dart' show ValueListenable;
@@ -31,6 +32,7 @@ import '../../../utils/live_tv_grouping.dart';
 import '../../../utils/live_tv_matching.dart';
 import '../../../utils/platform_detector.dart';
 import '../../../utils/tone_mapped_logo_image.dart';
+import '../../../widgets/status_pill.dart';
 import '../../../widgets/app_icon.dart';
 import '../../../widgets/app_menu.dart';
 import '../../../widgets/clickable_cursor.dart';
@@ -81,6 +83,18 @@ class GuideTab extends StatefulWidget {
   );
 }
 
+/// Subtract within the current local half hour instead of reconstructing an
+/// ambiguous wall-clock hour during the autumn daylight-saving transition.
+@visibleForTesting
+DateTime guideHalfHourStart(DateTime time) => time.subtract(
+  Duration(
+    minutes: time.minute % 30,
+    seconds: time.second,
+    milliseconds: time.millisecond,
+    microseconds: time.microsecond,
+  ),
+);
+
 enum _GuideZone { timeNav, grid }
 
 typedef _GuideFocusSnapshot = ({
@@ -111,8 +125,8 @@ final class _GuideChannelRow extends _GuideRow {
 
 class GuideTabState extends State<GuideTab>
     with LiveTvActionsMixin<GuideTab>, MountedSetStateMixin, WidgetsBindingObserver, LiveTvRefreshMixin<GuideTab> {
-  static const _slotWidth = 180.0;
-  static const _channelColumnWidth = 132.0;
+  static const _slotWidth = 240.0;
+  double get _channelColumnWidth => PlatformDetector.isMobile(context) ? 96.0 : 132.0;
   static const _rowHeight = 64.0;
   static const _sourceHeaderRowHeight = 40.0;
   static const _timeHeaderHeight = 40.0;
@@ -159,7 +173,7 @@ class GuideTabState extends State<GuideTab>
   // re-anchored when it was live-anchored and has drifted fully into the
   // past — deliberately picked day/time windows are never yanked.
   DateTime? _hiddenSince;
-  bool _nowWasInWindow = true;
+  bool _followNow = true;
 
   // Focus state
   final FocusNode _guideFocusNode = FocusNode(debugLabel: 'guide_tab');
@@ -252,12 +266,12 @@ class GuideTabState extends State<GuideTab>
     if (begin != null && !intersectsWindow) {
       // Same window mechanics as the day/time-slot picker: anchor a fresh
       // 6-hour window one slot before the program and reload.
-      var start = DateTime(begin.year, begin.month, begin.day, begin.hour, begin.minute >= 30 ? 30 : 0);
+      var start = guideHalfHourStart(begin);
       start = start.subtract(const Duration(minutes: 30));
       setState(() {
         _gridStart = start;
         _gridEnd = start.add(const Duration(hours: 6));
-        _nowWasInWindow = _nowInWindow(DateTime.now());
+        _followNow = false;
       });
       await _loadPrograms();
       if (!mounted) return;
@@ -295,7 +309,7 @@ class GuideTabState extends State<GuideTab>
   void initState() {
     super.initState();
     _initTimeRange();
-    _loadPrograms();
+    _loadPrograms(scrollToStart: true);
 
     _gridHorizontalController.addListener(_syncGridToHeader);
     _headerHorizontalController.addListener(_syncHeaderToGrid);
@@ -318,7 +332,7 @@ class GuideTabState extends State<GuideTab>
   // app background alike so _catchUpIfStale can measure the absence.
   @override
   void onRefreshPaused() {
-    _hiddenSince ??= DateTime.now();
+    _hiddenSince ??= clock.now();
   }
 
   @override
@@ -404,28 +418,23 @@ class GuideTabState extends State<GuideTab>
   }
 
   void _initTimeRange() {
-    final now = DateTime.now();
-    _gridStart = DateTime(now.year, now.month, now.day, now.hour);
-    if (now.minute >= 30) {
-      _gridStart = _gridStart.add(const Duration(minutes: 30));
-    }
-    _gridStart = _gridStart.subtract(const Duration(hours: 1));
+    _gridStart = guideHalfHourStart(clock.now());
     _gridEnd = _gridStart.add(const Duration(hours: 6));
-    _nowWasInWindow = true;
+    _followNow = true;
   }
 
   void _shiftTimeRange(int hours) {
     setState(() {
       _gridStart = _gridStart.add(Duration(hours: hours));
       _gridEnd = _gridStart.add(const Duration(hours: 6));
-      _nowWasInWindow = _nowInWindow(DateTime.now());
+      _followNow = false;
     });
     _loadPrograms();
   }
 
   void _jumpToNow() {
     _initTimeRange();
-    _loadPrograms();
+    _loadPrograms(scrollToStart: true);
   }
 
   bool _nowInWindow(DateTime now) => !now.isBefore(_gridStart) && now.isBefore(_gridEnd);
@@ -433,7 +442,7 @@ class GuideTabState extends State<GuideTab>
   /// Timer path: re-anchor only when a live-anchored window drifted fully past.
   void _checkWindowDrift() {
     if (!isRefreshSubtreeVisible || _isLoading) return;
-    if (_nowWasInWindow && !_nowInWindow(DateTime.now())) _jumpToNow();
+    if (_followNow && !_nowInWindow(clock.now())) _jumpToNow();
   }
 
   /// Active path (app resume / guide became visible): drift-jump, else
@@ -443,8 +452,8 @@ class GuideTabState extends State<GuideTab>
     final hiddenSince = _hiddenSince;
     _hiddenSince = null; // evaluated while visible — consume it
     if (_isLoading) return; // in-flight load already ends in _scrollToNow()
-    final now = DateTime.now();
-    if (_nowWasInWindow && !_nowInWindow(now)) {
+    final now = clock.now();
+    if (_followNow && !_nowInWindow(now)) {
       _jumpToNow();
     } else if (_nowInWindow(now) && hiddenSince != null && now.difference(hiddenSince) >= _realignAfterAway) {
       _scrollToNow();
@@ -453,7 +462,7 @@ class GuideTabState extends State<GuideTab>
 
   bool _isCurrentProgramLoad(int generation) => mounted && generation == _programLoadGeneration;
 
-  Future<void> _loadPrograms() async {
+  Future<void> _loadPrograms({bool scrollToStart = false}) async {
     if (!mounted) return;
     final loadGeneration = ++_programLoadGeneration;
     final requestGridStart = _gridStart;
@@ -528,7 +537,15 @@ class GuideTabState extends State<GuideTab>
         return;
       }
 
-      _scrollToNow(loadGeneration: loadGeneration);
+      if (scrollToStart) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (_isCurrentProgramLoad(loadGeneration) && _gridHorizontalController.hasClients) {
+            _gridHorizontalController.jumpTo(0);
+          }
+        });
+      } else {
+        _scrollToNow(loadGeneration: loadGeneration);
+      }
 
       if (shouldFocus) {
         WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -712,7 +729,7 @@ class GuideTabState extends State<GuideTab>
   void _scrollToNow({int? loadGeneration}) {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted || (loadGeneration != null && !_isCurrentProgramLoad(loadGeneration))) return;
-      final now = DateTime.now();
+      final now = clock.now();
       final minutesSinceStart = now.difference(_gridStart).inMinutes;
       final offset = (minutesSinceStart / _minutesPerSlot) * _slotWidth;
       if (_gridHorizontalController.hasClients) {
@@ -969,7 +986,7 @@ class GuideTabState extends State<GuideTab>
     if (channelIndex < 0 || channelIndex >= widget.channels.length) return null;
     final channel = widget.channels[channelIndex];
     final programs = _getProgramsForChannel(channel);
-    final now = DateTime.now().millisecondsSinceEpoch ~/ 1000;
+    final now = clock.now().millisecondsSinceEpoch ~/ 1000;
 
     // Currently airing
     for (final p in programs) {
@@ -1096,7 +1113,7 @@ class GuideTabState extends State<GuideTab>
               children: [
                 Row(
                   children: [
-                    const SizedBox(width: _channelColumnWidth, height: _timeHeaderHeight),
+                    SizedBox(width: _channelColumnWidth, height: _timeHeaderHeight),
                     Expanded(
                       child: SingleChildScrollView(
                         controller: _headerHorizontalController,
@@ -1192,7 +1209,7 @@ class GuideTabState extends State<GuideTab>
   }
 
   Widget _buildNowIndicatorOverlay(ThemeData _) {
-    final now = DateTime.now();
+    final now = clock.now();
     if (now.isBefore(_gridStart) || now.isAfter(_gridEnd)) {
       return const SizedBox.shrink();
     }
@@ -1215,12 +1232,12 @@ class GuideTabState extends State<GuideTab>
   }
 
   String _dayLabel(DateTime day) {
-    final now = DateTime.now();
+    final now = clock.now();
     final today = DateTime(now.year, now.month, now.day);
     final target = DateTime(day.year, day.month, day.day);
 
     if (target == today) return t.liveTv.today;
-    if (target == today.add(const Duration(days: 1))) return t.liveTv.tomorrow;
+    if (target == DateTime(now.year, now.month, now.day + 1)) return t.liveTv.tomorrow;
 
     return DateFormat('EEEE', LocaleSettings.currentLocale.intlLocaleName).format(target);
   }
@@ -1247,13 +1264,13 @@ class GuideTabState extends State<GuideTab>
     final anchorRect = _menuAnchorRect();
     if (anchorRect == null) return;
 
-    final now = DateTime.now();
+    final now = clock.now();
     final today = DateTime(now.year, now.month, now.day);
     final gridDay = DateTime(_gridStart.year, _gridStart.month, _gridStart.day);
 
     final days = <DateTime>[];
     for (var i = 0; i < 8; i++) {
-      days.add(today.add(Duration(days: i)));
+      days.add(DateTime(today.year, today.month, today.day + i));
     }
 
     final value = await showAppMenu<Object>(
@@ -1288,14 +1305,14 @@ class GuideTabState extends State<GuideTab>
   /// Re-anchors the 6h window onto [day] keeping the current window's
   /// time-of-day. Picking 'Now' instead re-anchors live via [_jumpToNow].
   /// #1297: a deliberately picked day is never yanked back by the drift
-  /// checker — [_nowWasInWindow] stays false when now is outside it.
+  /// checker — [_followNow] stays false for an explicitly picked window.
   void _applyDay(DateTime day) {
     final hour = _gridStart.hour;
     final minute = _gridStart.minute;
     setState(() {
       _gridStart = DateTime(day.year, day.month, day.day, hour, minute);
       _gridEnd = _gridStart.add(const Duration(hours: 6));
-      _nowWasInWindow = _nowInWindow(DateTime.now());
+      _followNow = false;
     });
     unawaited(_loadPrograms());
   }
@@ -1334,7 +1351,7 @@ class GuideTabState extends State<GuideTab>
     setState(() {
       _gridStart = DateTime(day.year, day.month, day.day, value);
       _gridEnd = _gridStart.add(const Duration(hours: 6));
-      _nowWasInWindow = _nowInWindow(DateTime.now());
+      _followNow = false;
     });
     unawaited(_loadPrograms());
     _guideFocusNode.requestFocus();
@@ -1631,7 +1648,7 @@ class GuideTabState extends State<GuideTab>
       builder: (context, isFocused) {
         final tk = tokens(context);
         final isCurrentlyAiring = program.isCurrentlyAiring;
-        final isPast = program.endsAt != null && program.endsAt! < DateTime.now().millisecondsSinceEpoch ~/ 1000;
+        final isPast = program.endsAt != null && program.endsAt! < clock.now().millisecondsSinceEpoch ~/ 1000;
         final isRecordingScheduled = _isRecordingScheduled(program);
 
         final Color fillColor;
@@ -1677,41 +1694,12 @@ class GuideTabState extends State<GuideTab>
                   6,
                   4,
                 ),
-                child: Column(
-                  crossAxisAlignment: .start,
-                  mainAxisAlignment: .center,
-                  children: [
-                    Row(
-                      children: [
-                        if (isRecordingScheduled) ...[
-                          _RecordingDot(color: Colors.red, tooltip: t.liveTv.recordingScheduled),
-                          const SizedBox(width: 5),
-                        ],
-                        Expanded(
-                          child: Text(
-                            program.grandparentTitle ?? program.title,
-                            style: theme.textTheme.bodyMedium?.copyWith(fontWeight: .w600, color: titleColor),
-                            maxLines: 1,
-                            overflow: .ellipsis,
-                          ),
-                        ),
-                      ],
-                    ),
-                    if (program.grandparentTitle != null)
-                      Text(
-                        '${program.parentIndex != null && program.index != null ? 'S${program.parentIndex}E${program.index} · ' : ''}${program.title}',
-                        style: theme.textTheme.labelSmall?.copyWith(color: subtitleColor),
-                        maxLines: 1,
-                        overflow: .ellipsis,
-                      ),
-                    if (program.startTime != null)
-                      Text(
-                        '${formatClockTime(program.startTime!, is24Hour: MediaQuery.alwaysUse24HourFormatOf(context))} · ${formatDurationTextual(program.durationMinutes * 60_000)}',
-                        style: theme.textTheme.labelSmall?.copyWith(color: subtitleColor),
-                        maxLines: 1,
-                        overflow: .ellipsis,
-                      ),
-                  ],
+                child: _GuideProgramText(
+                  program: program,
+                  backgroundColor: fillColor,
+                  titleColor: titleColor,
+                  subtitleColor: subtitleColor,
+                  isRecordingScheduled: isRecordingScheduled,
                 ),
               ),
             ),
@@ -1728,6 +1716,96 @@ class GuideTabState extends State<GuideTab>
       posterThumb: program.thumb,
       posterServerId: channel.serverId,
       onRecordingStateChanged: (isScheduled) => _handleRecordingStateChanged(program, isScheduled),
+    );
+  }
+}
+
+/// The timeline can leave only a few pixels of an airing visible. Keep the
+/// title flexible, omit decorations that cannot fit, and retain their semantics.
+class _GuideProgramText extends StatelessWidget {
+  const _GuideProgramText({
+    required this.program,
+    required this.backgroundColor,
+    required this.titleColor,
+    required this.subtitleColor,
+    required this.isRecordingScheduled,
+  });
+
+  final LiveTvProgram program;
+  final Color backgroundColor;
+  final Color titleColor;
+  final Color subtitleColor;
+  final bool isRecordingScheduled;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final badge = switch (program.guideBadge) {
+      GuideProgramBadge.live => t.liveTv.live,
+      GuideProgramBadge.newProgram => t.liveTv.newProgram,
+      null => null,
+    };
+    final subtitle = program.guideSubtitle;
+    final badgeStyle = theme.textTheme.labelSmall?.copyWith(fontWeight: .w700);
+    return Semantics(
+      label: [program.guideTitle, ?badge, ?subtitle, if (isRecordingScheduled) t.liveTv.recordingScheduled].join(', '),
+      excludeSemantics: true,
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final badgePainter = TextPainter(
+            text: TextSpan(text: badge, style: badgeStyle),
+            textDirection: Directionality.of(context),
+            textScaler: MediaQuery.textScalerOf(context),
+            maxLines: 1,
+          )..layout();
+          final badgeWidth = badgePainter.width + 8;
+          badgePainter.dispose();
+          final showRecording = isRecordingScheduled && constraints.maxWidth >= 28;
+          final showBadge = badge != null && constraints.maxWidth >= badgeWidth + 36 + (showRecording ? 13 : 0);
+          return ClipRect(
+            child: Column(
+              crossAxisAlignment: .start,
+              mainAxisAlignment: .center,
+              children: [
+                Flexible(
+                  child: Row(
+                    children: [
+                      if (showRecording) ...[
+                        _RecordingDot(color: Colors.red, tooltip: t.liveTv.recordingScheduled),
+                        const SizedBox(width: 5),
+                      ],
+                      Flexible(
+                        child: Text(
+                          program.guideTitle,
+                          style: theme.textTheme.bodyMedium?.copyWith(fontWeight: .w600, color: titleColor),
+                          maxLines: 1,
+                          overflow: .ellipsis,
+                        ),
+                      ),
+                      if (showBadge) ...[
+                        const SizedBox(width: 4),
+                        if (program.guideBadge == GuideProgramBadge.live)
+                          StatusPill.live()
+                        else
+                          StatusPill.newProgram(foregroundColor: titleColor, backgroundColor: backgroundColor),
+                      ],
+                    ],
+                  ),
+                ),
+                if (subtitle != null)
+                  Flexible(
+                    child: Text(
+                      subtitle,
+                      style: theme.textTheme.labelSmall?.copyWith(color: subtitleColor),
+                      maxLines: 1,
+                      overflow: .ellipsis,
+                    ),
+                  ),
+              ],
+            ),
+          );
+        },
+      ),
     );
   }
 }

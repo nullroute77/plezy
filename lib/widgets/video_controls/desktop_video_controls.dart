@@ -20,6 +20,7 @@ import '../../utils/formatters.dart';
 import '../../i18n/strings.g.dart';
 import '../../focus/focusable_wrapper.dart';
 import '../../media/live_tv_timeline.dart';
+import '../status_pill.dart';
 import 'models/track_controls_state.dart';
 import 'player_chrome_controller.dart';
 import 'widgets/content_strip.dart';
@@ -700,14 +701,7 @@ class DesktopVideoControlsState extends State<DesktopVideoControls> {
               (widget.liveTimelineForPosition == null ||
                   (widget.liveTimelineForPosition?.call(widget.player.state.position).isAtLive ?? true))) ...[
             const SizedBox(width: 8),
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-              decoration: const BoxDecoration(color: Colors.red, borderRadius: BorderRadius.all(Radius.circular(4))),
-              child: Text(
-                t.liveTv.live,
-                style: const TextStyle(color: Colors.white, fontWeight: .bold, fontSize: 12),
-              ),
-            ),
+            StatusPill.live(),
           ],
         ],
       ),

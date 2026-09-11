@@ -1,9 +1,156 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'package:plezy/media/media_browser_dialect.dart';
+import 'package:plezy/models/livetv_program.dart';
 
 import '../test_helpers/backend_client_fixtures.dart';
 import '../test_helpers/http_fixtures.dart';
 
 void main() {
+  for (final dialect in MediaBrowserDialect.values) {
+    test('${dialect.name} requests popup descriptions and preserves program/channel age ratings', () async {
+      final requests = <Uri>[];
+      final client = testJellyfinClient(
+        connection: testJellyfinConnection(dialect: dialect),
+        handler: (request) async {
+          requests.add(request.url);
+          if (request.url.path.endsWith('/Channels')) {
+            return jsonResponse({
+              'Items': [
+                {'Id': 'channel', 'Name': 'News', 'OfficialRating': 'TV-14'},
+              ],
+            });
+          }
+          // Model the servers' opt-in field: an unrequested overview is absent.
+          final fields = request.url.queryParameters['fields']?.split(',') ?? [];
+          return jsonResponse({
+            'Items': [
+              {
+                'Id': 'program',
+                'Name': 'News',
+                'OfficialRating': 'US/TV-PG',
+                if (fields.contains('Overview')) 'Overview': 'The latest headlines.',
+              },
+              {'Id': 'unrated', 'Name': 'No description or rating'},
+            ],
+          });
+        },
+      );
+      addTearDown(client.close);
+      final programs = await client.liveTv.fetchSchedule();
+      expect(requests.single.queryParameters['fields'], contains('Overview'));
+      expect(programs.first.summary, 'The latest headlines.');
+      expect(programs.first.contentRating, 'US/TV-PG');
+      final copied = programs.first.copyWith(serverName: 'Tagged');
+      expect(copied.summary, programs.first.summary);
+      expect(copied.contentRating, programs.first.contentRating);
+      expect(programs.last.summary, isNull);
+      expect(programs.last.contentRating, isNull);
+      final channels = await client.fetchLiveTvChannels();
+      expect(channels.single.contentRating, 'TV-14');
+      expect(channels.single.copyWith(serverName: 'Tagged').contentRating, 'TV-14');
+    });
+
+    test('${dialect.name} preserves primary/episode titles and normalizes explicit broadcast flags', () async {
+      final client = testJellyfinClient(
+        connection: testJellyfinConnection(dialect: dialect),
+        handler: (_) async => jsonResponse({
+          'Items': [
+            {
+              'Name': 'Primary',
+              'EpisodeTitle': 'The 100',
+              'SeriesName': 'Different series metadata',
+              'IndexNumber': 3,
+              'ParentIndexNumber': 2,
+              'IsLive': true,
+              'IsNew': true,
+              'IsPremiere': true,
+            },
+            {'Name': 'Series', 'EpisodeTitle': ' Episode 2000 ', 'IsSeries': true, 'IsRepeat': false},
+            {
+              'Name': 'Series',
+              'EpisodeTitle': 'Episode 2000: The Return',
+              'IsSeries': true,
+              'IsRepeat': true,
+              'IsNew': true,
+            },
+            {'Name': 'Series with omitted repeat', 'IsSeries': true},
+            {'Name': 'Premiere', 'IsPremiere': true},
+            {'Name': 'New', 'IsNew': true},
+            {'Name': 'Explicit old', 'IsNew': false, 'IsSeries': true, 'IsRepeat': false},
+            {'Name': 'Not a series', 'IsRepeat': false},
+            {'Name': 'No episode', 'SeriesName': 'Other', 'IndexNumber': 3},
+          ],
+        }),
+      );
+      addTearDown(client.close);
+      final programs = await client.liveTv.fetchSchedule();
+      expect(programs.map((p) => p.guideBadge), [
+        GuideProgramBadge.live,
+        GuideProgramBadge.newProgram,
+        null,
+        dialect == MediaBrowserDialect.jellyfin ? GuideProgramBadge.newProgram : null,
+        GuideProgramBadge.newProgram,
+        GuideProgramBadge.newProgram,
+        null,
+        null,
+        null,
+      ]);
+      expect(programs.first.guideTitle, 'Primary');
+      expect(programs.first.title, 'Primary');
+      expect(programs.first.episodeTitle, 'The 100');
+      expect(programs.first.guideSubtitle, 'The 100');
+      expect(programs.first.index, 3);
+      expect(programs.first.parentIndex, 2);
+      expect(programs[1].episodeTitle, ' Episode 2000 ');
+      expect(programs[1].guideSubtitle, isNull);
+      expect(programs[2].guideSubtitle, 'Episode 2000: The Return');
+      expect(programs.last.guideTitle, 'No episode');
+      expect(programs.last.guideSubtitle, isNull);
+      expect(programs.first.copyWith(serverName: 'Tagged').guideSubtitle, 'The 100');
+    });
+  }
+
+  for (final dialect in MediaBrowserDialect.values) {
+    test('${dialect.name} sparse repeat flags retain explicit NEW, LIVE, and unknown metadata rules', () async {
+      final client = testJellyfinClient(
+        connection: testJellyfinConnection(dialect: dialect),
+        handler: (_) async => jsonResponse({
+          'Items': [
+            {'Name': 'Missing repeat', 'IsSeries': true},
+            {'Name': 'Null repeat', 'IsSeries': true, 'IsRepeat': null},
+            {'Name': 'Repeat', 'IsSeries': true, 'IsRepeat': true},
+            {'Name': 'Explicit old', 'IsSeries': true, 'IsNew': false},
+            {'Name': 'Live series', 'IsSeries': true, 'IsLive': true},
+            {'Name': 'Explicit new', 'IsNew': true},
+            {'Name': 'No flags'},
+            {'Name': 'Not a series', 'IsSeries': false},
+            {'Name': 'Null series', 'IsSeries': null},
+          ],
+        }),
+      );
+      addTearDown(client.close);
+      final programs = await client.liveTv.fetchSchedule();
+      expect(
+        programs.map((p) => p.guideBadge),
+        dialect == MediaBrowserDialect.jellyfin
+            ? [
+                GuideProgramBadge.newProgram,
+                GuideProgramBadge.newProgram,
+                null,
+                null,
+                GuideProgramBadge.live,
+                GuideProgramBadge.newProgram,
+                null,
+                null,
+                null,
+              ]
+            : [null, null, null, null, GuideProgramBadge.live, GuideProgramBadge.newProgram, null, null, null],
+      );
+      expect(programs.first.repeat, isNull);
+      expect(programs.first.copyWith(serverName: 'Decorated').guideBadge, programs.first.guideBadge);
+    });
+  }
+
   test('guide window lower bound is minEndDate so currently-airing programmes are kept', () async {
     // Jellyfin translates MinStartDate to `StartDate >= …`, which drops a
     // programme that began before the window even though it is still running

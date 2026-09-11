@@ -9,6 +9,7 @@ import '../../services/scrub_preview_source.dart';
 import '../../utils/desktop_window_padding.dart';
 import '../../utils/platform_detector.dart';
 import '../../i18n/strings.g.dart';
+import '../status_pill.dart';
 import 'player_chrome_controller.dart';
 import 'widgets/circular_control_button.dart';
 import 'widgets/content_strip.dart';
@@ -415,18 +416,7 @@ class _MobileVideoControlsState extends State<MobileVideoControls> with SingleTi
       // Fallback: static LIVE badge (no capture buffer)
       return Padding(
         padding: const EdgeInsets.all(16),
-        child: Row(
-          children: [
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-              decoration: const BoxDecoration(color: Colors.red, borderRadius: BorderRadius.all(Radius.circular(4))),
-              child: Text(
-                t.liveTv.live,
-                style: const TextStyle(color: Colors.white, fontWeight: .bold, fontSize: 12),
-              ),
-            ),
-          ],
-        ),
+        child: Row(children: [StatusPill.live()]),
       );
     }
     return FirstFrameGuard(hasFirstFrame: widget.hasFirstFrame, builder: (context) => _buildBottomBarContent(context));

@@ -1429,6 +1429,7 @@
     "channelNumber": "Channel ${number}",
     "unknownChannel": "Unknown channel",
     "live": "LIVE",
+    "newProgram": "NEW",
     "reloadGuide": "Reload Guide",
     "searchGuide": "Search Guide",
     "searchHint": "Search channels & programs",

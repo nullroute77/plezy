@@ -54,6 +54,8 @@ mixin _JellyfinLiveTvMethods on _JellyfinClientInternals {
     final params = <String, dynamic>{
       'userId': connection.userId,
       'enableImages': 'true',
+      // Overview is opt-in on both servers; the program popup reads it.
+      'fields': 'Overview',
       'sortBy': 'StartDate',
       'sortOrder': 'Ascending',
       if (channelIds.isNotEmpty) 'channelIds': channelIds.join(','),
@@ -90,7 +92,10 @@ mixin _JellyfinLiveTvMethods on _JellyfinClientInternals {
       // feeds it to /LiveTv/Timers/Defaults?programId=.
       guid: id,
       title: json['Name'] as String? ?? t.liveTv.unknownProgram,
+      programTitle: json['Name'] as String? ?? t.liveTv.unknownProgram,
+      episodeTitle: json['EpisodeTitle'] as String?,
       summary: json['Overview'] as String?,
+      contentRating: json['OfficialRating'] as String?,
       type: 'episode',
       year: (json['ProductionYear'] as num?)?.toInt(),
       beginsAt: jellyfinIsoToEpochSeconds(json['StartDate'] as String?),
@@ -105,6 +110,15 @@ mixin _JellyfinLiveTvMethods on _JellyfinClientInternals {
       channelCallSign: json['ChannelCallSign'] as String? ?? json['ChannelName'] as String?,
       live: json['IsLive'] as bool?,
       premiere: json['IsPremiere'] as bool?,
+      // Jellyfin omits false repeat flags from program DTOs. Match its web
+      // guide: a known series is NEW unless marked as a repeat. Emby keeps
+      // the explicit non-repeat fallback; an explicit IsNew always wins.
+      isNew:
+          json['IsNew'] as bool? ??
+          (json['IsSeries'] == true && (dialect == MediaBrowserDialect.jellyfin || json['IsRepeat'] is bool)
+              ? json['IsRepeat'] != true
+              : null),
+      repeat: json['IsRepeat'] as bool?,
       subscriptionId: recording ? '$_jfTimerRuleKeyPrefix$timerId' : null,
       grandparentSubscriptionId: recording && seriesTimerId != null && seriesTimerId.isNotEmpty
           ? '$_jfSeriesRuleKeyPrefix$seriesTimerId'
@@ -131,6 +145,7 @@ mixin _JellyfinLiveTvMethods on _JellyfinClientInternals {
       identifier: id,
       callSign: json['CallSign'] as String?,
       title: name,
+      contentRating: json['OfficialRating'] as String?,
       thumb: thumbPath,
       art: null,
       number: number,

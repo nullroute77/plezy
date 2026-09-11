@@ -10,14 +10,15 @@ import '../../models/livetv_program.dart';
 import '../../models/media_subscription.dart';
 import '../../theme/mono_tokens.dart';
 import '../../utils/app_logger.dart';
+import '../../utils/content_utils.dart';
 import '../../utils/formatters.dart';
 import '../../utils/media_image_helper.dart';
+import '../../widgets/status_pill.dart';
 import '../../widgets/app_icon.dart';
 import '../../widgets/collapsible_text.dart';
 import '../../widgets/overlay_sheet.dart';
 import '../../widgets/optimized_media_image.dart' show blurArtwork;
 import 'livetv_recording_actions.dart';
-import 'livetv_styles.dart';
 
 /// Shows a bottom sheet with program details and actions (Play / Watch Channel /
 /// Record / Manage recording).
@@ -315,7 +316,26 @@ class _ProgramDetailsSheetContentState extends State<_ProgramDetailsSheetContent
     final channel = widget.channel;
     final actions = _buildActions();
     _ensureFocusNodes(actions.length);
-    final summary = program.summary;
+    final episodeLabel =
+        formatSeasonEpisodeLabel(program.parentIndex, program.index, compact: true) ??
+        (program.index != null
+            ? 'E${program.index}'
+            : program.parentIndex != null
+            ? 'S${program.parentIndex}'
+            : null);
+    final subtitle = [episodeLabel, program.guideSubtitle].nonNulls.join(' ');
+    final badge = switch (program.guideBadge) {
+      GuideProgramBadge.live => StatusPill.live(),
+      GuideProgramBadge.newProgram => StatusPill.newProgram(
+        foregroundColor: theme.colorScheme.onSurface,
+        backgroundColor: theme.colorScheme.surface,
+      ),
+      null => null,
+    };
+    final summary = program.summary?.trim();
+    final programRating = formatContentRating(program.contentRating?.trim());
+    final channelRating = formatContentRating(channel?.contentRating?.trim());
+    final contentRating = programRating.isNotEmpty ? programRating : channelRating;
     final hasSummary = summary != null && summary.isNotEmpty;
     final canFocusSummary = hasSummary && _summaryOverflows;
 
@@ -354,17 +374,21 @@ class _ProgramDetailsSheetContentState extends State<_ProgramDetailsSheetContent
                   children: [
                     Row(
                       children: [
-                        Expanded(child: Text(program.displayTitle, style: theme.textTheme.titleMedium)),
-                        if (program.isCurrentlyAiring) StatusPill(label: t.liveTv.live, color: Colors.red),
+                        Flexible(child: Text(program.guideTitle, style: theme.textTheme.titleMedium)),
+                        if (badge != null) ...[const SizedBox(width: 4), badge],
                       ],
                     ),
+                    if (subtitle.isNotEmpty) ...[
+                      const SizedBox(height: 4),
+                      Text(subtitle, style: theme.textTheme.bodyMedium),
+                    ],
                     const SizedBox(height: 4),
                     Text(
                       [
                         if (channel != null) channel.displayName,
                         if (program.startTime != null && program.endTime != null)
                           '${formatClockTime(program.startTime!, is24Hour: MediaQuery.alwaysUse24HourFormatOf(context))} - ${formatClockTime(program.endTime!, is24Hour: MediaQuery.alwaysUse24HourFormatOf(context))}',
-                        if (program.durationMinutes > 0) formatDurationTextual(program.durationMinutes * 60_000),
+                        if (contentRating.isNotEmpty) contentRating,
                       ].join(' · '),
                       style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.onSurfaceVariant),
                     ),

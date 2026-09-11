@@ -1429,6 +1429,7 @@
     "channelNumber": "Canal ${number}",
     "unknownChannel": "Canal desconhecido",
     "live": "AO VIVO",
+    "newProgram": "",
     "reloadGuide": "Recarregar Guia",
     "searchGuide": "Buscar no guia",
     "searchHint": "Buscar canais e programas",
