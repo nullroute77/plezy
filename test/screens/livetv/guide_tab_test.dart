@@ -162,133 +162,176 @@ void main() {
     });
   });
 
-  for (final tv in [false, true]) {
-    testWidgets('guide badges and subtext fit short cards with pointer and ${tv ? 'TV remote' : 'keyboard'} focus', (
-      tester,
-    ) async {
-      TvDetectionService.debugSetAppleTVOverride(tv);
-      final harness = _GuideHarness.oneServer();
-      addTearDown(harness.dispose);
-      await harness.pump(tester);
-      final request = harness.serverA.schedule.requests.single;
-      final start = request.from.millisecondsSinceEpoch ~/ 1000;
-      request.completer.complete([
-        LiveTvProgram(
-          title: 'Live sports',
-          episodeTitle: 'Final 2026',
-          live: true,
-          isNew: true,
-          beginsAt: start,
-          endsAt: start + 1800,
-          channelIdentifier: 'station-a',
-          serverId: 'server-a',
-        ),
-        LiveTvProgram(
-          title: 'New series',
-          episodeTitle: 'The 100',
-          isNew: true,
-          beginsAt: start + 1800,
-          endsAt: start + 3600,
-          channelIdentifier: 'station-a',
-          serverId: 'server-a',
-        ),
-        LiveTvProgram(
-          title: 'Tiny recording',
-          episodeTitle: 'Episode 2000',
-          live: true,
-          subscriptionId: 'recording',
-          beginsAt: start + 3600,
-          endsAt: start + 3660,
-          channelIdentifier: 'station-a',
-          serverId: 'server-a',
-        ),
-        LiveTvProgram(
-          title: 'Narrow series',
-          episodeTitle: 'Episode 9 from Outer Space',
-          premiere: true,
-          subscriptionId: 'recording',
-          beginsAt: start + 3660,
-          endsAt: start + 4560,
-          channelIdentifier: 'station-a',
-          serverId: 'server-a',
-        ),
-        LiveTvProgram(
-          title: 'Missing metadata',
-          beginsAt: start + 4560,
-          endsAt: start + 6360,
-          channelIdentifier: 'station-a',
-          serverId: 'server-a',
-        ),
-      ]);
-      await tester.pumpAndSettle();
-      expect(tester.takeException(), isNull);
-      expect(find.text(t.liveTv.live), findsOneWidget);
-      final newCard = find.ancestor(of: find.text('New series'), matching: find.byType(InkWell)).first;
-      expect(find.descendant(of: newCard, matching: find.text(t.liveTv.newProgram)), findsOneWidget);
-      final tinyCard = find.ancestor(of: find.text('Tiny recording'), matching: find.byType(InkWell)).first;
-      expect(find.descendant(of: tinyCard, matching: find.text(t.liveTv.live)), findsNothing);
-      expect(find.text('Episode 2000'), findsNothing);
-      expect(find.text('Final 2026'), findsOneWidget);
-      expect(find.text('The 100'), findsOneWidget);
-      final card = find.ancestor(of: find.text('Live sports'), matching: find.byType(InkWell)).first;
-      expect(find.descendant(of: card, matching: find.byType(Text)), findsNWidgets(3));
-      expect(tester.getSize(card).width, closeTo(176, 4));
-      final mouse = await tester.createGesture(kind: ui.PointerDeviceKind.mouse);
-      await mouse.addPointer(location: tester.getCenter(card));
-      await tester.pump();
-      expect(tester.takeException(), isNull);
-      await mouse.removePointer();
-      await _focusGrid(tester);
-      for (var i = 0; i < 5; i++) {
-        await tester.sendKeyEvent(LogicalKeyboardKey.arrowRight);
-        await tester.pumpAndSettle();
-        expect(tester.takeException(), isNull);
-      }
-      for (var i = 0; i < 3; i++) {
-        await tester.sendKeyEvent(LogicalKeyboardKey.arrowLeft);
-        await tester.pumpAndSettle();
-      }
-      expect(find.ancestor(of: find.text('New series'), matching: _focusedCellFinder(tester)), findsOneWidget);
-      final focusedBadge = tester.widget<Text>(find.descendant(of: newCard, matching: find.text(t.liveTv.newProgram)));
-      expect(focusedBadge.style?.color, Colors.white);
-      final newPill = tester.widget<StatusPill>(find.descendant(of: newCard, matching: find.byType(StatusPill)));
-      expect(newPill.color, Colors.grey.shade700);
-      final livePill = tester.widget<StatusPill>(find.descendant(of: card, matching: find.byType(StatusPill)));
-      expect(livePill.color, Colors.red.shade700);
-      for (final pill in [newPill, livePill]) {
-        final decoration =
-            tester
-                    .widget<Container>(find.descendant(of: find.byWidget(pill), matching: find.byType(Container)))
-                    .decoration!
-                as BoxDecoration;
-        expect(decoration.color, pill.color);
-        expect(decoration.border, isNull);
-        expect(decoration.borderRadius, BorderRadius.circular(3));
-      }
-      // Capture actual Flutter rendering when explicitly requested; no golden
-      // baseline tied to the machine's wall clock or font rasterizer.
-      const screenshotDir = String.fromEnvironment('GUIDE_SCREENSHOT_DIR');
-      if (screenshotDir.isNotEmpty) {
-        final boundary = tester.renderObject<RenderRepaintBoundary>(find.byKey(const ValueKey('guide-capture')));
-        await tester.runAsync(() async {
-          final image = await boundary.toImage();
-          try {
-            final bytes = await image.toByteData(format: ui.ImageByteFormat.png);
-            Directory(screenshotDir).createSync(recursive: true);
-            File(
-              '$screenshotDir/guide-${tv ? 'remote' : 'keyboard'}.png',
-            ).writeAsBytesSync(bytes!.buffer.asUint8List());
-          } finally {
-            image.dispose();
+  for (final appearance in [
+    (name: 'light', dark: false, oled: false),
+    (name: 'dark', dark: true, oled: false),
+    (name: 'oled', dark: true, oled: true),
+  ]) {
+    for (final tv in [false, true]) {
+      testWidgets(
+        '${appearance.name} guide badges and subtext fit short cards with pointer and ${tv ? 'TV remote' : 'keyboard'} focus',
+        (tester) async {
+          TvDetectionService.debugSetAppleTVOverride(tv);
+          final harness = _GuideHarness.oneServer();
+          addTearDown(harness.dispose);
+          await harness.pump(tester, dark: appearance.dark, oled: appearance.oled);
+          final request = harness.serverA.schedule.requests.single;
+          final start = request.from.millisecondsSinceEpoch ~/ 1000;
+          request.completer.complete([
+            LiveTvProgram(
+              title: 'Live sports',
+              episodeTitle: 'Final 2026',
+              live: true,
+              isNew: true,
+              beginsAt: start,
+              endsAt: start + 1800,
+              channelIdentifier: 'station-a',
+              serverId: 'server-a',
+            ),
+            LiveTvProgram(
+              title: 'New series',
+              episodeTitle: 'The 100',
+              isNew: true,
+              beginsAt: start + 1800,
+              endsAt: start + 3600,
+              channelIdentifier: 'station-a',
+              serverId: 'server-a',
+            ),
+            LiveTvProgram(
+              title: 'Tiny recording',
+              episodeTitle: 'Episode 2000',
+              live: true,
+              subscriptionId: 'recording',
+              beginsAt: start + 3600,
+              endsAt: start + 3660,
+              channelIdentifier: 'station-a',
+              serverId: 'server-a',
+            ),
+            LiveTvProgram(
+              title: 'Narrow series',
+              episodeTitle: 'Episode 9 from Outer Space',
+              premiere: true,
+              subscriptionId: 'recording',
+              beginsAt: start + 3660,
+              endsAt: start + 4560,
+              channelIdentifier: 'station-a',
+              serverId: 'server-a',
+            ),
+            LiveTvProgram(
+              title: 'Missing metadata',
+              beginsAt: start + 4560,
+              endsAt: start + 6360,
+              channelIdentifier: 'station-a',
+              serverId: 'server-a',
+            ),
+            LiveTvProgram(
+              title: 'Upcoming episode',
+              episodeTitle: 'A New Chapter',
+              isNew: true,
+              beginsAt: start + 6360,
+              endsAt: start + 8160,
+              channelIdentifier: 'station-a',
+              serverId: 'server-a',
+            ),
+          ]);
+          await tester.pumpAndSettle();
+          expect(tester.takeException(), isNull);
+          expect(find.text(t.liveTv.live), findsOneWidget);
+          final newCard = find.ancestor(of: find.text('New series'), matching: find.byType(InkWell)).first;
+          expect(find.descendant(of: newCard, matching: find.text(t.liveTv.newProgram)), findsOneWidget);
+          final unfocusedPill = tester.widget<StatusPill>(
+            find.descendant(of: newCard, matching: find.byType(StatusPill)),
+          );
+          final unfocusedFill = tester
+              .widget<Material>(find.ancestor(of: newCard, matching: find.byType(Material)).first)
+              .color!;
+          expect(
+            unfocusedPill.color,
+            Color.alphaBlend(unfocusedPill.foregroundColor.withValues(alpha: 0.2), unfocusedFill),
+          );
+          expect(
+            unfocusedPill.foregroundColor.computeLuminance() > unfocusedPill.color.computeLuminance(),
+            appearance.dark,
+          );
+          final tinyCard = find.ancestor(of: find.text('Tiny recording'), matching: find.byType(InkWell)).first;
+          expect(find.descendant(of: tinyCard, matching: find.text(t.liveTv.live)), findsNothing);
+          expect(find.text('Episode 2000'), findsNothing);
+          expect(find.text('Final 2026'), findsOneWidget);
+          expect(find.text('The 100'), findsOneWidget);
+          final card = find.ancestor(of: find.text('Live sports'), matching: find.byType(InkWell)).first;
+          expect(find.descendant(of: card, matching: find.byType(Text)), findsNWidgets(3));
+          expect(tester.getSize(card).width, closeTo(176, 4));
+          final mouse = await tester.createGesture(kind: ui.PointerDeviceKind.mouse);
+          await mouse.addPointer(location: tester.getCenter(card));
+          await tester.pump();
+          expect(tester.takeException(), isNull);
+          await mouse.removePointer();
+          await _focusGrid(tester);
+          for (var i = 0; i < 5; i++) {
+            await tester.sendKeyEvent(LogicalKeyboardKey.arrowRight);
+            await tester.pumpAndSettle();
+            expect(tester.takeException(), isNull);
           }
-        });
-      }
-      // The very narrow card and its recording indicator also survive scaling.
-      tester.platformDispatcher.textScaleFactorTestValue = 1.5;
-      addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
-      await tester.pumpAndSettle();
-      expect(tester.takeException(), isNull);
-    });
+          for (var i = 0; i < 3; i++) {
+            await tester.sendKeyEvent(LogicalKeyboardKey.arrowLeft);
+            await tester.pumpAndSettle();
+          }
+          expect(find.ancestor(of: find.text('New series'), matching: _focusedCellFinder(tester)), findsOneWidget);
+          final focusedBadge = tester.widget<Text>(
+            find.descendant(of: newCard, matching: find.text(t.liveTv.newProgram)),
+          );
+          final theme = Theme.of(tester.element(newCard));
+          expect(focusedBadge.style?.color, theme.colorScheme.onPrimary);
+          final newPill = tester.widget<StatusPill>(find.descendant(of: newCard, matching: find.byType(StatusPill)));
+          expect(
+            newPill.color,
+            Color.alphaBlend(theme.colorScheme.onPrimary.withValues(alpha: 0.2), theme.colorScheme.primary),
+          );
+          expect(newPill.color, isNot(unfocusedPill.color));
+          expect(newPill.foregroundColor.computeLuminance() > newPill.color.computeLuminance(), !appearance.dark);
+          for (final neutral in [unfocusedPill, newPill]) {
+            final luminances = [neutral.foregroundColor.computeLuminance(), neutral.color.computeLuminance()]..sort();
+            expect((luminances.last + 0.05) / (luminances.first + 0.05), greaterThanOrEqualTo(4.5));
+          }
+          final livePill = tester.widget<StatusPill>(find.descendant(of: card, matching: find.byType(StatusPill)));
+          expect(livePill.color, Colors.red.shade700);
+          expect(livePill.foregroundColor, Colors.white);
+          for (final pill in [newPill, livePill]) {
+            final decoration =
+                tester
+                        .widget<Container>(find.descendant(of: find.byWidget(pill), matching: find.byType(Container)))
+                        .decoration!
+                    as BoxDecoration;
+            expect(decoration.color, pill.color);
+            expect(decoration.border, isNull);
+            expect(decoration.borderRadius, BorderRadius.circular(3));
+          }
+          // Capture actual Flutter rendering when explicitly requested; no golden
+          // baseline tied to the machine's wall clock or font rasterizer.
+          const screenshotDir = String.fromEnvironment('GUIDE_SCREENSHOT_DIR');
+          if (screenshotDir.isNotEmpty) {
+            final boundary = tester.renderObject<RenderRepaintBoundary>(find.byKey(const ValueKey('guide-capture')));
+            await tester.runAsync(() async {
+              final image = await boundary.toImage();
+              try {
+                final bytes = await image.toByteData(format: ui.ImageByteFormat.png);
+                Directory(screenshotDir).createSync(recursive: true);
+                File(
+                  '$screenshotDir/guide-${appearance.name}-${tv ? 'remote' : 'keyboard'}.png',
+                ).writeAsBytesSync(bytes!.buffer.asUint8List());
+              } finally {
+                image.dispose();
+              }
+            });
+          }
+          // The very narrow card and its recording indicator also survive scaling.
+          tester.platformDispatcher.textScaleFactorTestValue = 1.5;
+          addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
+          await tester.pumpAndSettle();
+          expect(tester.takeException(), isNull);
+        },
+      );
+    }
   }
 
   test('SELECT hold survives equivalent fresh guide objects and opens details once', () {
@@ -783,7 +826,13 @@ final class _GuideHarness {
   final MultiServerProvider provider;
   final List<LiveTvChannel> channels;
 
-  Future<void> pump(WidgetTester tester, {Size size = const Size(1280, 720), bool is24Hour = false}) async {
+  Future<void> pump(
+    WidgetTester tester, {
+    Size size = const Size(1280, 720),
+    bool is24Hour = false,
+    bool dark = true,
+    bool oled = false,
+  }) async {
     tester.view.devicePixelRatio = 1;
     tester.view.physicalSize = size;
     addTearDown(() {
@@ -798,10 +847,10 @@ final class _GuideHarness {
             value: provider,
             child: MaterialApp(
               theme: const String.fromEnvironment('GUIDE_SCREENSHOT_DIR').isEmpty
-                  ? monoTheme(dark: true)
-                  : monoTheme(
-                      dark: true,
-                    ).copyWith(textTheme: monoTheme(dark: true).textTheme.apply(fontFamily: 'GuidePreview')),
+                  ? monoTheme(dark: dark, oled: oled)
+                  : monoTheme(dark: dark, oled: oled).copyWith(
+                      textTheme: monoTheme(dark: dark, oled: oled).textTheme.apply(fontFamily: 'GuidePreview'),
+                    ),
               builder: (context, child) => MediaQuery(
                 data: MediaQuery.of(context).copyWith(alwaysUse24HourFormat: is24Hour),
                 child: child!,

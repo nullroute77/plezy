@@ -14,13 +14,15 @@ Color airingFill(BuildContext context) {
 class StatusPill extends StatelessWidget {
   final String label;
   final Color color;
+  final Color foregroundColor;
   final bool _compact;
 
-  const StatusPill({super.key, required this.label, required this.color}) : _compact = false;
+  const StatusPill({super.key, required this.label, required this.color}) : foregroundColor = color, _compact = false;
 
-  /// Solid, compact badge for inline guide titles. Keep its white foreground
-  /// independent of the card's inverted focus colors.
-  const StatusPill.compact({super.key, required this.label, required this.color}) : _compact = true;
+  /// Solid, compact badge for inline guide titles. Neutral badges can supply
+  /// the card's foreground; broadcast status badges default to white.
+  const StatusPill.compact({super.key, required this.label, required this.color, this.foregroundColor = Colors.white})
+    : _compact = true;
 
   @override
   Widget build(BuildContext context) {
@@ -32,9 +34,7 @@ class StatusPill extends StatelessWidget {
       ),
       child: Text(
         label,
-        style: Theme.of(
-          context,
-        ).textTheme.labelSmall?.copyWith(color: _compact ? Colors.white : color, fontWeight: .w700),
+        style: Theme.of(context).textTheme.labelSmall?.copyWith(color: foregroundColor, fontWeight: .w700),
         maxLines: _compact ? 1 : null,
       ),
     );
