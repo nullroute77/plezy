@@ -194,7 +194,12 @@ void main() {
           TvDetectionService.debugSetAppleTVOverride(tv);
           final harness = _GuideHarness.oneServer();
           addTearDown(harness.dispose);
-          await harness.pump(tester, dark: appearance.dark, oled: appearance.oled);
+          await harness.pump(
+            tester,
+            dark: appearance.dark,
+            oled: appearance.oled,
+            platform: tv ? TargetPlatform.android : TargetPlatform.windows,
+          );
           final request = harness.serverA.schedule.requests.single;
           final start = request.from.millisecondsSinceEpoch ~/ 1000;
           request.completer.complete([

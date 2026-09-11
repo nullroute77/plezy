@@ -32,10 +32,8 @@ class StatusPill extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      // Optically center compact labels (not just their font line boxes):
-      // move the text up one logical pixel without changing the badge height.
       padding: _compact
-          ? const EdgeInsets.fromLTRB(4, 0, 4, 2)
+          ? const EdgeInsets.symmetric(horizontal: 4, vertical: 1)
           : const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
       decoration: BoxDecoration(
         color: _compact ? color : color.withValues(alpha: 0.15),
