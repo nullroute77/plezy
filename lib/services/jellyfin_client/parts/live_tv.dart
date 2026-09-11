@@ -110,11 +110,14 @@ mixin _JellyfinLiveTvMethods on _JellyfinClientInternals {
       channelCallSign: json['ChannelCallSign'] as String? ?? json['ChannelName'] as String?,
       live: json['IsLive'] as bool?,
       premiere: json['IsPremiere'] as bool?,
-      // Emby exposes IsNew. Jellyfin conveys new series airings via an
-      // explicit IsRepeat=false; a missing repeat flag is not evidence.
+      // Jellyfin omits false repeat flags from program DTOs. Match its web
+      // guide: a known series is NEW unless marked as a repeat. Emby keeps
+      // the explicit non-repeat fallback; an explicit IsNew always wins.
       isNew:
           json['IsNew'] as bool? ??
-          (json['IsSeries'] == true && json['IsRepeat'] is bool ? json['IsRepeat'] == false : null),
+          (json['IsSeries'] == true && (dialect == MediaBrowserDialect.jellyfin || json['IsRepeat'] is bool)
+              ? json['IsRepeat'] != true
+              : null),
       repeat: json['IsRepeat'] as bool?,
       subscriptionId: recording ? '$_jfTimerRuleKeyPrefix$timerId' : null,
       grandparentSubscriptionId: recording && seriesTimerId != null && seriesTimerId.isNotEmpty

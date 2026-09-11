@@ -15,6 +15,7 @@ import 'package:plezy/i18n/strings.g.dart';
 import 'package:plezy/media/ids.dart';
 import 'package:plezy/media/live_tv_support.dart';
 import 'package:plezy/media/media_backend.dart';
+import 'package:plezy/media/media_browser_dialect.dart';
 import 'package:plezy/media/media_server_client.dart';
 import 'package:plezy/media/server_capabilities.dart';
 import 'package:plezy/focus/dpad_navigator.dart';
@@ -32,6 +33,8 @@ import 'package:plezy/widgets/app_icon.dart';
 import 'package:provider/provider.dart';
 
 import '../../test_helpers/multi_server_fixtures.dart';
+import '../../test_helpers/backend_client_fixtures.dart';
+import '../../test_helpers/http_fixtures.dart';
 
 Future<void> _captureGuide(WidgetTester tester, String name) async {
   const screenshotDir = String.fromEnvironment('GUIDE_SCREENSHOT_DIR');
@@ -181,6 +184,50 @@ void main() {
       await tester.pumpAndSettle();
     });
   });
+
+  for (final dialect in MediaBrowserDialect.values) {
+    testWidgets('${dialect.name} sparse broadcast metadata reaches Android TV guide badges', (tester) async {
+      TvDetectionService.debugSetAppleTVOverride(true);
+      final harness = _GuideHarness.oneServer();
+      addTearDown(harness.dispose);
+      await harness.pump(tester, platform: TargetPlatform.android);
+      final request = harness.serverA.schedule.requests.single;
+      final client = testJellyfinClient(
+        connection: testJellyfinConnection(dialect: dialect),
+        handler: (_) async => jsonResponse({
+          'Items': [
+            for (var i = 0; i < 3; i++)
+              {
+                'Id': 'program-$i',
+                'Name': ['New series', 'Live series', 'Unknown program'][i],
+                'ChannelId': 'station-a',
+                'StartDate': request.from.add(Duration(minutes: 30 * i)).toUtc().toIso8601String(),
+                'EndDate': request.from.add(Duration(minutes: 30 * (i + 1))).toUtc().toIso8601String(),
+                if (i < 2) 'IsSeries': true,
+                if (i == 1) 'IsLive': true,
+                // Jellyfin's non-repeat series can omit IsRepeat entirely.
+              },
+          ],
+        }),
+      );
+      addTearDown(client.close);
+      final programs = await client.liveTv.fetchSchedule(from: request.from, to: request.to);
+      request.completer.complete(programs.map((p) => p.copyWith(serverId: ServerId('server-a'))).toList());
+      await tester.pumpAndSettle();
+      final newCard = find.ancestor(of: find.text('New series'), matching: find.byType(InkWell)).first;
+      expect(
+        find.descendant(of: newCard, matching: find.text(t.liveTv.newProgram)),
+        dialect == MediaBrowserDialect.jellyfin ? findsOneWidget : findsNothing,
+      );
+      final liveCard = find.ancestor(of: find.text('Live series'), matching: find.byType(InkWell)).first;
+      expect(find.descendant(of: liveCard, matching: find.text(t.liveTv.live)), findsOneWidget);
+      expect(find.descendant(of: liveCard, matching: find.text(t.liveTv.newProgram)), findsNothing);
+      final unknownCard = find.ancestor(of: find.text('Unknown program'), matching: find.byType(InkWell)).first;
+      expect(find.descendant(of: unknownCard, matching: find.byType(StatusPill)), findsNothing);
+      await _focusGrid(tester);
+      expect(tester.takeException(), isNull);
+    });
+  }
 
   for (final appearance in [
     (name: 'light', dark: false, oled: false),

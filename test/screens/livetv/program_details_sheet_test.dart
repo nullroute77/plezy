@@ -30,6 +30,7 @@ void main() {
               'Id': 'program',
               'Name': 'Flavortown Food Fight',
               'EpisodeTitle': 'Heat Day',
+              'IsSeries': true,
               'ParentIndexNumber': 1,
               'IndexNumber': 9,
               'StartDate': '2026-09-10T20:00:00Z',
@@ -46,6 +47,7 @@ void main() {
       await _open(tester, program);
       expect(find.text('Flavortown Food Fight'), findsOneWidget);
       expect(find.text('S1E9 Heat Day'), findsOneWidget);
+      expect(find.text(t.liveTv.newProgram), dialect == MediaBrowserDialect.jellyfin ? findsOneWidget : findsNothing);
       expect(
         tester.widget<CollapsibleText>(find.byType(CollapsibleText)).text,
         'The latest headlines and local weather.',
