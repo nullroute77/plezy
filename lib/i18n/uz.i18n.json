@@ -1422,6 +1422,7 @@
     "channelNumber": "${number}-kanal",
     "unknownChannel": "Nomaʼlum kanal",
     "live": "JONLI EFIR",
+    "newProgram": "",
     "reloadGuide": "Jadvalni yangilash",
     "searchGuide": "Dasturlar jadvalidan qidirish",
     "searchHint": "Kanal va dasturlarni qidirish",

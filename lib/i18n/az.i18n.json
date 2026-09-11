@@ -1422,6 +1422,7 @@
     "channelNumber": "Kanal ${number}",
     "unknownChannel": "Bilinməyən kanal",
     "live": "CANLI",
+    "newProgram": "",
     "reloadGuide": "Bələdçini yenilə",
     "searchGuide": "Bələdçidə axtar",
     "searchHint": "Kanal və proqram axtar",

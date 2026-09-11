@@ -1422,6 +1422,7 @@
     "channelNumber": "Канал ${number}",
     "unknownChannel": "Неизвестен канал",
     "live": "НА ЖИВО",
+    "newProgram": "",
     "reloadGuide": "Презареди ТВ програмата",
     "searchGuide": "Търсене в програмата",
     "searchHint": "Търсене на канали и предавания",

@@ -1,9 +1,72 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'package:plezy/media/media_browser_dialect.dart';
+import 'package:plezy/models/livetv_program.dart';
 
 import '../test_helpers/backend_client_fixtures.dart';
 import '../test_helpers/http_fixtures.dart';
 
 void main() {
+  for (final dialect in MediaBrowserDialect.values) {
+    test('${dialect.name} preserves primary/episode titles and normalizes explicit broadcast flags', () async {
+      final client = testJellyfinClient(
+        connection: testJellyfinConnection(dialect: dialect),
+        handler: (_) async => jsonResponse({
+          'Items': [
+            {
+              'Name': 'Primary',
+              'EpisodeTitle': 'The 100',
+              'SeriesName': 'Different series metadata',
+              'IndexNumber': 3,
+              'ParentIndexNumber': 2,
+              'IsLive': true,
+              'IsNew': true,
+              'IsPremiere': true,
+            },
+            {'Name': 'Series', 'EpisodeTitle': ' Episode 2000 ', 'IsSeries': true, 'IsRepeat': false},
+            {
+              'Name': 'Series',
+              'EpisodeTitle': 'Episode 2000: The Return',
+              'IsSeries': true,
+              'IsRepeat': true,
+              'IsNew': true,
+            },
+            {'Name': 'Unknown', 'IsSeries': true},
+            {'Name': 'Premiere', 'IsPremiere': true},
+            {'Name': 'New', 'IsNew': true},
+            {'Name': 'Explicit old', 'IsNew': false, 'IsSeries': true, 'IsRepeat': false},
+            {'Name': 'Not a series', 'IsRepeat': false},
+            {'Name': 'No episode', 'SeriesName': 'Other', 'IndexNumber': 3},
+          ],
+        }),
+      );
+      addTearDown(client.close);
+      final programs = await client.liveTv.fetchSchedule();
+      expect(programs.map((p) => p.guideBadge), [
+        GuideProgramBadge.live,
+        GuideProgramBadge.newProgram,
+        null,
+        null,
+        GuideProgramBadge.newProgram,
+        GuideProgramBadge.newProgram,
+        null,
+        null,
+        null,
+      ]);
+      expect(programs.first.guideTitle, 'Primary');
+      expect(programs.first.title, 'Primary');
+      expect(programs.first.episodeTitle, 'The 100');
+      expect(programs.first.guideSubtitle, 'The 100');
+      expect(programs.first.index, 3);
+      expect(programs.first.parentIndex, 2);
+      expect(programs[1].episodeTitle, ' Episode 2000 ');
+      expect(programs[1].guideSubtitle, isNull);
+      expect(programs[2].guideSubtitle, 'Episode 2000: The Return');
+      expect(programs.last.guideTitle, 'No episode');
+      expect(programs.last.guideSubtitle, isNull);
+      expect(programs.first.copyWith(serverName: 'Tagged').guideSubtitle, 'The 100');
+    });
+  }
+
   test('guide window lower bound is minEndDate so currently-airing programmes are kept', () async {
     // Jellyfin translates MinStartDate to `StartDate >= …`, which drops a
     // programme that began before the window even though it is still running
