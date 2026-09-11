@@ -316,6 +316,22 @@ class _ProgramDetailsSheetContentState extends State<_ProgramDetailsSheetContent
     final channel = widget.channel;
     final actions = _buildActions();
     _ensureFocusNodes(actions.length);
+    final episodeLabel =
+        formatSeasonEpisodeLabel(program.parentIndex, program.index, compact: true) ??
+        (program.index != null
+            ? 'E${program.index}'
+            : program.parentIndex != null
+            ? 'S${program.parentIndex}'
+            : null);
+    final subtitle = [episodeLabel, program.guideSubtitle].nonNulls.join(' ');
+    final badge = switch (program.guideBadge) {
+      GuideProgramBadge.live => StatusPill.live(),
+      GuideProgramBadge.newProgram => StatusPill.newProgram(
+        foregroundColor: theme.colorScheme.onSurface,
+        backgroundColor: theme.colorScheme.surface,
+      ),
+      null => null,
+    };
     final summary = program.summary?.trim();
     final programRating = formatContentRating(program.contentRating?.trim());
     final channelRating = formatContentRating(channel?.contentRating?.trim());
@@ -358,17 +374,20 @@ class _ProgramDetailsSheetContentState extends State<_ProgramDetailsSheetContent
                   children: [
                     Row(
                       children: [
-                        Expanded(child: Text(program.displayTitle, style: theme.textTheme.titleMedium)),
-                        if (program.isCurrentlyAiring) StatusPill.live(),
+                        Flexible(child: Text(program.guideTitle, style: theme.textTheme.titleMedium)),
+                        if (badge != null) ...[const SizedBox(width: 4), badge],
                       ],
                     ),
+                    if (subtitle.isNotEmpty) ...[
+                      const SizedBox(height: 4),
+                      Text(subtitle, style: theme.textTheme.bodyMedium),
+                    ],
                     const SizedBox(height: 4),
                     Text(
                       [
                         if (channel != null) channel.displayName,
                         if (program.startTime != null && program.endTime != null)
                           '${formatClockTime(program.startTime!, is24Hour: MediaQuery.alwaysUse24HourFormatOf(context))} - ${formatClockTime(program.endTime!, is24Hour: MediaQuery.alwaysUse24HourFormatOf(context))}',
-                        if (program.durationMinutes > 0) formatDurationTextual(program.durationMinutes * 60_000),
                         if (contentRating.isNotEmpty) contentRating,
                       ].join(' · '),
                       style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.onSurfaceVariant),
