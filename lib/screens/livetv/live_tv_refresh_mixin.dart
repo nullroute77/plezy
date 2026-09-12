@@ -42,8 +42,8 @@ mixin LiveTvRefreshMixin<T extends StatefulWidget> on State<T>, WidgetsBindingOb
   /// A gate re-opened while every other gate holds, so the refresh timer restarted.
   void onRefreshResumed(LiveTvRefreshResumeReason reason) {}
 
-  /// Whether the surrounding subtree is visible (TickerMode enabled).
-  bool get isRefreshSubtreeVisible => _tickerEnabled;
+  /// Whether timer-driven work is allowed by every visibility/lifecycle gate.
+  bool get isRefreshActive => _gatesOpen;
 
   bool get _gatesOpen => _refreshRequested && _tickerEnabled && _appRefreshActive && mounted;
 
