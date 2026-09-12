@@ -75,7 +75,7 @@ jobs:
             "Plezy Windows x64 test build",
             "Commit: $env:TEST_COMMIT",
             "Branch: $env:TEST_REF",
-            "Source commit: 9626576786954191a3675e7114f3d88f3029e253",
+            "Source commit: 6ff789294febaf730da19c08f50ef572aedd118b",
             "Upstream base: 04b0cda922accfbdb510462a3eb96fabccd76002",
             "Extract the complete ZIP and run plezy.exe.",
             "Automatic update checks and Sentry are disabled for this test build.",
@@ -195,7 +195,7 @@ jobs:
           pathlib.Path('test-artifacts/TEST-BUILD.txt').write_text(
               'Plezy Android ARM64 release test build\n'
               f'Build commit: {os.environ["TEST_COMMIT"]}\n'
-              'Source commit: 9626576786954191a3675e7114f3d88f3029e253\n'
+              'Source commit: 6ff789294febaf730da19c08f50ef572aedd118b\n'
               'Upstream base: 04b0cda922accfbdb510462a3eb96fabccd76002\n'
               'Release mode, test signed. Updates and Sentry disabled. Real-device validation pending.\n')
           pathlib.Path(str(apk) + '.sha256').write_text(hashlib.sha256(apk.read_bytes()).hexdigest() + '  ' + apk.name + '\n')
