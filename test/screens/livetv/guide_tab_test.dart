@@ -15,6 +15,7 @@ import 'package:plezy/i18n/strings.g.dart';
 import 'package:plezy/media/ids.dart';
 import 'package:plezy/media/live_tv_support.dart';
 import 'package:plezy/media/media_backend.dart';
+import 'package:plezy/media/media_browser_dialect.dart';
 import 'package:plezy/media/media_server_client.dart';
 import 'package:plezy/media/server_capabilities.dart';
 import 'package:plezy/focus/dpad_navigator.dart';
@@ -27,11 +28,14 @@ import 'package:plezy/providers/multi_server_provider.dart';
 import 'package:plezy/services/multi_server_manager.dart';
 import 'package:plezy/theme/mono_theme.dart';
 import 'package:plezy/utils/platform_detector.dart';
+import 'package:plezy/utils/video_player_navigation.dart';
 import 'package:plezy/utils/formatters.dart';
 import 'package:plezy/widgets/app_icon.dart';
 import 'package:provider/provider.dart';
 
 import '../../test_helpers/multi_server_fixtures.dart';
+import '../../test_helpers/backend_client_fixtures.dart';
+import '../../test_helpers/http_fixtures.dart';
 
 Future<void> _captureGuide(WidgetTester tester, String name) async {
   const screenshotDir = String.fromEnvironment('GUIDE_SCREENSHOT_DIR');
@@ -182,6 +186,286 @@ void main() {
     });
   });
 
+  for (final start in [DateTime(2026, 9, 10, 20, 29, 59), DateTime(2026, 9, 10, 23, 59, 59)]) {
+    testWidgets('follow Now advances at the next boundary from $start', (tester) async {
+      var now = start;
+      await withClock(Clock(() => now), () async {
+        final harness = _GuideHarness.oneServer();
+        addTearDown(harness.dispose);
+        await harness.pump(tester);
+        await harness.completeInitial(tester);
+        now = start.add(const Duration(seconds: 1));
+        await tester.pump(const Duration(seconds: 1));
+        expect(harness.serverA.schedule.requests, hasLength(2));
+        expect(harness.serverA.schedule.requests.last.from, guideHalfHourStart(now).toUtc());
+        harness.serverA.schedule.complete(1, 'Current');
+        await tester.pumpAndSettle();
+        expect(tester.getTopLeft(find.text(formatClockTime(guideHalfHourStart(now), is24Hour: false)).last).dx, 140);
+        expect(tester.takeException(), isNull);
+      });
+    });
+  }
+
+  testWidgets('return from playback catches up within six hours and preserves the selected channel', (tester) async {
+    var now = DateTime(2026, 9, 10, 20, 10);
+    await withClock(Clock(() => now), () async {
+      final channels = [
+        _guideChannel(serverId: 'server-a', stationId: 'station-a', callSign: 'A'),
+        _guideChannel(serverId: 'server-a', stationId: 'station-b', callSign: 'B'),
+      ];
+      final harness = _GuideHarness._create(includeServerB: false, channels: channels);
+      addTearDown(harness.dispose);
+      await harness.pump(tester);
+      final start = harness.serverA.schedule.requests.single.from.millisecondsSinceEpoch ~/ 1000;
+      harness.serverA.schedule.requests.single.completer.complete([
+        LiveTvProgram(
+          title: 'Old B',
+          beginsAt: start,
+          endsAt: start + 1800,
+          channelIdentifier: 'station-b',
+          serverId: 'server-a',
+        ),
+      ]);
+      await tester.pumpAndSettle();
+      final state = tester.state<GuideTabState>(find.byType(GuideTab));
+      await _focusGrid(tester);
+      state.jumpToChannel(channels[1]);
+      await tester.pumpAndSettle();
+      await tester.sendKeyEvent(LogicalKeyboardKey.arrowRight);
+      await tester.pumpAndSettle();
+      final navigator = tester.state<NavigatorState>(find.byType(Navigator));
+      unawaited(navigator.push(buildVideoPlayerRoute(builder: (_) => const Scaffold(body: Text('Player')))));
+      await tester.pumpAndSettle();
+      now = DateTime(2026, 9, 10, 22, 51);
+      state.onRefreshTick();
+      expect(harness.serverA.schedule.requests, hasLength(1));
+      navigator.pop();
+      await _pumpMenuTransition(tester);
+      expect(harness.serverA.schedule.requests, hasLength(2));
+      final request = harness.serverA.schedule.requests.last;
+      expect(request.from, DateTime(2026, 9, 10, 22, 30).toUtc());
+      final newStart = request.from.millisecondsSinceEpoch ~/ 1000;
+      request.completer.complete([
+        LiveTvProgram(
+          title: 'Current A',
+          beginsAt: newStart,
+          endsAt: newStart + 1800,
+          channelIdentifier: 'station-a',
+          serverId: 'server-a',
+        ),
+        LiveTvProgram(
+          title: 'Current B',
+          beginsAt: newStart,
+          endsAt: newStart + 1800,
+          channelIdentifier: 'station-b',
+          serverId: 'server-a',
+        ),
+      ]);
+      await tester.pumpAndSettle();
+      expect(find.ancestor(of: find.text('Current B'), matching: _focusedCellFinder(tester)), findsOneWidget);
+      expect(
+        tester
+            .getTopLeft(find.text(formatClockTime(now.subtract(const Duration(minutes: 21)), is24Hour: false)).last)
+            .dx,
+        140,
+      );
+      expect(tester.takeException(), isNull);
+    });
+  });
+
+  testWidgets('manual history stays parked across playback return and Now restores following', (tester) async {
+    var now = DateTime(2026, 9, 10, 20, 10);
+    await withClock(Clock(() => now), () async {
+      final harness = _GuideHarness.oneServer();
+      addTearDown(harness.dispose);
+      await harness.pump(tester);
+      await harness.completeInitial(tester);
+      await tester.tap(_leftTimeButton());
+      harness.serverA.schedule.complete(1, 'History');
+      await tester.pumpAndSettle();
+      final label = find.text(formatClockTime(DateTime(2026, 9, 10, 18), is24Hour: false)).last;
+      final position = tester.getTopLeft(label);
+      final navigator = tester.state<NavigatorState>(find.byType(Navigator));
+      unawaited(navigator.push(MaterialPageRoute<void>(builder: (_) => const Scaffold())));
+      await tester.pumpAndSettle();
+      now = now.add(const Duration(hours: 2));
+      navigator.pop();
+      await tester.pumpAndSettle();
+      expect(harness.serverA.schedule.requests, hasLength(2));
+      expect(tester.getTopLeft(label), position);
+      await tester.tap(find.text(t.liveTv.today));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text(t.liveTv.now));
+      harness.serverA.schedule.complete(2, 'Now again');
+      await tester.pumpAndSettle();
+      now = DateTime(2026, 9, 10, 22, 30);
+      tester.state<GuideTabState>(find.byType(GuideTab)).onRefreshTick();
+      expect(harness.serverA.schedule.requests, hasLength(4));
+      harness.serverA.schedule.complete(3, 'Next boundary');
+      await tester.pumpAndSettle();
+    });
+  });
+
+  for (final browsing in ['drag', 'remote', 'search']) {
+    testWidgets('$browsing within the loaded window suspends automatic following', (tester) async {
+      var now = DateTime(2026, 9, 10, 20, 10);
+      await withClock(Clock(() => now), () async {
+        final harness = _GuideHarness.oneServer();
+        addTearDown(harness.dispose);
+        await harness.pump(tester);
+        harness.serverA.schedule.completeSlots(0, 12);
+        await tester.pumpAndSettle();
+        final state = tester.state<GuideTabState>(find.byType(GuideTab));
+        if (browsing == 'drag') {
+          await tester.drag(find.text('Slot 1'), const Offset(-300, 0));
+        } else if (browsing == 'remote') {
+          await _focusGrid(tester);
+          await tester.sendKeyEvent(LogicalKeyboardKey.arrowRight);
+          await tester.sendKeyEvent(LogicalKeyboardKey.arrowRight);
+        } else {
+          final start = harness.serverA.schedule.requests.single.from.millisecondsSinceEpoch ~/ 1000;
+          await state.jumpToProgram(
+            harness.channels.single,
+            LiveTvProgram(title: 'Search', beginsAt: start + 1800, endsAt: start + 3600),
+          );
+        }
+        await tester.pumpAndSettle();
+        now = now.add(const Duration(hours: 2));
+        state.onRefreshTick();
+        await tester.pump();
+        expect(harness.serverA.schedule.requests, hasLength(1));
+        expect(tester.takeException(), isNull);
+      });
+    });
+  }
+
+  testWidgets('boundary waits for held input and catches up after input settles', (tester) async {
+    var now = DateTime(2026, 9, 10, 20, 29, 59);
+    await withClock(Clock(() => now), () async {
+      final harness = _GuideHarness.oneServer();
+      addTearDown(harness.dispose);
+      await harness.pump(tester);
+      await harness.completeInitial(tester);
+      await _focusGrid(tester);
+      await tester.sendKeyDownEvent(LogicalKeyboardKey.arrowDown);
+      now = now.add(const Duration(seconds: 1));
+      await tester.pump(const Duration(seconds: 1));
+      expect(harness.serverA.schedule.requests, hasLength(1));
+      now = now.add(const Duration(seconds: 10));
+      await tester.pump(const Duration(seconds: 10));
+      expect(harness.serverA.schedule.requests, hasLength(1));
+      await tester.sendKeyUpEvent(LogicalKeyboardKey.arrowDown);
+      now = now.add(const Duration(seconds: 5));
+      await tester.pump(const Duration(seconds: 5));
+      expect(harness.serverA.schedule.requests, hasLength(2));
+      harness.serverA.schedule.complete(1, 'New half hour');
+      await tester.pumpAndSettle();
+    });
+  });
+
+  testWidgets('app resume catches up after crossing a boundary during a short absence', (tester) async {
+    var now = DateTime(2026, 9, 10, 20, 29);
+    await withClock(Clock(() => now), () async {
+      final harness = _GuideHarness.oneServer();
+      addTearDown(harness.dispose);
+      await harness.pump(tester);
+      await harness.completeInitial(tester);
+      tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.paused);
+      now = now.add(const Duration(minutes: 2));
+      tester.state<GuideTabState>(find.byType(GuideTab)).onRefreshTick();
+      expect(harness.serverA.schedule.requests, hasLength(1));
+      tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+      await tester.pump();
+      expect(harness.serverA.schedule.requests, hasLength(2));
+      expect(harness.serverA.schedule.requests.last.from, DateTime(2026, 9, 10, 20, 30).toUtc());
+      harness.serverA.schedule.complete(1, 'Resumed');
+      await tester.pumpAndSettle();
+    });
+  });
+
+  testWidgets('a pointer held over the guide defers boundary movement until released', (tester) async {
+    var now = DateTime(2026, 9, 10, 20, 29, 59);
+    await withClock(Clock(() => now), () async {
+      final harness = _GuideHarness.oneServer();
+      addTearDown(harness.dispose);
+      await harness.pump(tester);
+      await harness.completeInitial(tester);
+      final gesture = await tester.startGesture(tester.getCenter(find.text('Initial A')));
+      now = now.add(const Duration(seconds: 1));
+      await tester.pump(const Duration(milliseconds: 100));
+      tester.state<GuideTabState>(find.byType(GuideTab)).onRefreshTick();
+      expect(harness.serverA.schedule.requests, hasLength(1));
+      await gesture.cancel();
+      now = now.add(const Duration(seconds: 6));
+      await tester.pump(const Duration(seconds: 6));
+      expect(harness.serverA.schedule.requests, hasLength(2));
+      harness.serverA.schedule.complete(1, 'After pointer');
+      await tester.pumpAndSettle();
+    });
+  });
+
+  testWidgets('a load completing after a half-hour boundary catches up once', (tester) async {
+    var now = DateTime(2026, 9, 10, 20, 29, 59);
+    await withClock(Clock(() => now), () async {
+      final harness = _GuideHarness.oneServer();
+      addTearDown(harness.dispose);
+      await harness.pump(tester);
+      now = now.add(const Duration(minutes: 1));
+      harness.serverA.schedule.complete(0, 'Stale load');
+      await tester.pump();
+      await tester.pump();
+      expect(harness.serverA.schedule.requests, hasLength(2));
+      harness.serverA.schedule.complete(1, 'Fresh load');
+      await tester.pumpAndSettle();
+      expect(harness.serverA.schedule.requests, hasLength(2));
+      expect(find.text('Fresh load'), findsOneWidget);
+    });
+  });
+
+  for (final dialect in MediaBrowserDialect.values) {
+    testWidgets('${dialect.name} sparse broadcast metadata reaches Android TV guide badges', (tester) async {
+      TvDetectionService.debugSetAppleTVOverride(true);
+      final harness = _GuideHarness.oneServer();
+      addTearDown(harness.dispose);
+      await harness.pump(tester, platform: TargetPlatform.android);
+      final request = harness.serverA.schedule.requests.single;
+      final client = testJellyfinClient(
+        connection: testJellyfinConnection(dialect: dialect),
+        handler: (_) async => jsonResponse({
+          'Items': [
+            for (var i = 0; i < 3; i++)
+              {
+                'Id': 'program-$i',
+                'Name': ['New series', 'Live series', 'Unknown program'][i],
+                'ChannelId': 'station-a',
+                'StartDate': request.from.add(Duration(minutes: 30 * i)).toUtc().toIso8601String(),
+                'EndDate': request.from.add(Duration(minutes: 30 * (i + 1))).toUtc().toIso8601String(),
+                if (i < 2) 'IsSeries': true,
+                if (i == 1) 'IsLive': true,
+                // Jellyfin's non-repeat series can omit IsRepeat entirely.
+              },
+          ],
+        }),
+      );
+      addTearDown(client.close);
+      final programs = await client.liveTv.fetchSchedule(from: request.from, to: request.to);
+      request.completer.complete(programs.map((p) => p.copyWith(serverId: ServerId('server-a'))).toList());
+      await tester.pumpAndSettle();
+      final newCard = find.ancestor(of: find.text('New series'), matching: find.byType(InkWell)).first;
+      expect(
+        find.descendant(of: newCard, matching: find.text(t.liveTv.newProgram)),
+        dialect == MediaBrowserDialect.jellyfin ? findsOneWidget : findsNothing,
+      );
+      final liveCard = find.ancestor(of: find.text('Live series'), matching: find.byType(InkWell)).first;
+      expect(find.descendant(of: liveCard, matching: find.text(t.liveTv.live)), findsOneWidget);
+      expect(find.descendant(of: liveCard, matching: find.text(t.liveTv.newProgram)), findsNothing);
+      final unknownCard = find.ancestor(of: find.text('Unknown program'), matching: find.byType(InkWell)).first;
+      expect(find.descendant(of: unknownCard, matching: find.byType(StatusPill)), findsNothing);
+      await _focusGrid(tester);
+      expect(tester.takeException(), isNull);
+    });
+  }
+
   for (final appearance in [
     (name: 'light', dark: false, oled: false),
     (name: 'dark', dark: true, oled: false),
@@ -194,7 +478,12 @@ void main() {
           TvDetectionService.debugSetAppleTVOverride(tv);
           final harness = _GuideHarness.oneServer();
           addTearDown(harness.dispose);
-          await harness.pump(tester, dark: appearance.dark, oled: appearance.oled);
+          await harness.pump(
+            tester,
+            dark: appearance.dark,
+            oled: appearance.oled,
+            platform: tv ? TargetPlatform.android : TargetPlatform.windows,
+          );
           final request = harness.serverA.schedule.requests.single;
           final start = request.from.millisecondsSinceEpoch ~/ 1000;
           request.completer.complete([
