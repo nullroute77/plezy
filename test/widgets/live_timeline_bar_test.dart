@@ -75,11 +75,25 @@ void main() {
       bounds: () => const LiveSeekBounds(startEpoch: _start, endEpoch: _start + 230),
     );
     addTearDown(acc.dispose);
+    final programs = [
+      LiveTvProgram(
+        title: '  The Arrival  ',
+        grandparentTitle: 'Previous',
+        beginsAt: _start.toInt(),
+        endsAt: _start.toInt() + 120,
+      ),
+      LiveTvProgram(
+        title: 'Episode 9',
+        grandparentTitle: 'Current',
+        beginsAt: _start.toInt() + 120,
+        endsAt: _start.toInt() + 300,
+      ),
+    ];
     final duration = formatDurationTextual(120000);
     for (final (delta, title, position) in [
-      (-40, 'Previous', 110000),
-      (20, 'Current', 10000),
-      (-40, 'Previous', 90000),
+      (-40, 'Previous · The Arrival · $duration', 110000),
+      (20, 'Current · ${formatDurationTextual(180000)}', 10000),
+      (-40, 'Previous · The Arrival · $duration', 90000),
     ]) {
       acc.seekBy(delta, previewProgram: true);
       final view = LiveTvTimeline.resolve(
@@ -91,11 +105,12 @@ void main() {
         pendingSeekEpoch: acc.pendingEpoch,
         programPreviewEpoch: acc.programPreviewEpoch,
         seekable: acc.bounds(),
-        programs: _previewPrograms,
+        programs: programs,
         metadataNowEpoch: _start + 180,
       );
       await _pump(tester, timeline: view, seeks: [], showHeader: true);
-      expect(find.text('$title · $duration'), findsOneWidget);
+      expect(find.text(title), findsOneWidget);
+      expect(find.textContaining('The Arrival'), title.startsWith('Previous') ? findsOneWidget : findsNothing);
       expect(_slider(tester).value, position);
       expect(view.playback.epoch, _start + 150);
     }

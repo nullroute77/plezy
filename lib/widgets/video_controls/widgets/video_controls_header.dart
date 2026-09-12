@@ -104,7 +104,9 @@ class VideoControlsHeader extends StatelessWidget {
           final program = timelineForPosition(Duration(seconds: snapshot.requireData.inSeconds)).program;
           final parts = <String>[];
           if (program != null) {
-            parts.add(program.displayTitle);
+            parts.add(program.guideTitle);
+            final subtitle = program.guideSubtitle;
+            if (subtitle != null) parts.add(subtitle);
             final start = program.beginsAt;
             final end = program.endsAt;
             if (start != null && end != null && end > start) {
