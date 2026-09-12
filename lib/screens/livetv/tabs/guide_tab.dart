@@ -4,6 +4,7 @@ import '../../../media/ids.dart';
 
 import 'package:flutter/foundation.dart' show ValueListenable;
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart' show ScrollDirection;
 import 'package:intl/intl.dart';
 import 'package:flutter/services.dart';
 import 'package:material_symbols_icons/symbols.dart';
@@ -132,9 +133,7 @@ class GuideTabState extends State<GuideTab>
   static const _timeHeaderHeight = 40.0;
   static const _minutesPerSlot = 30;
 
-  /// Minimum time away (backgrounded or on another section) before the
-  /// viewport is realigned to the live line on return.
-  static const _realignAfterAway = Duration(minutes: 30);
+  static const _followNowIdleDelay = Duration(seconds: 5);
 
   List<LiveTvProgram> _programs = [];
   Map<String, List<LiveTvProgram>> _programsByChannelScope = const {};
@@ -169,11 +168,12 @@ class GuideTabState extends State<GuideTab>
   final _programSelectController = DpadSelectLongPressController();
   final _dayPickerKey = GlobalKey();
 
-  // Stale-window catch-up state (#1297). The grid window is only auto
-  // re-anchored when it was live-anchored and has drifted fully into the
-  // past — deliberately picked day/time windows are never yanked.
-  DateTime? _hiddenSince;
+  // Follow half-hour boundaries until the user explicitly browses another
+  // time. Keep channel navigation live, but defer moving cards during input.
   bool _followNow = true;
+  DateTime? _lastGuideInteraction;
+  final Set<int> _activePointers = {};
+  Timer? _followNowTimer;
 
   // Focus state
   final FocusNode _guideFocusNode = FocusNode(debugLabel: 'guide_tab');
@@ -260,6 +260,7 @@ class GuideTabState extends State<GuideTab>
     final index = _channelIndexFor(channel);
     if (index == null) return;
 
+    _pauseFollowingForProgram(program);
     final begin = program.startTime;
     final end = program.endTime ?? begin;
     final intersectsWindow = begin != null && end != null && begin.isBefore(_gridEnd) && end.isAfter(_gridStart);
@@ -316,8 +317,8 @@ class GuideTabState extends State<GuideTab>
   }
 
   // Not the gated data-refresh timer the other tabs run: the tick is a
-  // per-minute UI ticker that advances the time indicator and re-anchors a
-  // live-anchored window that drifted fully into the past.
+  // per-minute UI ticker that advances the time indicator and follows the
+  // current half-hour boundary when the user is not browsing another time.
   @override
   Duration get refreshInterval => const Duration(minutes: 1);
 
@@ -328,21 +329,26 @@ class GuideTabState extends State<GuideTab>
     setStateIfMounted(() {});
   }
 
-  // Pause has to stamp _hiddenSince on a tab switch, a section hide, and an
-  // app background alike so _catchUpIfStale can measure the absence.
   @override
   void onRefreshPaused() {
-    _hiddenSince ??= clock.now();
+    _followNowTimer?.cancel();
+    _activePointers.clear();
+    _lastGuideInteraction = null;
   }
 
   @override
   void onRefreshResumed(LiveTvRefreshResumeReason reason) {
     unawaited(_refreshScheduledRecordingKeys());
-    // Post-frame: resume fires during tab transitions/build and the catch-up
-    // may setState (reload or scroll).
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) _catchUpIfStale();
     });
+  }
+
+  @override
+  Future<void> tuneChannel(LiveTvChannel channel) {
+    final index = _channelIndexFor(channel);
+    if (index != null) _updateFocus(() => _gridChannelIndex = index);
+    return super.tuneChannel(channel);
   }
 
   @override
@@ -362,6 +368,7 @@ class GuideTabState extends State<GuideTab>
   @override
   void dispose() {
     _programLoadGeneration++;
+    _followNowTimer?.cancel();
     _programSelectController.dispose();
     _guideFocusNode.dispose();
     _gridVerticalController.dispose();
@@ -433,36 +440,60 @@ class GuideTabState extends State<GuideTab>
   }
 
   void _jumpToNow() {
+    _followNowTimer?.cancel();
     _initTimeRange();
-    _loadPrograms(scrollToStart: true);
+    _loadPrograms(scrollToStart: true, focusCurrentProgram: true);
   }
 
-  bool _nowInWindow(DateTime now) => !now.isBefore(_gridStart) && now.isBefore(_gridEnd);
+  void _noteGuideInteraction() => _lastGuideInteraction = clock.now();
 
-  /// Timer path: re-anchor only when a live-anchored window drifted fully past.
-  void _checkWindowDrift() {
-    if (!isRefreshSubtreeVisible || _isLoading) return;
-    if (_followNow && !_nowInWindow(clock.now())) _jumpToNow();
-  }
-
-  /// Active path (app resume / guide became visible): drift-jump, else
-  /// realign the viewport to the live line after a meaningful absence (#1297).
-  void _catchUpIfStale() {
-    if (!isRefreshSubtreeVisible) return; // still hidden — keep _hiddenSince
-    final hiddenSince = _hiddenSince;
-    _hiddenSince = null; // evaluated while visible — consume it
-    if (_isLoading) return; // in-flight load already ends in _scrollToNow()
-    final now = clock.now();
-    if (_followNow && !_nowInWindow(now)) {
-      _jumpToNow();
-    } else if (_nowInWindow(now) && hiddenSince != null && now.difference(hiddenSince) >= _realignAfterAway) {
-      _scrollToNow();
+  void _pauseFollowingForProgram(LiveTvProgram program) {
+    final now = clock.now().millisecondsSinceEpoch ~/ 1000;
+    if (program.beginsAt == null || program.endsAt == null || program.beginsAt! > now || program.endsAt! <= now) {
+      _followNow = false;
     }
   }
 
+  bool _handleUserScroll(UserScrollNotification notification) {
+    if (notification.direction != ScrollDirection.idle) {
+      _noteGuideInteraction();
+      if (notification.metrics.axis == Axis.horizontal) _followNow = false;
+    }
+    return false;
+  }
+
+  /// Arm the next boundary, backed by the minute ticker, and retry after
+  /// input settles. Do not move a card under a held SELECT, pointer, or popup.
+  void _checkWindowDrift({bool returning = false}) {
+    if (!mounted || !isRefreshActive || _isLoading || !_followNow) return;
+    if (ModalRoute.of(context)?.isCurrent == false) return;
+    final now = clock.now();
+    if (guideHalfHourStart(now).isAtSameMomentAs(_gridStart)) {
+      _followNowTimer?.cancel();
+      _followNowTimer = Timer(_gridStart.add(const Duration(minutes: 30)).difference(now), _checkWindowDrift);
+      return;
+    }
+    final recentInput =
+        _lastGuideInteraction != null && clock.now().difference(_lastGuideInteraction!) < _followNowIdleDelay;
+    final scrolling = _gridVerticalController.hasClients && _gridVerticalController.position.isScrollingNotifier.value;
+    if (_activePointers.isNotEmpty ||
+        HardwareKeyboard.instance.physicalKeysPressed.isNotEmpty ||
+        scrolling ||
+        (!returning && recentInput)) {
+      _followNowTimer?.cancel();
+      _followNowTimer = Timer(_followNowIdleDelay, _checkWindowDrift);
+      return;
+    }
+    _jumpToNow();
+  }
+
+  /// Playback/tab/app returns catch up even after a short absence. Explicit
+  /// history/future browsing remains parked until the user chooses Now.
+  void _catchUpIfStale() => _checkWindowDrift(returning: true);
+
   bool _isCurrentProgramLoad(int generation) => mounted && generation == _programLoadGeneration;
 
-  Future<void> _loadPrograms({bool scrollToStart = false}) async {
+  Future<void> _loadPrograms({bool scrollToStart = false, bool focusCurrentProgram = false}) async {
     if (!mounted) return;
     final loadGeneration = ++_programLoadGeneration;
     final requestGridStart = _gridStart;
@@ -519,7 +550,17 @@ class GuideTabState extends State<GuideTab>
         if (_focusZone == _GuideZone.grid && _gridColumn == 1 && _focusedProgram != null) {
           final focused = _focusedProgram;
           if (!_programs.any((p) => identical(p, focused))) {
-            _focusedProgram = _findCurrentProgram(_gridChannelIndex);
+            final channel = widget.channels.elementAtOrNull(_gridChannelIndex);
+            if (focusCurrentProgram && _followNow) {
+              _focusedProgram = _findCurrentProgram(_gridChannelIndex);
+            } else if (channel != null) {
+              final airing = guideAiringIdentity(channel, focused!);
+              _focusedProgram =
+                  _getProgramsForChannel(channel).where((p) => guideAiringIdentity(channel, p) == airing).firstOrNull ??
+                  _findCurrentProgram(_gridChannelIndex);
+            } else {
+              _focusedProgram = null;
+            }
           }
         }
       });
@@ -537,15 +578,19 @@ class GuideTabState extends State<GuideTab>
         return;
       }
 
-      if (scrollToStart) {
+      if (scrollToStart && _followNow) {
         WidgetsBinding.instance.addPostFrameCallback((_) {
           if (_isCurrentProgramLoad(loadGeneration) && _gridHorizontalController.hasClients) {
             _gridHorizontalController.jumpTo(0);
           }
         });
-      } else {
+      } else if (_followNow) {
         _scrollToNow(loadGeneration: loadGeneration);
       }
+      // A load can finish after a boundary or after returning from playback.
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (_isCurrentProgramLoad(loadGeneration)) _checkWindowDrift();
+      });
 
       if (shouldFocus) {
         WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -773,6 +818,7 @@ class GuideTabState extends State<GuideTab>
   }
 
   void _activateProgram(LiveTvChannel channel, LiveTvProgram program) {
+    _pauseFollowingForProgram(program);
     if (PlatformDetector.isTV() && program.isCurrentlyAiring) {
       tuneChannel(channel);
       return;
@@ -827,6 +873,7 @@ class GuideTabState extends State<GuideTab>
 
   KeyEventResult _handleKeyEvent(FocusNode _, KeyEvent event) {
     final key = event.logicalKey;
+    _noteGuideInteraction();
 
     if (SelectKeyUpSuppressor.consumeIfSuppressed(event)) {
       if (event is KeyUpEvent && key.isSelectKey) {
@@ -1014,6 +1061,7 @@ class GuideTabState extends State<GuideTab>
     if (nextIndex < 0 || nextIndex >= programs.length) return false;
 
     final nextProgram = programs[nextIndex];
+    _pauseFollowingForProgram(nextProgram);
     _updateFocus(() => _focusedProgram = nextProgram);
     _scrollToProgramTime(nextProgram);
     return true;
@@ -1083,7 +1131,21 @@ class GuideTabState extends State<GuideTab>
           focusNode: _guideFocusNode,
           onFocusChange: _handleGuideFocusChange,
           onKeyEvent: _handleKeyEvent,
-          child: _buildGuideGrid(theme),
+          child: Listener(
+            onPointerDown: (event) {
+              _activePointers.add(event.pointer);
+              _noteGuideInteraction();
+            },
+            onPointerUp: (event) {
+              _activePointers.remove(event.pointer);
+              _noteGuideInteraction();
+            },
+            onPointerCancel: (event) => _activePointers.remove(event.pointer),
+            child: NotificationListener<UserScrollNotification>(
+              onNotification: _handleUserScroll,
+              child: _buildGuideGrid(theme),
+            ),
+          ),
         ),
         if (_isLoading)
           const Positioned.fill(
@@ -1710,6 +1772,7 @@ class GuideTabState extends State<GuideTab>
   }
 
   void _showProgramDetails(LiveTvChannel channel, LiveTvProgram program) {
+    _pauseFollowingForProgram(program);
     showProgramDetails(
       program: program,
       channel: channel,
