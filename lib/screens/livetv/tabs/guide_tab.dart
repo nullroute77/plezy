@@ -165,7 +165,7 @@ class GuideTabState extends State<GuideTab>
   final ScrollController _gridVerticalController = ScrollController();
   bool _syncingScroll = false;
 
-  final _programSelectController = DpadSelectLongPressController();
+  final _gridSelectController = DpadSelectLongPressController();
   final _dayPickerKey = GlobalKey();
 
   // Follow half-hour boundaries until the user explicitly browses another
@@ -331,6 +331,7 @@ class GuideTabState extends State<GuideTab>
 
   @override
   void onRefreshPaused() {
+    _resetGridSelectLongPressState();
     _followNowTimer?.cancel();
     _activePointers.clear();
     _lastGuideInteraction = null;
@@ -355,6 +356,11 @@ class GuideTabState extends State<GuideTab>
   void didUpdateWidget(GuideTab oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (!identical(oldWidget.channels, widget.channels)) {
+      final previous = oldWidget.channels.elementAtOrNull(_gridChannelIndex);
+      final current = widget.channels.elementAtOrNull(_gridChannelIndex);
+      if (previous == null || current == null || liveTvChannelScopeKey(previous) != liveTvChannelScopeKey(current)) {
+        _resetGridSelectLongPressState();
+      }
       _programsByChannelScope = _indexProgramsByChannel(_programs, widget.channels);
     }
     if (widget.channels.isNotEmpty && _gridChannelIndex >= widget.channels.length) {
@@ -369,7 +375,7 @@ class GuideTabState extends State<GuideTab>
   void dispose() {
     _programLoadGeneration++;
     _followNowTimer?.cancel();
-    _programSelectController.dispose();
+    _gridSelectController.dispose();
     _guideFocusNode.dispose();
     _gridVerticalController.dispose();
     _gridHorizontalController.removeListener(_syncGridToHeader);
@@ -383,12 +389,13 @@ class GuideTabState extends State<GuideTab>
 
   void _handleGuideFocusChange(bool hasFocus) {
     if (_hasFocus == hasFocus) return;
-    if (!hasFocus) _resetProgramSelectLongPressState();
+    if (!hasFocus) _resetGridSelectLongPressState();
     _hasFocus = hasFocus;
     _publishFocusSnapshot();
   }
 
   void _updateFocus(VoidCallback update) {
+    _resetGridSelectLongPressState();
     update();
     _publishFocusSnapshot();
   }
@@ -404,7 +411,7 @@ class GuideTabState extends State<GuideTab>
     );
   }
 
-  void _resetProgramSelectLongPressState() => _programSelectController.reset();
+  void _resetGridSelectLongPressState() => _gridSelectController.reset();
 
   void _syncGridToHeader() {
     if (_syncingScroll) return;
@@ -836,13 +843,40 @@ class GuideTabState extends State<GuideTab>
     return (channel: widget.channels[_gridChannelIndex], program: program);
   }
 
-  KeyEventResult _handleFocusedProgramSelectKey(KeyEvent event) {
+  KeyEventResult _handleFocusedGridSelectKey(KeyEvent event) {
+    if (_focusZone == _GuideZone.grid && _gridColumn == 0) {
+      final channel = widget.channels.elementAtOrNull(_gridChannelIndex);
+      if (channel == null) return KeyEventResult.ignored;
+      final identity = liveTvChannelScopeKey(channel);
+      bool isOwnerActive() {
+        final focused = widget.channels.elementAtOrNull(_gridChannelIndex);
+        return mounted &&
+            _hasFocus &&
+            _focusZone == _GuideZone.grid &&
+            _gridColumn == 0 &&
+            focused != null &&
+            liveTvChannelScopeKey(focused) == identity;
+      }
+
+      return _gridSelectController.handleKeyEvent(
+        event,
+        isOwnerActive: isOwnerActive,
+        onShortPress: () {
+          if (isOwnerActive()) tuneChannel(channel);
+        },
+        onLongPress: () {
+          _resetGridSelectLongPressState();
+          widget.onToggleFavorite?.call(channel);
+        },
+      );
+    }
+
     final target = _focusedProgramTarget();
     if (target == null) return KeyEventResult.ignored;
 
     final ownerChannelIndex = _gridChannelIndex;
     final targetIdentity = guideAiringIdentity(target.channel, target.program);
-    return _programSelectController.handleKeyEvent(
+    return _gridSelectController.handleKeyEvent(
       event,
       isOwnerActive: () {
         if (!mounted || _focusZone != _GuideZone.grid || _gridColumn != 1 || _gridChannelIndex != ownerChannelIndex) {
@@ -855,7 +889,7 @@ class GuideTabState extends State<GuideTab>
       },
       onShortPress: () => _activateProgram(target.channel, target.program),
       onLongPress: () {
-        _programSelectController.reset();
+        _gridSelectController.reset();
         _showProgramDetails(target.channel, target.program);
       },
     );
@@ -866,7 +900,7 @@ class GuideTabState extends State<GuideTab>
     final target = _focusedProgramTarget();
     if (target == null) return KeyEventResult.ignored;
 
-    _resetProgramSelectLongPressState();
+    _resetGridSelectLongPressState();
     _showProgramDetails(target.channel, target.program);
     return KeyEventResult.handled;
   }
@@ -877,7 +911,7 @@ class GuideTabState extends State<GuideTab>
 
     if (SelectKeyUpSuppressor.consumeIfSuppressed(event)) {
       if (event is KeyUpEvent && key.isSelectKey) {
-        _resetProgramSelectLongPressState();
+        _resetGridSelectLongPressState();
       }
       return KeyEventResult.handled;
     }
@@ -900,7 +934,7 @@ class GuideTabState extends State<GuideTab>
     }
 
     if (PlatformDetector.isTV()) {
-      final selectResult = _handleFocusedProgramSelectKey(event);
+      final selectResult = _handleFocusedGridSelectKey(event);
       if (selectResult != KeyEventResult.ignored) return selectResult;
     }
 

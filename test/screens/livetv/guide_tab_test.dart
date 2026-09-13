@@ -682,6 +682,129 @@ void main() {
     });
   }
 
+  testWidgets('TV channel SELECT hold toggles favorite once without tuning on repeats or release', (tester) async {
+    TvDetectionService.debugSetAppleTVOverride(true);
+    final harness = _GuideHarness.oneServer();
+    addTearDown(harness.dispose);
+    final toggled = <LiveTvChannel>[];
+    final tuned = <LiveTvChannel>[];
+    await harness.pump(
+      tester,
+      platform: TargetPlatform.android,
+      onToggleFavorite: toggled.add,
+      onTuneChannel: tuned.add,
+    );
+    await harness.completeInitial(tester);
+    await _focusGrid(tester);
+    await tester.sendKeyDownEvent(LogicalKeyboardKey.select);
+    await tester.pump(const Duration(milliseconds: 499));
+    expect(toggled, isEmpty);
+    expect(tuned, isEmpty);
+    await tester.pump(const Duration(milliseconds: 1));
+    expect(toggled, [harness.channels.single]);
+    await tester.sendKeyRepeatEvent(LogicalKeyboardKey.select);
+    await tester.pump(const Duration(seconds: 1));
+    await tester.sendKeyUpEvent(LogicalKeyboardKey.select);
+    expect(toggled, hasLength(1));
+    expect(tuned, isEmpty);
+    // A second hold can remove the favorite through the same toggle callback.
+    await tester.sendKeyDownEvent(LogicalKeyboardKey.select);
+    await tester.pump(const Duration(milliseconds: 500));
+    await tester.sendKeyUpEvent(LogicalKeyboardKey.select);
+    expect(toggled, hasLength(2));
+    expect(tuned, isEmpty);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('TV channel short SELECT plays on release without toggling favorite', (tester) async {
+    TvDetectionService.debugSetAppleTVOverride(true);
+    final harness = _GuideHarness.oneServer();
+    addTearDown(harness.dispose);
+    final toggled = <LiveTvChannel>[];
+    final tuned = <LiveTvChannel>[];
+    await harness.pump(
+      tester,
+      platform: TargetPlatform.android,
+      onToggleFavorite: toggled.add,
+      onTuneChannel: tuned.add,
+    );
+    await harness.completeInitial(tester);
+    await _focusGrid(tester);
+    await tester.sendKeyDownEvent(LogicalKeyboardKey.select);
+    await tester.pump(const Duration(milliseconds: 200));
+    expect(tuned, isEmpty);
+    await tester.sendKeyUpEvent(LogicalKeyboardKey.select);
+    expect(tuned, [harness.channels.single]);
+    await tester.pump(const Duration(seconds: 1));
+    expect(toggled, isEmpty);
+    expect(tuned, hasLength(1));
+  });
+
+  testWidgets('TV program hold still opens details without toggling the channel favorite', (tester) async {
+    TvDetectionService.debugSetAppleTVOverride(true);
+    final harness = _GuideHarness.oneServer();
+    addTearDown(harness.dispose);
+    final toggled = <LiveTvChannel>[];
+    final tuned = <LiveTvChannel>[];
+    await harness.pump(
+      tester,
+      platform: TargetPlatform.android,
+      onToggleFavorite: toggled.add,
+      onTuneChannel: tuned.add,
+    );
+    await harness.completeInitial(tester);
+    await _focusGrid(tester);
+    await tester.sendKeyEvent(LogicalKeyboardKey.arrowRight);
+    await tester.sendKeyDownEvent(LogicalKeyboardKey.select);
+    await tester.pump(const Duration(milliseconds: 500));
+    await tester.sendKeyUpEvent(LogicalKeyboardKey.select);
+    await tester.pumpAndSettle();
+    expect(find.byType(BottomSheet), findsOneWidget);
+    expect(toggled, isEmpty);
+    expect(tuned, isEmpty);
+    expect(tester.takeException(), isNull);
+  });
+
+  for (final interruption in ['another channel', 'program column', 'focus loss', 'app pause']) {
+    testWidgets('TV channel hold is cancelled by $interruption', (tester) async {
+      TvDetectionService.debugSetAppleTVOverride(true);
+      final harness = _GuideHarness.twoServers();
+      addTearDown(harness.dispose);
+      final toggled = <LiveTvChannel>[];
+      final tuned = <LiveTvChannel>[];
+      await harness.pump(
+        tester,
+        platform: TargetPlatform.android,
+        onToggleFavorite: toggled.add,
+        onTuneChannel: tuned.add,
+      );
+      await harness.completeInitial(tester);
+      await _focusGrid(tester);
+      await tester.sendKeyDownEvent(LogicalKeyboardKey.select);
+      await tester.pump(const Duration(milliseconds: 200));
+      switch (interruption) {
+        case 'another channel':
+          await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
+        case 'program column':
+          await tester.sendKeyEvent(LogicalKeyboardKey.arrowRight);
+        case 'focus loss':
+          _guideTabFocusNode(tester).unfocus();
+          await tester.pump();
+        case 'app pause':
+          tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.paused);
+      }
+      await tester.pump(const Duration(milliseconds: 500));
+      await tester.sendKeyUpEvent(LogicalKeyboardKey.select);
+      if (interruption == 'app pause') {
+        tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+      }
+      await tester.pump();
+      expect(toggled, isEmpty);
+      expect(tuned, isEmpty);
+      expect(tester.takeException(), isNull);
+    });
+  }
+
   test('SELECT hold survives equivalent fresh guide objects and opens details once', () {
     fakeAsync((async) {
       final controller = DpadSelectLongPressController();
@@ -1181,6 +1304,8 @@ final class _GuideHarness {
     bool dark = true,
     bool oled = false,
     TargetPlatform platform = TargetPlatform.windows,
+    ValueChanged<LiveTvChannel>? onToggleFavorite,
+    ValueChanged<LiveTvChannel>? onTuneChannel,
   }) async {
     tester.view.devicePixelRatio = 1;
     tester.view.physicalSize = size;
@@ -1207,7 +1332,15 @@ final class _GuideHarness {
               ),
               home: RepaintBoundary(
                 key: const ValueKey('guide-capture'),
-                child: Scaffold(body: GuideTab(channels: channels)),
+                child: Scaffold(
+                  body: onTuneChannel == null
+                      ? GuideTab(channels: channels, onToggleFavorite: onToggleFavorite)
+                      : _TuningGuideTab(
+                          channels: channels,
+                          onToggleFavorite: onToggleFavorite,
+                          onTuneChannel: onTuneChannel,
+                        ),
+                ),
               ),
             ),
           ),
@@ -1343,4 +1476,20 @@ final class _ScheduleRequest {
   final DateTime from;
   final DateTime to;
   final Completer<List<LiveTvProgram>> completer = Completer<List<LiveTvProgram>>();
+}
+
+/// Keep guide key routing real while observing playback dispatch without
+/// bootstrapping a native player in a widget test.
+class _TuningGuideTab extends GuideTab {
+  final ValueChanged<LiveTvChannel> onTuneChannel;
+
+  const _TuningGuideTab({required super.channels, super.onToggleFavorite, required this.onTuneChannel});
+
+  @override
+  GuideTabState createState() => _TuningGuideTabState();
+}
+
+class _TuningGuideTabState extends GuideTabState {
+  @override
+  Future<void> tuneChannel(LiveTvChannel channel) async => (widget as _TuningGuideTab).onTuneChannel(channel);
 }
