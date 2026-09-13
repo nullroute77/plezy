@@ -874,7 +874,6 @@ class SettingsService extends BaseSharedPreferencesService {
     legacyFalse: AudioChannelLimit.original,
   );
   static const audioDownmixNormalize = BoolPref('audio_downmix_normalize', defaultValue: true);
-  static const liveTvDefaultFavorites = BoolPref('live_tv_default_favorites');
   static const matchRefreshRate = BoolPref('match_refresh_rate');
   static const matchDynamicRange = BoolPref('match_dynamic_range');
   static const appLocale = _AppLocalePref();
@@ -1556,7 +1555,6 @@ class SettingsService extends BaseSharedPreferencesService {
     defaultQualityPreset,
     cellularQualityPreset,
     musicQualityPreset,
-    liveTvDefaultFavorites,
     matchRefreshRate,
     matchDynamicRange,
     displaySwitchDelay,
