@@ -467,8 +467,6 @@ class _Translations$settings$nl extends Translations$settings$en {
 	@override String get startupSection => 'Opstartsectie';
 	@override String get showExploreTab => 'Tabblad Ontdekken tonen';
 	@override String get showExploreTabDescription => 'Toon het tabblad Ontdekken met content uit Plex Discover en gekoppelde trackers';
-	@override String get liveTvDefaultFavorites => 'Standaard favoriete zenders';
-	@override String get liveTvDefaultFavoritesDescription => 'Toon alleen favoriete zenders bij het openen van Live TV';
 	@override String get general => 'Algemeen';
 	@override String get generalDescription => 'Taal, opstart- en venstergedrag';
 	@override String get languageAndRegion => 'Taal en regio';
@@ -478,7 +476,6 @@ class _Translations$settings$nl extends Translations$settings$en {
 	@override String get homeScreen => 'Startscherm';
 	@override String get navigation => 'Navigatie';
 	@override String get window => 'Venster';
-	@override String get liveTv => 'Live-tv';
 	@override String get player => 'Speler';
 	@override String get videoAndDisplay => 'Video en weergave';
 	@override String get audio => 'Audio';
@@ -1467,9 +1464,6 @@ class _Translations$liveTv$nl extends Translations$liveTv$en {
 	@override String get watchChannel => 'Kanaal bekijken';
 	@override String get favorites => 'Favorieten';
 	@override String get reorderFavorites => 'Favorieten herordenen';
-	@override String get noFavoriteChannels => 'Geen favoriete zenders';
-	@override String get noFavoriteChannelsHint => 'Toon alle zenders en houd daarna een zender ingedrukt om deze aan je favorieten toe te voegen.';
-	@override String get showAllChannels => 'Alle zenders tonen';
 	@override String get favoritesLoadFailed => 'Favorieten konden niet worden geladen. Controleer je verbinding en probeer het opnieuw.';
 	@override String get favoritesUpdateFailed => 'Favorieten konden niet worden bijgewerkt. Controleer je verbinding en probeer het opnieuw.';
 	@override String get joinSession => 'Deelnemen aan lopende sessie';
@@ -3277,8 +3271,6 @@ extension on TranslationsNl {
 			'settings.startupSection' => 'Opstartsectie',
 			'settings.showExploreTab' => 'Tabblad Ontdekken tonen',
 			'settings.showExploreTabDescription' => 'Toon het tabblad Ontdekken met content uit Plex Discover en gekoppelde trackers',
-			'settings.liveTvDefaultFavorites' => 'Standaard favoriete zenders',
-			'settings.liveTvDefaultFavoritesDescription' => 'Toon alleen favoriete zenders bij het openen van Live TV',
 			'settings.general' => 'Algemeen',
 			'settings.generalDescription' => 'Taal, opstart- en venstergedrag',
 			'settings.languageAndRegion' => 'Taal en regio',
@@ -3288,7 +3280,6 @@ extension on TranslationsNl {
 			'settings.homeScreen' => 'Startscherm',
 			'settings.navigation' => 'Navigatie',
 			'settings.window' => 'Venster',
-			'settings.liveTv' => 'Live-tv',
 			'settings.player' => 'Speler',
 			'settings.videoAndDisplay' => 'Video en weergave',
 			'settings.audio' => 'Audio',
@@ -3445,11 +3436,11 @@ extension on TranslationsNl {
 			'fileInfo.optimizedVersion' => 'Geoptimaliseerde versie',
 			'fileInfo.optimizationTarget' => 'Optimalisatiedoel',
 			'fileInfo.deletedAt' => 'Verwijderd',
-			_ => null,
-		} ?? switch (path) {
 			'fileInfo.remoteSource' => 'Externe bron',
 			'fileInfo.infiniteStream' => 'Oneindige stream',
 			'fileInfo.directPlay' => 'Direct Play',
+			_ => null,
+		} ?? switch (path) {
 			'fileInfo.directStream' => 'Direct Stream',
 			'fileInfo.transcoding' => 'Transcoderen',
 			'fileInfo.etag' => 'ETag',
@@ -3959,11 +3950,11 @@ extension on TranslationsNl {
 			'libraries.filterCategories.favorites' => 'Favorieten',
 			'libraries.sortLabels.title' => 'Titel',
 			'libraries.sortLabels.dateAdded' => 'Toegevoegd op',
-			_ => null,
-		} ?? switch (path) {
 			'libraries.sortLabels.releaseDate' => 'Uitgavedatum',
 			'libraries.sortLabels.rating' => 'Beoordeling',
 			'libraries.sortLabels.communityRating' => 'Beoordeling door community',
+			_ => null,
+		} ?? switch (path) {
 			'libraries.sortLabels.criticRating' => 'Beoordeling door critici',
 			'libraries.sortLabels.userRating' => 'Gebruikersbeoordeling',
 			'libraries.sortLabels.datePlayed' => 'Afspeeldatum',
@@ -4208,9 +4199,6 @@ extension on TranslationsNl {
 			'liveTv.watchChannel' => 'Kanaal bekijken',
 			'liveTv.favorites' => 'Favorieten',
 			'liveTv.reorderFavorites' => 'Favorieten herordenen',
-			'liveTv.noFavoriteChannels' => 'Geen favoriete zenders',
-			'liveTv.noFavoriteChannelsHint' => 'Toon alle zenders en houd daarna een zender ingedrukt om deze aan je favorieten toe te voegen.',
-			'liveTv.showAllChannels' => 'Alle zenders tonen',
 			'liveTv.favoritesLoadFailed' => 'Favorieten konden niet worden geladen. Controleer je verbinding en probeer het opnieuw.',
 			'liveTv.favoritesUpdateFailed' => 'Favorieten konden niet worden bijgewerkt. Controleer je verbinding en probeer het opnieuw.',
 			'liveTv.joinSession' => 'Deelnemen aan lopende sessie',
@@ -4473,14 +4461,14 @@ extension on TranslationsNl {
 			'downloads.manageSyncRule' => 'Synchronisatie beheren',
 			'downloads.editEpisodeCount' => 'Aantal afleveringen',
 			'downloads.editSyncFilter' => 'Synchronisatiefilter',
-			_ => null,
-		} ?? switch (path) {
 			'downloads.syncAllItems' => 'Alle items synchroniseren',
 			'downloads.syncUnwatchedItems' => 'Ongekeken items synchroniseren',
 			'downloads.syncRuleServerContext' => ({required Object server, required Object status}) => 'Server: ${server} • ${status}',
 			'downloads.syncRuleAvailable' => 'Beschikbaar',
 			'downloads.syncRuleOffline' => 'Offline',
 			'downloads.syncRuleSignInRequired' => 'Inloggen vereist',
+			_ => null,
+		} ?? switch (path) {
 			'downloads.syncRuleNotAvailableForProfile' => 'Niet beschikbaar voor huidig profiel',
 			'downloads.syncRuleUnknownServer' => 'Onbekende server',
 			'downloads.syncRuleListCreated' => 'Synchronisatieregel aangemaakt',
