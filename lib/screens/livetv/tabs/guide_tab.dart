@@ -1721,13 +1721,6 @@ class GuideTabState extends State<GuideTab>
     final multiServer = context.read<MultiServerProvider>();
     final serverId = serverIdOrNull(channel.serverId);
     final client = serverId == null ? null : multiServer.getClientForServer(serverId);
-    final favoriteSources = groupLiveTvChannelsBySource(widget.favoriteChannels);
-    final sourceLabel = groupLiveTvChannelsBySource(widget.channels).length > 1
-        ? favoriteSources
-              .where((group) => group.channels.any((c) => liveTvChannelScopeKey(c) == liveTvChannelScopeKey(channel)))
-              .firstOrNull
-              ?.label
-        : null;
 
     return _GuideFocusSelector(
       valueListenable: _focusSnapshot,
@@ -1738,7 +1731,6 @@ class GuideTabState extends State<GuideTab>
           rowHeight: _rowHeight,
           channelColumnWidth: _channelColumnWidth,
           channelThumb: channel.thumb,
-          sourceLabel: sourceLabel,
           client: client,
           channel: channel,
           theme: theme,
@@ -2104,7 +2096,6 @@ class _ChannelCell extends StatefulWidget {
   final double rowHeight;
   final double channelColumnWidth;
   final String? channelThumb;
-  final String? sourceLabel;
   final MediaServerClient? client;
   final LiveTvChannel channel;
   final ThemeData theme;
@@ -2118,7 +2109,6 @@ class _ChannelCell extends StatefulWidget {
     required this.rowHeight,
     required this.channelColumnWidth,
     required this.channelThumb,
-    this.sourceLabel,
     required this.client,
     required this.channel,
     required this.theme,
@@ -2141,7 +2131,6 @@ class _ChannelCellState extends State<_ChannelCell> {
     final theme = widget.theme;
     final tk = tokens(context);
     final showAction = _hovered || widget.isFocused;
-    final sourceLabelHeight = widget.sourceLabel == null ? 0.0 : MediaQuery.textScalerOf(context).scale(9) + 4;
     final radius = BorderRadius.circular(widget.isFocused ? tk.radiusSm : tk.radiusXs);
     // Inverted focus card, matching the program-block cursor.
     final contentColor = widget.isFocused ? theme.colorScheme.onPrimary : theme.colorScheme.onSurface;
@@ -2172,38 +2161,22 @@ class _ChannelCellState extends State<_ChannelCell> {
                       AnimatedOpacity(
                         opacity: showAction ? 0.3 : 1.0,
                         duration: FocusTheme.getAnimationDuration(context),
-                        child: Padding(
-                          padding: EdgeInsets.only(bottom: sourceLabelHeight),
-                          child: widget.channelThumb != null && widget.client != null
-                              ? OptimizedMediaImage.thumb(
-                                  client: widget.client!,
-                                  imagePath: widget.channelThumb,
-                                  width: widget.channelColumnWidth - 16,
-                                  height: widget.rowHeight - 16 - (sourceLabelHeight),
-                                  fit: BoxFit.contain,
-                                  logoToneTarget: logoToneTargetFor(
-                                    surface: widget.isFocused ? theme.colorScheme.primary : tk.surface,
-                                    foreground: widget.isFocused
-                                        ? theme.colorScheme.onPrimary
-                                        : theme.colorScheme.onSurface,
-                                  ),
-                                )
-                              : widget.fallbackBuilder(),
-                        ),
+                        child: widget.channelThumb != null && widget.client != null
+                            ? OptimizedMediaImage.thumb(
+                                client: widget.client!,
+                                imagePath: widget.channelThumb,
+                                width: widget.channelColumnWidth - 16,
+                                height: widget.rowHeight - 16,
+                                fit: BoxFit.contain,
+                                logoToneTarget: logoToneTargetFor(
+                                  surface: widget.isFocused ? theme.colorScheme.primary : tk.surface,
+                                  foreground: widget.isFocused
+                                      ? theme.colorScheme.onPrimary
+                                      : theme.colorScheme.onSurface,
+                                ),
+                              )
+                            : widget.fallbackBuilder(),
                       ),
-                      if (widget.sourceLabel != null)
-                        Positioned(
-                          left: 0,
-                          right: 0,
-                          bottom: 2,
-                          child: Text(
-                            widget.sourceLabel!,
-                            textAlign: TextAlign.center,
-                            style: theme.textTheme.labelSmall?.copyWith(fontSize: 9, height: 1, color: contentColor),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        ),
                       if (showAction) AppIcon(Symbols.play_arrow_rounded, size: 32, color: contentColor),
                       if (widget.isFavorite)
                         Positioned(
