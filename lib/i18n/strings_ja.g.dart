@@ -467,8 +467,6 @@ class _Translations$settings$ja extends Translations$settings$en {
 	@override String get startupSection => '起動時のセクション';
 	@override String get showExploreTab => '「探す」タブを表示';
 	@override String get showExploreTabDescription => 'Plex Discoverと接続済みのトラッカーのコンテンツを「探す」タブに表示します';
-	@override String get liveTvDefaultFavorites => 'お気に入りチャンネルをデフォルトに';
-	@override String get liveTvDefaultFavoritesDescription => 'ライブTVを開いたときにお気に入りチャンネルのみ表示';
 	@override String get general => '一般';
 	@override String get generalDescription => '言語、起動、ウィンドウの動作';
 	@override String get languageAndRegion => '言語と地域';
@@ -478,7 +476,6 @@ class _Translations$settings$ja extends Translations$settings$en {
 	@override String get homeScreen => 'ホーム画面';
 	@override String get navigation => 'ナビゲーション';
 	@override String get window => 'ウィンドウ';
-	@override String get liveTv => 'ライブTV';
 	@override String get player => 'プレーヤー';
 	@override String get videoAndDisplay => '映像とディスプレイ';
 	@override String get audio => '音声';
@@ -1460,9 +1457,6 @@ class _Translations$liveTv$ja extends Translations$liveTv$en {
 	@override String get watchChannel => 'チャンネルを視聴';
 	@override String get favorites => 'お気に入り';
 	@override String get reorderFavorites => 'お気に入りを並べ替え';
-	@override String get noFavoriteChannels => 'お気に入りのチャンネルがありません';
-	@override String get noFavoriteChannelsHint => 'すべてのチャンネルを表示し、チャンネルを長押ししてお気に入りに追加してください。';
-	@override String get showAllChannels => 'すべてのチャンネルを表示';
 	@override String get favoritesLoadFailed => 'お気に入りを読み込めませんでした。接続を確認してもう一度お試しください。';
 	@override String get favoritesUpdateFailed => 'お気に入りを更新できませんでした。接続を確認してもう一度お試しください。';
 	@override String get joinSession => '進行中のセッションに参加';
@@ -3267,8 +3261,6 @@ extension on TranslationsJa {
 			'settings.startupSection' => '起動時のセクション',
 			'settings.showExploreTab' => '「探す」タブを表示',
 			'settings.showExploreTabDescription' => 'Plex Discoverと接続済みのトラッカーのコンテンツを「探す」タブに表示します',
-			'settings.liveTvDefaultFavorites' => 'お気に入りチャンネルをデフォルトに',
-			'settings.liveTvDefaultFavoritesDescription' => 'ライブTVを開いたときにお気に入りチャンネルのみ表示',
 			'settings.general' => '一般',
 			'settings.generalDescription' => '言語、起動、ウィンドウの動作',
 			'settings.languageAndRegion' => '言語と地域',
@@ -3278,7 +3270,6 @@ extension on TranslationsJa {
 			'settings.homeScreen' => 'ホーム画面',
 			'settings.navigation' => 'ナビゲーション',
 			'settings.window' => 'ウィンドウ',
-			'settings.liveTv' => 'ライブTV',
 			'settings.player' => 'プレーヤー',
 			'settings.videoAndDisplay' => '映像とディスプレイ',
 			'settings.audio' => '音声',
@@ -3435,11 +3426,11 @@ extension on TranslationsJa {
 			'fileInfo.optimizedVersion' => '最適化バージョン',
 			'fileInfo.optimizationTarget' => '最適化ターゲット',
 			'fileInfo.deletedAt' => '削除済み',
-			_ => null,
-		} ?? switch (path) {
 			'fileInfo.remoteSource' => 'リモートソース',
 			'fileInfo.infiniteStream' => '無限ストリーム',
 			'fileInfo.directPlay' => 'ダイレクト再生',
+			_ => null,
+		} ?? switch (path) {
 			'fileInfo.directStream' => 'ダイレクトストリーム',
 			'fileInfo.transcoding' => 'トランスコード',
 			'fileInfo.etag' => 'ETag',
@@ -3949,11 +3940,11 @@ extension on TranslationsJa {
 			'libraries.filterCategories.favorites' => 'お気に入り',
 			'libraries.sortLabels.title' => 'タイトル',
 			'libraries.sortLabels.dateAdded' => '追加日',
-			_ => null,
-		} ?? switch (path) {
 			'libraries.sortLabels.releaseDate' => 'リリース日',
 			'libraries.sortLabels.rating' => '評価',
 			'libraries.sortLabels.communityRating' => 'コミュニティ評価',
+			_ => null,
+		} ?? switch (path) {
 			'libraries.sortLabels.criticRating' => '批評家評価',
 			'libraries.sortLabels.userRating' => 'ユーザー評価',
 			'libraries.sortLabels.datePlayed' => '再生日',
@@ -4198,9 +4189,6 @@ extension on TranslationsJa {
 			'liveTv.watchChannel' => 'チャンネルを視聴',
 			'liveTv.favorites' => 'お気に入り',
 			'liveTv.reorderFavorites' => 'お気に入りを並べ替え',
-			'liveTv.noFavoriteChannels' => 'お気に入りのチャンネルがありません',
-			'liveTv.noFavoriteChannelsHint' => 'すべてのチャンネルを表示し、チャンネルを長押ししてお気に入りに追加してください。',
-			'liveTv.showAllChannels' => 'すべてのチャンネルを表示',
 			'liveTv.favoritesLoadFailed' => 'お気に入りを読み込めませんでした。接続を確認してもう一度お試しください。',
 			'liveTv.favoritesUpdateFailed' => 'お気に入りを更新できませんでした。接続を確認してもう一度お試しください。',
 			'liveTv.joinSession' => '進行中のセッションに参加',
@@ -4463,14 +4451,14 @@ extension on TranslationsJa {
 			'downloads.manageSyncRule' => '同期を管理',
 			'downloads.editEpisodeCount' => 'エピソード数',
 			'downloads.editSyncFilter' => '同期フィルター',
-			_ => null,
-		} ?? switch (path) {
 			'downloads.syncAllItems' => 'すべてのアイテムを同期中',
 			'downloads.syncUnwatchedItems' => '未視聴のアイテムを同期中',
 			'downloads.syncRuleServerContext' => ({required Object server, required Object status}) => 'サーバー: ${server} • ${status}',
 			'downloads.syncRuleAvailable' => '利用可能',
 			'downloads.syncRuleOffline' => 'オフライン',
 			'downloads.syncRuleSignInRequired' => 'サインインが必要',
+			_ => null,
+		} ?? switch (path) {
 			'downloads.syncRuleNotAvailableForProfile' => '現在のプロフィールでは利用できません',
 			'downloads.syncRuleUnknownServer' => '不明なサーバー',
 			'downloads.syncRuleListCreated' => '同期ルールを作成しました',

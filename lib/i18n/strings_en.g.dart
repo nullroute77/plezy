@@ -1158,12 +1158,6 @@ class Translations$settings$en {
 	/// en: 'Display the Explore tab with content from Plex Discover and connected trackers'
 	String get showExploreTabDescription => 'Display the Explore tab with content from Plex Discover and connected trackers';
 
-	/// en: 'Default to Favorite Channels'
-	String get liveTvDefaultFavorites => 'Default to Favorite Channels';
-
-	/// en: 'Show only favorite channels when opening Live TV'
-	String get liveTvDefaultFavoritesDescription => 'Show only favorite channels when opening Live TV';
-
 	/// en: 'General'
 	String get general => 'General';
 
@@ -1190,9 +1184,6 @@ class Translations$settings$en {
 
 	/// en: 'Window'
 	String get window => 'Window';
-
-	/// en: 'Live TV'
-	String get liveTv => 'Live TV';
 
 	/// en: 'Player'
 	String get player => 'Player';
@@ -3636,15 +3627,6 @@ class Translations$liveTv$en {
 
 	/// en: 'Reorder Favorites'
 	String get reorderFavorites => 'Reorder Favorites';
-
-	/// en: 'No favorite channels'
-	String get noFavoriteChannels => 'No favorite channels';
-
-	/// en: 'Show all channels, then long-press a channel to add it to your favorites.'
-	String get noFavoriteChannelsHint => 'Show all channels, then long-press a channel to add it to your favorites.';
-
-	/// en: 'Show All Channels'
-	String get showAllChannels => 'Show All Channels';
 
 	/// en: 'Could not load favorites. Check your connection and try again.'
 	String get favoritesLoadFailed => 'Could not load favorites. Check your connection and try again.';
@@ -7411,8 +7393,6 @@ extension on Translations {
 			'settings.startupSection' => 'Startup Section',
 			'settings.showExploreTab' => 'Show Explore Tab',
 			'settings.showExploreTabDescription' => 'Display the Explore tab with content from Plex Discover and connected trackers',
-			'settings.liveTvDefaultFavorites' => 'Default to Favorite Channels',
-			'settings.liveTvDefaultFavoritesDescription' => 'Show only favorite channels when opening Live TV',
 			'settings.general' => 'General',
 			'settings.generalDescription' => 'Language, startup, and window behavior',
 			'settings.languageAndRegion' => 'Language & Region',
@@ -7422,7 +7402,6 @@ extension on Translations {
 			'settings.homeScreen' => 'Home Screen',
 			'settings.navigation' => 'Navigation',
 			'settings.window' => 'Window',
-			'settings.liveTv' => 'Live TV',
 			'settings.player' => 'Player',
 			'settings.videoAndDisplay' => 'Video & Display',
 			'settings.audio' => 'Audio',
@@ -7564,11 +7543,11 @@ extension on Translations {
 			'fileInfo.path' => 'Path',
 			'fileInfo.fileName' => 'File Name',
 			'fileInfo.size' => 'Size',
-			_ => null,
-		} ?? switch (path) {
 			'fileInfo.totalSize' => 'Total Size',
 			'fileInfo.container' => 'Container',
 			'fileInfo.duration' => 'Duration',
+			_ => null,
+		} ?? switch (path) {
 			'fileInfo.previewThumbnails' => 'Preview Thumbnails',
 			'fileInfo.previewIndex' => 'Preview Index',
 			'fileInfo.packetLength' => 'Packet Length',
@@ -8078,11 +8057,11 @@ extension on Translations {
 			'libraries.filtersWithCount' => ({required Object count}) => 'Filters (${count})',
 			'libraries.noRecommendations' => 'No recommendations available',
 			'libraries.noCollections' => 'No collections in this library',
-			_ => null,
-		} ?? switch (path) {
 			'libraries.noFoldersFound' => 'No folders found',
 			'libraries.folders' => 'folders',
 			'libraries.tabs.recommended' => 'Recommended',
+			_ => null,
+		} ?? switch (path) {
 			'libraries.tabs.browse' => 'Browse',
 			'libraries.tabs.collections' => 'Collections',
 			'libraries.tabs.playlists' => 'Playlists',
@@ -8360,9 +8339,6 @@ extension on Translations {
 			'liveTv.watchChannel' => 'Watch Channel',
 			'liveTv.favorites' => 'Favorites',
 			'liveTv.reorderFavorites' => 'Reorder Favorites',
-			'liveTv.noFavoriteChannels' => 'No favorite channels',
-			'liveTv.noFavoriteChannelsHint' => 'Show all channels, then long-press a channel to add it to your favorites.',
-			'liveTv.showAllChannels' => 'Show All Channels',
 			'liveTv.favoritesLoadFailed' => 'Could not load favorites. Check your connection and try again.',
 			'liveTv.favoritesUpdateFailed' => 'Could not update favorites. Check your connection and try again.',
 			'liveTv.joinSession' => 'Join Session in Progress',
@@ -8592,14 +8568,14 @@ extension on Translations {
 			'downloads.allEpisodesAlreadyDownloaded' => 'All episodes already downloaded',
 			'downloads.resumeDownload' => 'Resume download',
 			'downloads.cancelledDownload' => 'Canceled download',
-			_ => null,
-		} ?? switch (path) {
 			'downloads.syncingFile' => ({required Object file, required Object status}) => '${file} (syncing ${status})',
 			'downloads.downloadedFileClickToComplete' => ({required Object file}) => 'Downloaded ${file} - Click to complete',
 			'downloads.partialDownloadClickToComplete' => 'Partially downloaded - Click to complete',
 			'downloads.deleting' => 'Deleting...',
 			'downloads.deletingWithProgress' => ({required Object title, required Object current, required Object total}) => 'Deleting ${title}... (${current} of ${total})',
 			'downloads.queuedTooltip' => 'Queued',
+			_ => null,
+		} ?? switch (path) {
 			'downloads.queuedFilesTooltip' => ({required Object files}) => 'Queued ${files}',
 			'downloads.downloadingTooltip' => 'Downloading...',
 			'downloads.downloadingFilesTooltip' => ({required Object files}) => 'Downloading ${files}',

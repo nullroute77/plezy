@@ -467,8 +467,6 @@ class _Translations$settings$uz extends Translations$settings$en {
 	@override String get startupSection => 'Boshlangʻich boʻlim';
 	@override String get showExploreTab => 'Kashf qilish varagʻini koʻrsatish';
 	@override String get showExploreTabDescription => 'Plex Discover va ulangan kuzatuvchilardagi kontent bilan Kashf qilish varagʻini koʻrsatish';
-	@override String get liveTvDefaultFavorites => 'Jonli TV-da tanlangan kanallarni standart qilish';
-	@override String get liveTvDefaultFavoritesDescription => 'Jonli TV ochilganda faqat tanlangan kanallarni koʻrsatish';
 	@override String get general => 'Umumiy';
 	@override String get generalDescription => 'Til, ishga tushirish va oyna xatti-harakati';
 	@override String get languageAndRegion => 'Til va mintaqa';
@@ -478,7 +476,6 @@ class _Translations$settings$uz extends Translations$settings$en {
 	@override String get homeScreen => 'Bosh ekran';
 	@override String get navigation => 'Navigatsiya';
 	@override String get window => 'Oyna';
-	@override String get liveTv => 'Jonli TV';
 	@override String get player => 'Pleyer';
 	@override String get videoAndDisplay => 'Video va displey';
 	@override String get audio => 'Audio';
@@ -1467,9 +1464,6 @@ class _Translations$liveTv$uz extends Translations$liveTv$en {
 	@override String get watchChannel => 'Kanalni tomosha qilish';
 	@override String get favorites => 'Tanlanganlar';
 	@override String get reorderFavorites => 'Tanlanganlarni tartiblash';
-	@override String get noFavoriteChannels => 'Sevimli kanallar yoʻq';
-	@override String get noFavoriteChannelsHint => 'Barcha kanallarni koʻrsating, soʻng kanalni sevimlilarga qoʻshish uchun uni bosib turing.';
-	@override String get showAllChannels => 'Barcha kanallarni koʻrsatish';
 	@override String get favoritesLoadFailed => 'Tanlanganlarni yuklab boʻlmadi.';
 	@override String get favoritesUpdateFailed => 'Tanlanganlarni yangilab boʻlmadi.';
 	@override String get joinSession => 'Seansga qoʻshilish';
@@ -3277,8 +3271,6 @@ extension on TranslationsUz {
 			'settings.startupSection' => 'Boshlangʻich boʻlim',
 			'settings.showExploreTab' => 'Kashf qilish varagʻini koʻrsatish',
 			'settings.showExploreTabDescription' => 'Plex Discover va ulangan kuzatuvchilardagi kontent bilan Kashf qilish varagʻini koʻrsatish',
-			'settings.liveTvDefaultFavorites' => 'Jonli TV-da tanlangan kanallarni standart qilish',
-			'settings.liveTvDefaultFavoritesDescription' => 'Jonli TV ochilganda faqat tanlangan kanallarni koʻrsatish',
 			'settings.general' => 'Umumiy',
 			'settings.generalDescription' => 'Til, ishga tushirish va oyna xatti-harakati',
 			'settings.languageAndRegion' => 'Til va mintaqa',
@@ -3288,7 +3280,6 @@ extension on TranslationsUz {
 			'settings.homeScreen' => 'Bosh ekran',
 			'settings.navigation' => 'Navigatsiya',
 			'settings.window' => 'Oyna',
-			'settings.liveTv' => 'Jonli TV',
 			'settings.player' => 'Pleyer',
 			'settings.videoAndDisplay' => 'Video va displey',
 			'settings.audio' => 'Audio',
@@ -3445,11 +3436,11 @@ extension on TranslationsUz {
 			'fileInfo.optimizedVersion' => 'Optimallashtirilgan versiya',
 			'fileInfo.optimizationTarget' => 'Optimallashtirish maqsadi',
 			'fileInfo.deletedAt' => 'Oʻchirilgan',
-			_ => null,
-		} ?? switch (path) {
 			'fileInfo.remoteSource' => 'Masofaviy manba',
 			'fileInfo.infiniteStream' => 'Cheksiz oqim',
 			'fileInfo.directPlay' => 'Toʻgʻridan-toʻgʻri ijro',
+			_ => null,
+		} ?? switch (path) {
 			'fileInfo.directStream' => 'Toʻgʻridan-toʻgʻri oqim',
 			'fileInfo.transcoding' => 'Qayta kodlash',
 			'fileInfo.etag' => 'ETag',
@@ -3959,11 +3950,11 @@ extension on TranslationsUz {
 			'libraries.filterCategories.favorites' => 'Tanlanganlar',
 			'libraries.sortLabels.title' => 'Nomi',
 			'libraries.sortLabels.dateAdded' => 'Qoʻshilgan sanasi',
-			_ => null,
-		} ?? switch (path) {
 			'libraries.sortLabels.releaseDate' => 'Chıqqan sanasi',
 			'libraries.sortLabels.rating' => 'Reyting',
 			'libraries.sortLabels.communityRating' => 'Hamjamiyat reytingi',
+			_ => null,
+		} ?? switch (path) {
 			'libraries.sortLabels.criticRating' => 'Muntaqidlar reytingi',
 			'libraries.sortLabels.userRating' => 'Foydalanuvchi reytingi',
 			'libraries.sortLabels.datePlayed' => 'Ijro etilgan sanasi',
@@ -4208,9 +4199,6 @@ extension on TranslationsUz {
 			'liveTv.watchChannel' => 'Kanalni tomosha qilish',
 			'liveTv.favorites' => 'Tanlanganlar',
 			'liveTv.reorderFavorites' => 'Tanlanganlarni tartiblash',
-			'liveTv.noFavoriteChannels' => 'Sevimli kanallar yoʻq',
-			'liveTv.noFavoriteChannelsHint' => 'Barcha kanallarni koʻrsating, soʻng kanalni sevimlilarga qoʻshish uchun uni bosib turing.',
-			'liveTv.showAllChannels' => 'Barcha kanallarni koʻrsatish',
 			'liveTv.favoritesLoadFailed' => 'Tanlanganlarni yuklab boʻlmadi.',
 			'liveTv.favoritesUpdateFailed' => 'Tanlanganlarni yangilab boʻlmadi.',
 			'liveTv.joinSession' => 'Seansga qoʻshilish',
@@ -4473,14 +4461,14 @@ extension on TranslationsUz {
 			'downloads.manageSyncRule' => 'Sinxronlashni boshqarish',
 			'downloads.editEpisodeCount' => 'Qismlar soni',
 			'downloads.editSyncFilter' => 'Sinxronlash filtri',
-			_ => null,
-		} ?? switch (path) {
 			'downloads.syncAllItems' => 'Barcha elementlar sinxronlanadi',
 			'downloads.syncUnwatchedItems' => 'Koʻrilmagan elementlar sinxronlanadi',
 			'downloads.syncRuleServerContext' => ({required Object server, required Object status}) => 'Server: ${server} • ${status}',
 			'downloads.syncRuleAvailable' => 'Mavjud',
 			'downloads.syncRuleOffline' => 'Oflayn',
 			'downloads.syncRuleSignInRequired' => 'Kirish talab etiladi',
+			_ => null,
+		} ?? switch (path) {
 			'downloads.syncRuleNotAvailableForProfile' => 'Joriy profil uchun mavjud emas',
 			'downloads.syncRuleUnknownServer' => 'Nomaʼlum server',
 			'downloads.syncRuleListCreated' => 'Sinxronlash qoidasi yaratildi',

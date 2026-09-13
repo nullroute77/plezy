@@ -467,8 +467,6 @@ class _Translations$settings$sv extends Translations$settings$en {
 	@override String get startupSection => 'Startsida';
 	@override String get showExploreTab => 'Visa fliken Utforska';
 	@override String get showExploreTabDescription => 'Visa fliken Utforska med innehåll från Plex Discover och anslutna spårningstjänster';
-	@override String get liveTvDefaultFavorites => 'Öppna med favoriter';
-	@override String get liveTvDefaultFavoritesDescription => 'Visa endast favoritkanaler när Live-TV öppnas';
 	@override String get general => 'Allmänt';
 	@override String get generalDescription => 'Språk, start och fönsterbeteende';
 	@override String get languageAndRegion => 'Språk och region';
@@ -478,7 +476,6 @@ class _Translations$settings$sv extends Translations$settings$en {
 	@override String get homeScreen => 'Hemskärm';
 	@override String get navigation => 'Navigering';
 	@override String get window => 'Fönster';
-	@override String get liveTv => 'Live-TV';
 	@override String get player => 'Spelare';
 	@override String get videoAndDisplay => 'Video och skärm';
 	@override String get audio => 'Ljud';
@@ -1467,9 +1464,6 @@ class _Translations$liveTv$sv extends Translations$liveTv$en {
 	@override String get watchChannel => 'Titta på kanal';
 	@override String get favorites => 'Favoriter';
 	@override String get reorderFavorites => 'Ordna om favoriter';
-	@override String get noFavoriteChannels => 'Inga favoritkanaler';
-	@override String get noFavoriteChannelsHint => 'Visa alla kanaler och tryck sedan länge på en kanal för att lägga till den som favorit.';
-	@override String get showAllChannels => 'Visa alla kanaler';
 	@override String get favoritesLoadFailed => 'Det gick inte att läsa in favoriter. Kontrollera anslutningen och försök igen.';
 	@override String get favoritesUpdateFailed => 'Det gick inte att uppdatera favoriterna. Kontrollera anslutningen och försök igen.';
 	@override String get joinSession => 'Gå med i pågående session';
@@ -3277,8 +3271,6 @@ extension on TranslationsSv {
 			'settings.startupSection' => 'Startsida',
 			'settings.showExploreTab' => 'Visa fliken Utforska',
 			'settings.showExploreTabDescription' => 'Visa fliken Utforska med innehåll från Plex Discover och anslutna spårningstjänster',
-			'settings.liveTvDefaultFavorites' => 'Öppna med favoriter',
-			'settings.liveTvDefaultFavoritesDescription' => 'Visa endast favoritkanaler när Live-TV öppnas',
 			'settings.general' => 'Allmänt',
 			'settings.generalDescription' => 'Språk, start och fönsterbeteende',
 			'settings.languageAndRegion' => 'Språk och region',
@@ -3288,7 +3280,6 @@ extension on TranslationsSv {
 			'settings.homeScreen' => 'Hemskärm',
 			'settings.navigation' => 'Navigering',
 			'settings.window' => 'Fönster',
-			'settings.liveTv' => 'Live-TV',
 			'settings.player' => 'Spelare',
 			'settings.videoAndDisplay' => 'Video och skärm',
 			'settings.audio' => 'Ljud',
@@ -3445,11 +3436,11 @@ extension on TranslationsSv {
 			'fileInfo.optimizedVersion' => 'Optimerad version',
 			'fileInfo.optimizationTarget' => 'Optimeringsmål',
 			'fileInfo.deletedAt' => 'Raderad',
-			_ => null,
-		} ?? switch (path) {
 			'fileInfo.remoteSource' => 'Fjärrkälla',
 			'fileInfo.infiniteStream' => 'Oändlig ström',
 			'fileInfo.directPlay' => 'Direktuppspelning',
+			_ => null,
+		} ?? switch (path) {
 			'fileInfo.directStream' => 'Direktströmning',
 			'fileInfo.transcoding' => 'Transkodning',
 			'fileInfo.etag' => 'ETag',
@@ -3959,11 +3950,11 @@ extension on TranslationsSv {
 			'libraries.filterCategories.favorites' => 'Favoriter',
 			'libraries.sortLabels.title' => 'Titel',
 			'libraries.sortLabels.dateAdded' => 'Tillagd',
-			_ => null,
-		} ?? switch (path) {
 			'libraries.sortLabels.releaseDate' => 'Releasedatum',
 			'libraries.sortLabels.rating' => 'Betyg',
 			'libraries.sortLabels.communityRating' => 'Användarbetyg',
+			_ => null,
+		} ?? switch (path) {
 			'libraries.sortLabels.criticRating' => 'Kritikerbetyg',
 			'libraries.sortLabels.userRating' => 'Användarbetyg',
 			'libraries.sortLabels.datePlayed' => 'Speldatum',
@@ -4208,9 +4199,6 @@ extension on TranslationsSv {
 			'liveTv.watchChannel' => 'Titta på kanal',
 			'liveTv.favorites' => 'Favoriter',
 			'liveTv.reorderFavorites' => 'Ordna om favoriter',
-			'liveTv.noFavoriteChannels' => 'Inga favoritkanaler',
-			'liveTv.noFavoriteChannelsHint' => 'Visa alla kanaler och tryck sedan länge på en kanal för att lägga till den som favorit.',
-			'liveTv.showAllChannels' => 'Visa alla kanaler',
 			'liveTv.favoritesLoadFailed' => 'Det gick inte att läsa in favoriter. Kontrollera anslutningen och försök igen.',
 			'liveTv.favoritesUpdateFailed' => 'Det gick inte att uppdatera favoriterna. Kontrollera anslutningen och försök igen.',
 			'liveTv.joinSession' => 'Gå med i pågående session',
@@ -4473,14 +4461,14 @@ extension on TranslationsSv {
 			'downloads.manageSyncRule' => 'Hantera synkronisering',
 			'downloads.editEpisodeCount' => 'Antal avsnitt',
 			'downloads.editSyncFilter' => 'Synkroniseringsfilter',
-			_ => null,
-		} ?? switch (path) {
 			'downloads.syncAllItems' => 'Synkroniserar alla objekt',
 			'downloads.syncUnwatchedItems' => 'Synkroniserar osedda objekt',
 			'downloads.syncRuleServerContext' => ({required Object server, required Object status}) => 'Server: ${server} • ${status}',
 			'downloads.syncRuleAvailable' => 'Tillgänglig',
 			'downloads.syncRuleOffline' => 'Offline',
 			'downloads.syncRuleSignInRequired' => 'Inloggning krävs',
+			_ => null,
+		} ?? switch (path) {
 			'downloads.syncRuleNotAvailableForProfile' => 'Inte tillgänglig för aktuell profil',
 			'downloads.syncRuleUnknownServer' => 'Okänd server',
 			'downloads.syncRuleListCreated' => 'Synkroniseringsregel skapad',
