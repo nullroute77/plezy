@@ -9,7 +9,7 @@ on:
   workflow_dispatch:
 
 env:
-  TEST_SOURCE_COMMIT: c8dfb194be3bb8f7ba66a8a94bcd9ec28bb72b7e
+  TEST_SOURCE_COMMIT: c96ddb974a6de07c1a1408d61c70dfce7833ad5c
 
 permissions:
   contents: read
@@ -136,7 +136,7 @@ jobs:
           pathlib.Path('test-artifacts/TEST-BUILD.txt').write_text(
               'Plezy Android ARMv7 release test build\n'
               f'Build commit: {os.environ["TEST_COMMIT"]}\n'
-              'Source commit: c8dfb194be3bb8f7ba66a8a94bcd9ec28bb72b7e\n'
+              'Source commit: c96ddb974a6de07c1a1408d61c70dfce7833ad5c\n'
               'Source branch: merged-feature-test\n'
               '32-bit ARM APK for Chromecast with Google TV. Release mode, test signed. Updates and Sentry disabled. Real-device validation pending.\n')
           pathlib.Path(str(apk) + '.sha256').write_text(hashlib.sha256(apk.read_bytes()).hexdigest() + '  ' + apk.name + '\n')
