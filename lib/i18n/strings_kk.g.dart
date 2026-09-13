@@ -467,8 +467,6 @@ class _Translations$settings$kk extends Translations$settings$en {
 	@override String get startupSection => 'Бастапқы бөлім';
 	@override String get showExploreTab => '«Шолу» қойындысын көрсету';
 	@override String get showExploreTabDescription => 'Plex шолуынан және қосылған трекерлерден алынған контенті бар «Шолу» қойындысын көрсету';
-	@override String get liveTvDefaultFavorites => 'Тікелей TV-де таңдаулы арналарды әдепкі ету';
-	@override String get liveTvDefaultFavoritesDescription => 'Тікелей TV ашылғанда тек таңдаулы арналарды көрсету';
 	@override String get general => 'Жалпы';
 	@override String get generalDescription => 'Тіл, іске қосу және терезе мінез-құлқы';
 	@override String get languageAndRegion => 'Тіл және аймақ';
@@ -478,7 +476,6 @@ class _Translations$settings$kk extends Translations$settings$en {
 	@override String get homeScreen => 'Басты экран';
 	@override String get navigation => 'Навигация';
 	@override String get window => 'Терезе';
-	@override String get liveTv => 'Тікелей TV';
 	@override String get player => 'Ойнатқыш';
 	@override String get videoAndDisplay => 'Видео және дисплей';
 	@override String get audio => 'Аудио';
@@ -1467,9 +1464,6 @@ class _Translations$liveTv$kk extends Translations$liveTv$en {
 	@override String get watchChannel => 'Арнаны көру';
 	@override String get favorites => 'Таңдаулылар';
 	@override String get reorderFavorites => 'Таңдаулыларды қайта реттеу';
-	@override String get noFavoriteChannels => 'Таңдаулы арналар жоқ';
-	@override String get noFavoriteChannelsHint => 'Барлық арнаны көрсетіп, таңдаулыларға қосу үшін арнаны ұзақ басып тұрыңыз.';
-	@override String get showAllChannels => 'Барлық арнаны көрсету';
 	@override String get favoritesLoadFailed => 'Таңдаулыларды жүктеу мүмкін болмады.';
 	@override String get favoritesUpdateFailed => 'Таңдаулыларды жаңарту мүмкін болмады.';
 	@override String get joinSession => 'Сеансқа қосылу';
@@ -3277,8 +3271,6 @@ extension on TranslationsKk {
 			'settings.startupSection' => 'Бастапқы бөлім',
 			'settings.showExploreTab' => '«Шолу» қойындысын көрсету',
 			'settings.showExploreTabDescription' => 'Plex шолуынан және қосылған трекерлерден алынған контенті бар «Шолу» қойындысын көрсету',
-			'settings.liveTvDefaultFavorites' => 'Тікелей TV-де таңдаулы арналарды әдепкі ету',
-			'settings.liveTvDefaultFavoritesDescription' => 'Тікелей TV ашылғанда тек таңдаулы арналарды көрсету',
 			'settings.general' => 'Жалпы',
 			'settings.generalDescription' => 'Тіл, іске қосу және терезе мінез-құлқы',
 			'settings.languageAndRegion' => 'Тіл және аймақ',
@@ -3288,7 +3280,6 @@ extension on TranslationsKk {
 			'settings.homeScreen' => 'Басты экран',
 			'settings.navigation' => 'Навигация',
 			'settings.window' => 'Терезе',
-			'settings.liveTv' => 'Тікелей TV',
 			'settings.player' => 'Ойнатқыш',
 			'settings.videoAndDisplay' => 'Видео және дисплей',
 			'settings.audio' => 'Аудио',
@@ -3445,11 +3436,11 @@ extension on TranslationsKk {
 			'fileInfo.optimizedVersion' => 'Оңтайландырылған нұсқа',
 			'fileInfo.optimizationTarget' => 'Оңтайландыру мақсаты',
 			'fileInfo.deletedAt' => 'Өшірілген',
-			_ => null,
-		} ?? switch (path) {
 			'fileInfo.remoteSource' => 'Қашықтағы дереккөз',
 			'fileInfo.infiniteStream' => 'Шексіз ағын',
 			'fileInfo.directPlay' => 'Тікелей ойнату',
+			_ => null,
+		} ?? switch (path) {
 			'fileInfo.directStream' => 'Тікелей ағын',
 			'fileInfo.transcoding' => 'Транскодтау',
 			'fileInfo.etag' => 'ETag',
@@ -3959,11 +3950,11 @@ extension on TranslationsKk {
 			'libraries.filterCategories.favorites' => 'Таңдаулылар',
 			'libraries.sortLabels.title' => 'Атауы',
 			'libraries.sortLabels.dateAdded' => 'Қосылған күні',
-			_ => null,
-		} ?? switch (path) {
 			'libraries.sortLabels.releaseDate' => 'Шыққан күні',
 			'libraries.sortLabels.rating' => 'Рейтинг',
 			'libraries.sortLabels.communityRating' => 'Қауымдастық рейтингі',
+			_ => null,
+		} ?? switch (path) {
 			'libraries.sortLabels.criticRating' => 'Сыншылар рейтингі',
 			'libraries.sortLabels.userRating' => 'Пайдаланушы рейтингі',
 			'libraries.sortLabels.datePlayed' => 'Ойнатылған күні',
@@ -4208,9 +4199,6 @@ extension on TranslationsKk {
 			'liveTv.watchChannel' => 'Арнаны көру',
 			'liveTv.favorites' => 'Таңдаулылар',
 			'liveTv.reorderFavorites' => 'Таңдаулыларды қайта реттеу',
-			'liveTv.noFavoriteChannels' => 'Таңдаулы арналар жоқ',
-			'liveTv.noFavoriteChannelsHint' => 'Барлық арнаны көрсетіп, таңдаулыларға қосу үшін арнаны ұзақ басып тұрыңыз.',
-			'liveTv.showAllChannels' => 'Барлық арнаны көрсету',
 			'liveTv.favoritesLoadFailed' => 'Таңдаулыларды жүктеу мүмкін болмады.',
 			'liveTv.favoritesUpdateFailed' => 'Таңдаулыларды жаңарту мүмкін болмады.',
 			'liveTv.joinSession' => 'Сеансқа қосылу',
@@ -4473,14 +4461,14 @@ extension on TranslationsKk {
 			'downloads.manageSyncRule' => 'Синхрондауды басқару',
 			'downloads.editEpisodeCount' => 'Бөлімдер саны',
 			'downloads.editSyncFilter' => 'Синхрондау фильтрі',
-			_ => null,
-		} ?? switch (path) {
 			'downloads.syncAllItems' => 'Барлық элементтер синхрондалады',
 			'downloads.syncUnwatchedItems' => 'Көрілмеген элементтер синхрондалады',
 			'downloads.syncRuleServerContext' => ({required Object server, required Object status}) => 'Сервер: ${server} • ${status}',
 			'downloads.syncRuleAvailable' => 'Қолжетімді',
 			'downloads.syncRuleOffline' => 'Офлайн',
 			'downloads.syncRuleSignInRequired' => 'Кіру қажет',
+			_ => null,
+		} ?? switch (path) {
 			'downloads.syncRuleNotAvailableForProfile' => 'Ағымдағы профиль үшін қолжетімсіз',
 			'downloads.syncRuleUnknownServer' => 'Белгісіз сервер',
 			'downloads.syncRuleListCreated' => 'Синхрондау ережесі жасалды',

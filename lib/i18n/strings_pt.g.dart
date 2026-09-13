@@ -467,8 +467,6 @@ class _Translations$settings$pt extends Translations$settings$en {
 	@override String get startupSection => 'Seção inicial';
 	@override String get showExploreTab => 'Mostrar aba Explorar';
 	@override String get showExploreTabDescription => 'Exibir a aba Explorar com conteúdo do Plex Discover e dos rastreadores conectados';
-	@override String get liveTvDefaultFavorites => 'Canais favoritos por padrão';
-	@override String get liveTvDefaultFavoritesDescription => 'Mostrar apenas os canais favoritos ao abrir a TV ao vivo';
 	@override String get general => 'Geral';
 	@override String get generalDescription => 'Idioma, inicialização e comportamento da janela';
 	@override String get languageAndRegion => 'Idioma e Região';
@@ -478,7 +476,6 @@ class _Translations$settings$pt extends Translations$settings$en {
 	@override String get homeScreen => 'Tela inicial';
 	@override String get navigation => 'Navegação';
 	@override String get window => 'Janela';
-	@override String get liveTv => 'TV ao Vivo';
 	@override String get player => 'Reprodutor';
 	@override String get videoAndDisplay => 'Vídeo e Tela';
 	@override String get audio => 'Áudio';
@@ -1467,9 +1464,6 @@ class _Translations$liveTv$pt extends Translations$liveTv$en {
 	@override String get watchChannel => 'Assistir ao canal';
 	@override String get favorites => 'Favoritos';
 	@override String get reorderFavorites => 'Reordenar favoritos';
-	@override String get noFavoriteChannels => 'Nenhum canal favorito';
-	@override String get noFavoriteChannelsHint => 'Mostre todos os canais e mantenha um canal pressionado para adicioná-lo aos favoritos.';
-	@override String get showAllChannels => 'Mostrar todos os canais';
 	@override String get favoritesLoadFailed => 'Não foi possível carregar os favoritos. Verifique sua conexão e tente novamente.';
 	@override String get favoritesUpdateFailed => 'Não foi possível atualizar os favoritos. Verifique sua conexão e tente novamente.';
 	@override String get joinSession => 'Entrar na sessão em andamento';
@@ -3277,8 +3271,6 @@ extension on TranslationsPt {
 			'settings.startupSection' => 'Seção inicial',
 			'settings.showExploreTab' => 'Mostrar aba Explorar',
 			'settings.showExploreTabDescription' => 'Exibir a aba Explorar com conteúdo do Plex Discover e dos rastreadores conectados',
-			'settings.liveTvDefaultFavorites' => 'Canais favoritos por padrão',
-			'settings.liveTvDefaultFavoritesDescription' => 'Mostrar apenas os canais favoritos ao abrir a TV ao vivo',
 			'settings.general' => 'Geral',
 			'settings.generalDescription' => 'Idioma, inicialização e comportamento da janela',
 			'settings.languageAndRegion' => 'Idioma e Região',
@@ -3288,7 +3280,6 @@ extension on TranslationsPt {
 			'settings.homeScreen' => 'Tela inicial',
 			'settings.navigation' => 'Navegação',
 			'settings.window' => 'Janela',
-			'settings.liveTv' => 'TV ao Vivo',
 			'settings.player' => 'Reprodutor',
 			'settings.videoAndDisplay' => 'Vídeo e Tela',
 			'settings.audio' => 'Áudio',
@@ -3445,11 +3436,11 @@ extension on TranslationsPt {
 			'fileInfo.optimizedVersion' => 'Versão otimizada',
 			'fileInfo.optimizationTarget' => 'Alvo de otimização',
 			'fileInfo.deletedAt' => 'Excluído',
-			_ => null,
-		} ?? switch (path) {
 			'fileInfo.remoteSource' => 'Origem remota',
 			'fileInfo.infiniteStream' => 'Fluxo infinito',
 			'fileInfo.directPlay' => 'Reprodução direta',
+			_ => null,
+		} ?? switch (path) {
 			'fileInfo.directStream' => 'Fluxo direto',
 			'fileInfo.transcoding' => 'Transcodificação',
 			'fileInfo.etag' => 'ETag',
@@ -3959,11 +3950,11 @@ extension on TranslationsPt {
 			'libraries.filterCategories.favorites' => 'Favoritos',
 			'libraries.sortLabels.title' => 'Título',
 			'libraries.sortLabels.dateAdded' => 'Data de adição',
-			_ => null,
-		} ?? switch (path) {
 			'libraries.sortLabels.releaseDate' => 'Data de lançamento',
 			'libraries.sortLabels.rating' => 'Avaliação',
 			'libraries.sortLabels.communityRating' => 'Avaliação da comunidade',
+			_ => null,
+		} ?? switch (path) {
 			'libraries.sortLabels.criticRating' => 'Avaliação da crítica',
 			'libraries.sortLabels.userRating' => 'Avaliação do usuário',
 			'libraries.sortLabels.datePlayed' => 'Data de reprodução',
@@ -4208,9 +4199,6 @@ extension on TranslationsPt {
 			'liveTv.watchChannel' => 'Assistir ao canal',
 			'liveTv.favorites' => 'Favoritos',
 			'liveTv.reorderFavorites' => 'Reordenar favoritos',
-			'liveTv.noFavoriteChannels' => 'Nenhum canal favorito',
-			'liveTv.noFavoriteChannelsHint' => 'Mostre todos os canais e mantenha um canal pressionado para adicioná-lo aos favoritos.',
-			'liveTv.showAllChannels' => 'Mostrar todos os canais',
 			'liveTv.favoritesLoadFailed' => 'Não foi possível carregar os favoritos. Verifique sua conexão e tente novamente.',
 			'liveTv.favoritesUpdateFailed' => 'Não foi possível atualizar os favoritos. Verifique sua conexão e tente novamente.',
 			'liveTv.joinSession' => 'Entrar na sessão em andamento',
@@ -4473,14 +4461,14 @@ extension on TranslationsPt {
 			'downloads.manageSyncRule' => 'Gerenciar sincronização',
 			'downloads.editEpisodeCount' => 'Número de episódios',
 			'downloads.editSyncFilter' => 'Filtro de sincronização',
-			_ => null,
-		} ?? switch (path) {
 			'downloads.syncAllItems' => 'Sincronizando todos os itens',
 			'downloads.syncUnwatchedItems' => 'Sincronizando itens não assistidos',
 			'downloads.syncRuleServerContext' => ({required Object server, required Object status}) => 'Servidor: ${server} • ${status}',
 			'downloads.syncRuleAvailable' => 'Disponível',
 			'downloads.syncRuleOffline' => 'Offline',
 			'downloads.syncRuleSignInRequired' => 'É necessário entrar',
+			_ => null,
+		} ?? switch (path) {
 			'downloads.syncRuleNotAvailableForProfile' => 'Indisponível para o perfil atual',
 			'downloads.syncRuleUnknownServer' => 'Servidor desconhecido',
 			'downloads.syncRuleListCreated' => 'Regra de sincronização criada',

@@ -467,8 +467,6 @@ class Translations$settings$zh extends Translations$settings$en {
 	@override String get startupSection => '启动页面';
 	@override String get showExploreTab => '显示“探索”标签页';
 	@override String get showExploreTabDescription => '显示“探索”标签页，其中包含来自 Plex Discover 和已连接追踪服务的内容';
-	@override String get liveTvDefaultFavorites => '默认显示收藏频道';
-	@override String get liveTvDefaultFavoritesDescription => '打开直播电视时仅显示收藏频道';
 	@override String get general => '通用';
 	@override String get generalDescription => '语言、启动和窗口行为';
 	@override String get languageAndRegion => '语言与地区';
@@ -478,7 +476,6 @@ class Translations$settings$zh extends Translations$settings$en {
 	@override String get homeScreen => '主屏幕';
 	@override String get navigation => '导航';
 	@override String get window => '窗口';
-	@override String get liveTv => '直播电视';
 	@override String get player => '播放器';
 	@override String get videoAndDisplay => '视频与显示';
 	@override String get audio => '音频';
@@ -1460,9 +1457,6 @@ class Translations$liveTv$zh extends Translations$liveTv$en {
 	@override String get watchChannel => '观看频道';
 	@override String get favorites => '收藏';
 	@override String get reorderFavorites => '重新排序收藏';
-	@override String get noFavoriteChannels => '没有收藏的频道';
-	@override String get noFavoriteChannelsHint => '显示所有频道，然后长按某个频道将其加入收藏。';
-	@override String get showAllChannels => '显示所有频道';
 	@override String get favoritesLoadFailed => '无法加载收藏。请检查网络连接后重试。';
 	@override String get favoritesUpdateFailed => '无法更新收藏。请检查网络连接后重试。';
 	@override String get joinSession => '加入正在进行的会话';
@@ -3267,8 +3261,6 @@ extension on TranslationsZh {
 			'settings.startupSection' => '启动页面',
 			'settings.showExploreTab' => '显示“探索”标签页',
 			'settings.showExploreTabDescription' => '显示“探索”标签页，其中包含来自 Plex Discover 和已连接追踪服务的内容',
-			'settings.liveTvDefaultFavorites' => '默认显示收藏频道',
-			'settings.liveTvDefaultFavoritesDescription' => '打开直播电视时仅显示收藏频道',
 			'settings.general' => '通用',
 			'settings.generalDescription' => '语言、启动和窗口行为',
 			'settings.languageAndRegion' => '语言与地区',
@@ -3278,7 +3270,6 @@ extension on TranslationsZh {
 			'settings.homeScreen' => '主屏幕',
 			'settings.navigation' => '导航',
 			'settings.window' => '窗口',
-			'settings.liveTv' => '直播电视',
 			'settings.player' => '播放器',
 			'settings.videoAndDisplay' => '视频与显示',
 			'settings.audio' => '音频',
@@ -3435,11 +3426,11 @@ extension on TranslationsZh {
 			'fileInfo.optimizedVersion' => '优化版本',
 			'fileInfo.optimizationTarget' => '优化目标',
 			'fileInfo.deletedAt' => '已删除',
-			_ => null,
-		} ?? switch (path) {
 			'fileInfo.remoteSource' => '远程来源',
 			'fileInfo.infiniteStream' => '无限流',
 			'fileInfo.directPlay' => '直接播放',
+			_ => null,
+		} ?? switch (path) {
 			'fileInfo.directStream' => '直接串流',
 			'fileInfo.transcoding' => '转码',
 			'fileInfo.etag' => 'ETag',
@@ -3949,11 +3940,11 @@ extension on TranslationsZh {
 			'libraries.filterCategories.favorites' => '收藏夹',
 			'libraries.sortLabels.title' => '标题',
 			'libraries.sortLabels.dateAdded' => '添加日期',
-			_ => null,
-		} ?? switch (path) {
 			'libraries.sortLabels.releaseDate' => '发行日期',
 			'libraries.sortLabels.rating' => '评分',
 			'libraries.sortLabels.communityRating' => '社区评分',
+			_ => null,
+		} ?? switch (path) {
 			'libraries.sortLabels.criticRating' => '影评人评分',
 			'libraries.sortLabels.userRating' => '用户评分',
 			'libraries.sortLabels.datePlayed' => '播放日期',
@@ -4198,9 +4189,6 @@ extension on TranslationsZh {
 			'liveTv.watchChannel' => '观看频道',
 			'liveTv.favorites' => '收藏',
 			'liveTv.reorderFavorites' => '重新排序收藏',
-			'liveTv.noFavoriteChannels' => '没有收藏的频道',
-			'liveTv.noFavoriteChannelsHint' => '显示所有频道，然后长按某个频道将其加入收藏。',
-			'liveTv.showAllChannels' => '显示所有频道',
 			'liveTv.favoritesLoadFailed' => '无法加载收藏。请检查网络连接后重试。',
 			'liveTv.favoritesUpdateFailed' => '无法更新收藏。请检查网络连接后重试。',
 			'liveTv.joinSession' => '加入正在进行的会话',
@@ -4463,14 +4451,14 @@ extension on TranslationsZh {
 			'downloads.manageSyncRule' => '管理同步',
 			'downloads.editEpisodeCount' => '剧集数量',
 			'downloads.editSyncFilter' => '同步筛选',
-			_ => null,
-		} ?? switch (path) {
 			'downloads.syncAllItems' => '同步所有项目',
 			'downloads.syncUnwatchedItems' => '同步未观看项目',
 			'downloads.syncRuleServerContext' => ({required Object server, required Object status}) => '服务器：${server} • ${status}',
 			'downloads.syncRuleAvailable' => '可用',
 			'downloads.syncRuleOffline' => '离线',
 			'downloads.syncRuleSignInRequired' => '需要登录',
+			_ => null,
+		} ?? switch (path) {
 			'downloads.syncRuleNotAvailableForProfile' => '当前用户资料不可用',
 			'downloads.syncRuleUnknownServer' => '未知服务器',
 			'downloads.syncRuleListCreated' => '同步规则已创建',
