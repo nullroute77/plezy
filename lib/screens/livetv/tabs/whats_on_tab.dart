@@ -83,7 +83,7 @@ class WhatsOnTabState extends State<WhatsOnTab>
           final plex = multiServer.getPlexClientForServer(client.serverId);
           final hubs = plex != null ? await plex.getLiveTvHubs() : await _loadCurrentPrograms(client, now);
           for (final hub in hubs) {
-            allHubs.add(_WhatsOnHub.fromResult(hub));
+            allHubs.add(_WhatsOnHub.fromResult(hub, client: client));
             allHubIds.add('${serverInfo.serverId}\u0000${hub.hubKey}');
           }
         },
@@ -209,6 +209,7 @@ class WhatsOnTabState extends State<WhatsOnTab>
         return HubSection(
           key: _hubKeys[index],
           hub: hub.mediaHub,
+          showServerName: true,
           focusMemory: _hubFocusMemory,
           icon: Symbols.live_tv_rounded,
           cardSizing: HubCardSizing.grid,
@@ -238,13 +239,12 @@ class _WhatsOnHub {
 
   const _WhatsOnHub._(this.mediaHub, this._entriesByItem);
 
-  factory _WhatsOnHub.fromResult(LiveTvHubResult result) {
+  factory _WhatsOnHub.fromResult(LiveTvHubResult result, {required MediaServerClient client}) {
     final entriesByItem = Map<MediaItem, LiveTvHubEntry>.identity();
     for (final entry in result.entries) {
       entriesByItem[entry.metadata] = entry;
     }
 
-    final firstMetadata = result.entries.isEmpty ? null : result.entries.first.metadata;
     return _WhatsOnHub._(
       MediaHub(
         id: result.hubKey,
@@ -252,8 +252,8 @@ class _WhatsOnHub {
         type: 'mixed',
         items: [for (final entry in result.entries) entry.metadata],
         size: result.entries.length,
-        serverId: firstMetadata?.serverId,
-        serverName: firstMetadata?.serverName,
+        serverId: client.serverId,
+        serverName: client.serverName,
       ),
       entriesByItem,
     );

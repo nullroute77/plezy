@@ -66,6 +66,9 @@ void main() {
         expect(find.text('Future show'), findsNothing);
         expect(find.text('Unknown timing'), findsNothing);
         final hub = tester.widget<HubSection>(find.byType(HubSection));
+        expect(hub.showServerName, isTrue);
+        expect(find.text(client.serverName!), findsOneWidget);
+        expect(find.text('•'), findsOneWidget);
         expect(hub.hub.items.single.backend, client.backend);
         expect(hub.hub.items.single.serverId, client.serverId);
         // Exercise the existing long-press details action with the parsed program.
@@ -145,6 +148,9 @@ void main() {
     await _pump(tester, [plex, jellyfin]);
     expect(paths, ['/provider-a/hubs/discover']);
     expect(find.text('Plex recommendations'), findsOneWidget);
+    expect(find.text(plex.serverName!), findsOneWidget);
+    expect(find.text(jellyfin.serverName!), findsOneWidget);
+    expect(find.text('•'), findsNWidgets(2));
     expect(find.text('Plex movie'), findsOneWidget);
     expect(find.text('Jellyfin show'), findsOneWidget);
     expect(tester.takeException(), isNull);
@@ -201,7 +207,11 @@ void main() {
     final clients = [
       for (final dialect in MediaBrowserDialect.values)
         testJellyfinClient(
-          connection: testJellyfinConnection(machineId: dialect.name, dialect: dialect),
+          connection: testJellyfinConnection(
+            machineId: dialect.name,
+            dialect: dialect,
+            serverName: '${dialect.name} server',
+          ),
           handler: (_) async => jsonResponse({
             'Items': [
               _program('Current show', now.subtract(const Duration(minutes: 10)), now.add(const Duration(hours: 1))),
@@ -213,6 +223,11 @@ void main() {
       await _pump(tester, clients);
       final hubs = tester.widgetList<HubSection>(find.byType(HubSection)).toList();
       expect(hubs, hasLength(2));
+      expect(find.text(t.liveTv.whatsOn), findsNWidgets(2));
+      expect(find.text('•'), findsNWidgets(2));
+      for (final client in clients) {
+        expect(find.text(client.serverName!), findsOneWidget);
+      }
       expect(
         hubs.map((hub) => hub.hub.items.single.serverId).toSet(),
         clients.map((client) => client.serverId).toSet(),
