@@ -2196,15 +2196,12 @@ class _ChannelCellState extends State<_ChannelCell> {
                           left: 0,
                           right: 0,
                           bottom: 2,
-                          child: Tooltip(
-                            message: widget.sourceLabel!,
-                            child: Text(
-                              widget.sourceLabel!,
-                              textAlign: TextAlign.center,
-                              style: theme.textTheme.labelSmall?.copyWith(fontSize: 9, height: 1, color: contentColor),
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                            ),
+                          child: Text(
+                            widget.sourceLabel!,
+                            textAlign: TextAlign.center,
+                            style: theme.textTheme.labelSmall?.copyWith(fontSize: 9, height: 1, color: contentColor),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
                           ),
                         ),
                       if (showAction) AppIcon(Symbols.play_arrow_rounded, size: 32, color: contentColor),
