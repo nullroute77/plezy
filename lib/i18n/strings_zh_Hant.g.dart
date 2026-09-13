@@ -468,8 +468,6 @@ class _Translations$settings$zh_Hant extends Translations$settings$zh {
 	@override String get startupSection => '啟動頁面';
 	@override String get showExploreTab => '顯示探索分頁';
 	@override String get showExploreTabDescription => '顯示探索分頁，其中包含來自 Plex Discover 和已連結追蹤服務的內容';
-	@override String get liveTvDefaultFavorites => '預設顯示最愛頻道';
-	@override String get liveTvDefaultFavoritesDescription => '開啟直播電視時僅顯示最愛頻道';
 	@override String get general => '一般';
 	@override String get generalDescription => '語言、啟動與視窗行為';
 	@override String get languageAndRegion => '語言與地區';
@@ -479,7 +477,6 @@ class _Translations$settings$zh_Hant extends Translations$settings$zh {
 	@override String get homeScreen => '主畫面';
 	@override String get navigation => '導覽';
 	@override String get window => '視窗';
-	@override String get liveTv => '直播電視';
 	@override String get player => '播放器';
 	@override String get videoAndDisplay => '影片與顯示器';
 	@override String get audio => '音訊';
@@ -1461,9 +1458,6 @@ class _Translations$liveTv$zh_Hant extends Translations$liveTv$zh {
 	@override String get watchChannel => '觀看頻道';
 	@override String get favorites => '最愛';
 	@override String get reorderFavorites => '重新排序最愛頻道';
-	@override String get noFavoriteChannels => '沒有最愛頻道';
-	@override String get noFavoriteChannelsHint => '顯示所有頻道，然後長按頻道即可將其加入最愛。';
-	@override String get showAllChannels => '顯示所有頻道';
 	@override String get favoritesLoadFailed => '無法載入最愛頻道。請檢查網路連線後重試。';
 	@override String get favoritesUpdateFailed => '無法更新最愛頻道。請檢查網路連線後重試。';
 	@override String get joinSession => '加入進行中的「一起看」';
@@ -3268,8 +3262,6 @@ extension on TranslationsZhHant {
 			'settings.startupSection' => '啟動頁面',
 			'settings.showExploreTab' => '顯示探索分頁',
 			'settings.showExploreTabDescription' => '顯示探索分頁，其中包含來自 Plex Discover 和已連結追蹤服務的內容',
-			'settings.liveTvDefaultFavorites' => '預設顯示最愛頻道',
-			'settings.liveTvDefaultFavoritesDescription' => '開啟直播電視時僅顯示最愛頻道',
 			'settings.general' => '一般',
 			'settings.generalDescription' => '語言、啟動與視窗行為',
 			'settings.languageAndRegion' => '語言與地區',
@@ -3279,7 +3271,6 @@ extension on TranslationsZhHant {
 			'settings.homeScreen' => '主畫面',
 			'settings.navigation' => '導覽',
 			'settings.window' => '視窗',
-			'settings.liveTv' => '直播電視',
 			'settings.player' => '播放器',
 			'settings.videoAndDisplay' => '影片與顯示器',
 			'settings.audio' => '音訊',
@@ -3436,11 +3427,11 @@ extension on TranslationsZhHant {
 			'fileInfo.optimizedVersion' => '最佳化版本',
 			'fileInfo.optimizationTarget' => '最佳化目標',
 			'fileInfo.deletedAt' => '已刪除',
-			_ => null,
-		} ?? switch (path) {
 			'fileInfo.remoteSource' => '遠端來源',
 			'fileInfo.infiniteStream' => '無限串流',
 			'fileInfo.directPlay' => '直接播放',
+			_ => null,
+		} ?? switch (path) {
 			'fileInfo.directStream' => '直接串流',
 			'fileInfo.transcoding' => '轉碼',
 			'fileInfo.etag' => 'ETag',
@@ -3950,11 +3941,11 @@ extension on TranslationsZhHant {
 			'libraries.filterCategories.favorites' => '我的最愛',
 			'libraries.sortLabels.title' => '標題',
 			'libraries.sortLabels.dateAdded' => '新增日期',
-			_ => null,
-		} ?? switch (path) {
 			'libraries.sortLabels.releaseDate' => '發行日期',
 			'libraries.sortLabels.rating' => '評分',
 			'libraries.sortLabels.communityRating' => '社群評分',
+			_ => null,
+		} ?? switch (path) {
 			'libraries.sortLabels.criticRating' => '影評人評分',
 			'libraries.sortLabels.userRating' => '使用者評分',
 			'libraries.sortLabels.datePlayed' => '播放日期',
@@ -4199,9 +4190,6 @@ extension on TranslationsZhHant {
 			'liveTv.watchChannel' => '觀看頻道',
 			'liveTv.favorites' => '最愛',
 			'liveTv.reorderFavorites' => '重新排序最愛頻道',
-			'liveTv.noFavoriteChannels' => '沒有最愛頻道',
-			'liveTv.noFavoriteChannelsHint' => '顯示所有頻道，然後長按頻道即可將其加入最愛。',
-			'liveTv.showAllChannels' => '顯示所有頻道',
 			'liveTv.favoritesLoadFailed' => '無法載入最愛頻道。請檢查網路連線後重試。',
 			'liveTv.favoritesUpdateFailed' => '無法更新最愛頻道。請檢查網路連線後重試。',
 			'liveTv.joinSession' => '加入進行中的「一起看」',
@@ -4464,14 +4452,14 @@ extension on TranslationsZhHant {
 			'downloads.manageSyncRule' => '管理同步',
 			'downloads.editEpisodeCount' => '單集數量',
 			'downloads.editSyncFilter' => '同步篩選器',
-			_ => null,
-		} ?? switch (path) {
 			'downloads.syncAllItems' => '同步所有項目',
 			'downloads.syncUnwatchedItems' => '同步未觀看項目',
 			'downloads.syncRuleServerContext' => ({required Object server, required Object status}) => '伺服器：${server} • ${status}',
 			'downloads.syncRuleAvailable' => '可用',
 			'downloads.syncRuleOffline' => '離線',
 			'downloads.syncRuleSignInRequired' => '需要登入',
+			_ => null,
+		} ?? switch (path) {
 			'downloads.syncRuleNotAvailableForProfile' => '目前使用者設定檔無法使用',
 			'downloads.syncRuleUnknownServer' => '未知伺服器',
 			'downloads.syncRuleListCreated' => '同步規則已建立',

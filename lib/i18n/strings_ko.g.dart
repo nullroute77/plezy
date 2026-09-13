@@ -467,8 +467,6 @@ class _Translations$settings$ko extends Translations$settings$en {
 	@override String get startupSection => '시작 섹션';
 	@override String get showExploreTab => '둘러보기 탭 표시';
 	@override String get showExploreTabDescription => 'Plex Discover와 연결된 트래커의 콘텐츠가 포함된 둘러보기 탭을 표시합니다';
-	@override String get liveTvDefaultFavorites => '즐겨찾기 채널 기본 설정';
-	@override String get liveTvDefaultFavoritesDescription => '라이브 TV를 열 때 즐겨찾기 채널만 표시';
 	@override String get general => '일반';
 	@override String get generalDescription => '언어, 시작 및 창 동작';
 	@override String get languageAndRegion => '언어 및 지역';
@@ -478,7 +476,6 @@ class _Translations$settings$ko extends Translations$settings$en {
 	@override String get homeScreen => '홈 화면';
 	@override String get navigation => '탐색';
 	@override String get window => '창';
-	@override String get liveTv => '라이브 TV';
 	@override String get player => '플레이어';
 	@override String get videoAndDisplay => '비디오 및 디스플레이';
 	@override String get audio => '오디오';
@@ -1460,9 +1457,6 @@ class _Translations$liveTv$ko extends Translations$liveTv$en {
 	@override String get watchChannel => '채널 시청';
 	@override String get favorites => '즐겨찾기';
 	@override String get reorderFavorites => '즐겨찾기 순서 변경';
-	@override String get noFavoriteChannels => '즐겨찾기 채널 없음';
-	@override String get noFavoriteChannelsHint => '모든 채널을 표시한 다음 채널을 길게 눌러 즐겨찾기에 추가하세요.';
-	@override String get showAllChannels => '모든 채널 표시';
 	@override String get favoritesLoadFailed => '즐겨찾기를 불러올 수 없습니다. 연결을 확인하고 다시 시도하세요.';
 	@override String get favoritesUpdateFailed => '즐겨찾기를 업데이트할 수 없습니다. 연결을 확인하고 다시 시도하세요.';
 	@override String get joinSession => '진행 중인 세션 참여';
@@ -3267,8 +3261,6 @@ extension on TranslationsKo {
 			'settings.startupSection' => '시작 섹션',
 			'settings.showExploreTab' => '둘러보기 탭 표시',
 			'settings.showExploreTabDescription' => 'Plex Discover와 연결된 트래커의 콘텐츠가 포함된 둘러보기 탭을 표시합니다',
-			'settings.liveTvDefaultFavorites' => '즐겨찾기 채널 기본 설정',
-			'settings.liveTvDefaultFavoritesDescription' => '라이브 TV를 열 때 즐겨찾기 채널만 표시',
 			'settings.general' => '일반',
 			'settings.generalDescription' => '언어, 시작 및 창 동작',
 			'settings.languageAndRegion' => '언어 및 지역',
@@ -3278,7 +3270,6 @@ extension on TranslationsKo {
 			'settings.homeScreen' => '홈 화면',
 			'settings.navigation' => '탐색',
 			'settings.window' => '창',
-			'settings.liveTv' => '라이브 TV',
 			'settings.player' => '플레이어',
 			'settings.videoAndDisplay' => '비디오 및 디스플레이',
 			'settings.audio' => '오디오',
@@ -3435,11 +3426,11 @@ extension on TranslationsKo {
 			'fileInfo.optimizedVersion' => '최적화 버전',
 			'fileInfo.optimizationTarget' => '최적화 대상',
 			'fileInfo.deletedAt' => '삭제됨',
-			_ => null,
-		} ?? switch (path) {
 			'fileInfo.remoteSource' => '원격 소스',
 			'fileInfo.infiniteStream' => '무한 스트림',
 			'fileInfo.directPlay' => 'Direct Play',
+			_ => null,
+		} ?? switch (path) {
 			'fileInfo.directStream' => 'Direct Stream',
 			'fileInfo.transcoding' => '트랜스코딩',
 			'fileInfo.etag' => 'ETag',
@@ -3949,11 +3940,11 @@ extension on TranslationsKo {
 			'libraries.filterCategories.favorites' => '즐겨찾기',
 			'libraries.sortLabels.title' => '제목',
 			'libraries.sortLabels.dateAdded' => '추가된 날짜',
-			_ => null,
-		} ?? switch (path) {
 			'libraries.sortLabels.releaseDate' => '출시일',
 			'libraries.sortLabels.rating' => '평점',
 			'libraries.sortLabels.communityRating' => '커뮤니티 평점',
+			_ => null,
+		} ?? switch (path) {
 			'libraries.sortLabels.criticRating' => '평론가 평점',
 			'libraries.sortLabels.userRating' => '사용자 평점',
 			'libraries.sortLabels.datePlayed' => '재생일',
@@ -4198,9 +4189,6 @@ extension on TranslationsKo {
 			'liveTv.watchChannel' => '채널 시청',
 			'liveTv.favorites' => '즐겨찾기',
 			'liveTv.reorderFavorites' => '즐겨찾기 순서 변경',
-			'liveTv.noFavoriteChannels' => '즐겨찾기 채널 없음',
-			'liveTv.noFavoriteChannelsHint' => '모든 채널을 표시한 다음 채널을 길게 눌러 즐겨찾기에 추가하세요.',
-			'liveTv.showAllChannels' => '모든 채널 표시',
 			'liveTv.favoritesLoadFailed' => '즐겨찾기를 불러올 수 없습니다. 연결을 확인하고 다시 시도하세요.',
 			'liveTv.favoritesUpdateFailed' => '즐겨찾기를 업데이트할 수 없습니다. 연결을 확인하고 다시 시도하세요.',
 			'liveTv.joinSession' => '진행 중인 세션 참여',
@@ -4463,14 +4451,14 @@ extension on TranslationsKo {
 			'downloads.manageSyncRule' => '동기화 관리',
 			'downloads.editEpisodeCount' => '에피소드 수',
 			'downloads.editSyncFilter' => '동기화 필터',
-			_ => null,
-		} ?? switch (path) {
 			'downloads.syncAllItems' => '모든 항목 동기화 중',
 			'downloads.syncUnwatchedItems' => '시청하지 않은 항목 동기화 중',
 			'downloads.syncRuleServerContext' => ({required Object server, required Object status}) => '서버: ${server} • ${status}',
 			'downloads.syncRuleAvailable' => '사용 가능',
 			'downloads.syncRuleOffline' => '오프라인',
 			'downloads.syncRuleSignInRequired' => '로그인 필요',
+			_ => null,
+		} ?? switch (path) {
 			'downloads.syncRuleNotAvailableForProfile' => '현재 프로필에서 사용할 수 없음',
 			'downloads.syncRuleUnknownServer' => '알 수 없는 서버',
 			'downloads.syncRuleListCreated' => '동기화 규칙이 생성되었습니다',

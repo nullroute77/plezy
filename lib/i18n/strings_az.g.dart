@@ -467,8 +467,6 @@ class _Translations$settings$az extends Translations$settings$en {
 	@override String get startupSection => 'Başlanğıc bölməsi';
 	@override String get showExploreTab => 'Kəşf et nişanını göstər';
 	@override String get showExploreTabDescription => 'Plex Discover və qoşulmuş izləmə xidmətlərindəki məzmunla Kəşf et nişanını göstər';
-	@override String get liveTvDefaultFavorites => 'Canlı TV-də sevimli kanalları defolt et';
-	@override String get liveTvDefaultFavoritesDescription => 'Canlı TV açıldıqda yalnız sevimli kanalları göstər';
 	@override String get general => 'Ümumi';
 	@override String get generalDescription => 'Dil, başlanğıc və pəncərə davranışı';
 	@override String get languageAndRegion => 'Dil və Region';
@@ -478,7 +476,6 @@ class _Translations$settings$az extends Translations$settings$en {
 	@override String get homeScreen => 'Ana ekran';
 	@override String get navigation => 'Naviqasiya';
 	@override String get window => 'Pəncərə';
-	@override String get liveTv => 'Canlı TV';
 	@override String get player => 'Oynadıcı';
 	@override String get videoAndDisplay => 'Video və Ekran';
 	@override String get audio => 'Səs';
@@ -1467,9 +1464,6 @@ class _Translations$liveTv$az extends Translations$liveTv$en {
 	@override String get watchChannel => 'Kanala bax';
 	@override String get favorites => 'Sevimlilər';
 	@override String get reorderFavorites => 'Sevimliləri yenidən sırala';
-	@override String get noFavoriteChannels => 'Sevimli kanal yoxdur';
-	@override String get noFavoriteChannelsHint => 'Bütün kanalları göstərin, sonra kanalı sevimlilərə əlavə etmək üçün üzərinə uzun basın.';
-	@override String get showAllChannels => 'Bütün kanalları göstər';
 	@override String get favoritesLoadFailed => 'Sevimlilər yüklənə bilmədi.';
 	@override String get favoritesUpdateFailed => 'Sevimlilər yenilənə bilmədi.';
 	@override String get joinSession => 'Davam edən seansa qoşul';
@@ -3277,8 +3271,6 @@ extension on TranslationsAz {
 			'settings.startupSection' => 'Başlanğıc bölməsi',
 			'settings.showExploreTab' => 'Kəşf et nişanını göstər',
 			'settings.showExploreTabDescription' => 'Plex Discover və qoşulmuş izləmə xidmətlərindəki məzmunla Kəşf et nişanını göstər',
-			'settings.liveTvDefaultFavorites' => 'Canlı TV-də sevimli kanalları defolt et',
-			'settings.liveTvDefaultFavoritesDescription' => 'Canlı TV açıldıqda yalnız sevimli kanalları göstər',
 			'settings.general' => 'Ümumi',
 			'settings.generalDescription' => 'Dil, başlanğıc və pəncərə davranışı',
 			'settings.languageAndRegion' => 'Dil və Region',
@@ -3288,7 +3280,6 @@ extension on TranslationsAz {
 			'settings.homeScreen' => 'Ana ekran',
 			'settings.navigation' => 'Naviqasiya',
 			'settings.window' => 'Pəncərə',
-			'settings.liveTv' => 'Canlı TV',
 			'settings.player' => 'Oynadıcı',
 			'settings.videoAndDisplay' => 'Video və Ekran',
 			'settings.audio' => 'Səs',
@@ -3445,11 +3436,11 @@ extension on TranslationsAz {
 			'fileInfo.optimizedVersion' => 'Optimallaşdırılmış versiya',
 			'fileInfo.optimizationTarget' => 'Optimallaşdırma hədəfi',
 			'fileInfo.deletedAt' => 'Silinib',
-			_ => null,
-		} ?? switch (path) {
 			'fileInfo.remoteSource' => 'Uzaq mənbə',
 			'fileInfo.infiniteStream' => 'Sonsuz axın',
 			'fileInfo.directPlay' => 'Birbaşa oynatma',
+			_ => null,
+		} ?? switch (path) {
 			'fileInfo.directStream' => 'Birbaşa axın',
 			'fileInfo.transcoding' => 'Yenidən kodlaşdırma',
 			'fileInfo.etag' => 'ETag',
@@ -3959,11 +3950,11 @@ extension on TranslationsAz {
 			'libraries.filterCategories.favorites' => 'Sevimlilər',
 			'libraries.sortLabels.title' => 'Ad',
 			'libraries.sortLabels.dateAdded' => 'Əlavə olunma tarixi',
-			_ => null,
-		} ?? switch (path) {
 			'libraries.sortLabels.releaseDate' => 'Buraxılış tarixi',
 			'libraries.sortLabels.rating' => 'Reytinq',
 			'libraries.sortLabels.communityRating' => 'İcma reytinqi',
+			_ => null,
+		} ?? switch (path) {
 			'libraries.sortLabels.criticRating' => 'Tənqidçi reytinqi',
 			'libraries.sortLabels.userRating' => 'İstifadəçi reytinqi',
 			'libraries.sortLabels.datePlayed' => 'Oynadılma tarixi',
@@ -4208,9 +4199,6 @@ extension on TranslationsAz {
 			'liveTv.watchChannel' => 'Kanala bax',
 			'liveTv.favorites' => 'Sevimlilər',
 			'liveTv.reorderFavorites' => 'Sevimliləri yenidən sırala',
-			'liveTv.noFavoriteChannels' => 'Sevimli kanal yoxdur',
-			'liveTv.noFavoriteChannelsHint' => 'Bütün kanalları göstərin, sonra kanalı sevimlilərə əlavə etmək üçün üzərinə uzun basın.',
-			'liveTv.showAllChannels' => 'Bütün kanalları göstər',
 			'liveTv.favoritesLoadFailed' => 'Sevimlilər yüklənə bilmədi.',
 			'liveTv.favoritesUpdateFailed' => 'Sevimlilər yenilənə bilmədi.',
 			'liveTv.joinSession' => 'Davam edən seansa qoşul',
@@ -4473,14 +4461,14 @@ extension on TranslationsAz {
 			'downloads.manageSyncRule' => 'Eyniləşdirməni idarə et',
 			'downloads.editEpisodeCount' => 'Seriya sayı',
 			'downloads.editSyncFilter' => 'Eyniləşdirmə filtri',
-			_ => null,
-		} ?? switch (path) {
 			'downloads.syncAllItems' => 'Bütün elementlər eyniləşdirilir',
 			'downloads.syncUnwatchedItems' => 'Baxılmayan elementlər eyniləşdirilir',
 			'downloads.syncRuleServerContext' => ({required Object server, required Object status}) => 'Server: ${server} • ${status}',
 			'downloads.syncRuleAvailable' => 'Əlçatandır',
 			'downloads.syncRuleOffline' => 'Oflayn',
 			'downloads.syncRuleSignInRequired' => 'Daxil olmaq tələb olunur',
+			_ => null,
+		} ?? switch (path) {
 			'downloads.syncRuleNotAvailableForProfile' => 'Cari profil üçün əlçatan deyil',
 			'downloads.syncRuleUnknownServer' => 'Bilinməyən server',
 			'downloads.syncRuleListCreated' => 'Eyniləşdirmə qaydası yaradıldı',
