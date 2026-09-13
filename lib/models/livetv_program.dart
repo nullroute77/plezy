@@ -178,7 +178,12 @@ class LiveTvProgram {
     return null;
   }
 
-  String get guideTitle => programTitle ?? grandparentTitle ?? title;
+  String get guideTitle {
+    final primary = programTitle?.trim();
+    if (primary != null && primary.isNotEmpty) return primary;
+    final series = grandparentTitle?.trim();
+    return series != null && series.isNotEmpty ? series : title.trim();
+  }
 
   static final _episodePlaceholder = RegExp(r'^episode\s+[0-9]+$', caseSensitive: false);
 
@@ -223,23 +228,6 @@ class LiveTvProgram {
     if (now < beginsAt!) return 0.0;
     if (now >= endsAt!) return 1.0;
     return (now - beginsAt!) / (endsAt! - beginsAt!);
-  }
-
-  /// Program and episode labels shared with the guide's presentation rules.
-  String get guideTitle {
-    final series = grandparentTitle?.trim();
-    return series != null && series.isNotEmpty ? series : title.trim();
-  }
-
-  static final _episodePlaceholder = RegExp(r'^episode\s+[0-9]+$', caseSensitive: false);
-
-  /// Only an entire `Episode <digits>` is a placeholder; meaningful numbered
-  /// titles remain visible, without adding season or episode prefixes.
-  String? get guideSubtitle {
-    if (grandparentTitle?.trim().isNotEmpty != true) return null;
-    final secondary = title.trim();
-    if (secondary.isEmpty || _episodePlaceholder.hasMatch(secondary)) return null;
-    return secondary;
   }
 
   String get displayTitle {

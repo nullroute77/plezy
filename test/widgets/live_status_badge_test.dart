@@ -8,7 +8,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:intl/date_symbol_data_local.dart';
 import 'package:plezy/focus/input_mode_tracker.dart';
 import 'package:plezy/i18n/strings.g.dart';
-import 'package:plezy/models/livetv_capture_buffer.dart';
+import 'package:plezy/media/live_tv_timeline.dart';
 import 'package:plezy/models/livetv_program.dart';
 import 'package:plezy/screens/livetv/program_details_sheet.dart';
 import 'package:plezy/services/settings_service.dart';
@@ -66,8 +66,18 @@ void main() {
         addTearDown(volume.dispose);
         final watchTogether = WatchTogetherProvider();
         addTearDown(watchTogether.dispose);
-        final buffer = scenario.buffered
-            ? const CaptureBuffer(startedAt: 1800000000, seekStartSeconds: 0, seekEndSeconds: 1800)
+        final timeline = scenario.buffered
+            ? LiveTvTimeline.resolve(
+                playback: LiveTvPlaybackPosition(
+                  epoch: scenario.edge ? 1800001800 : 1800000900,
+                  accuracy: LiveTvTimeAccuracy.confirmed,
+                  active: true,
+                ),
+                seekable: const LiveTvSeekWindow(startEpoch: 1800000000, endEpoch: 1800001800),
+                liveEdgeEpoch: 1800001800,
+                liveEdgeAccuracy: LiveTvTimeAccuracy.confirmed,
+                metadataNowEpoch: 1800001800,
+              )
             : null;
         final metadata = testMediaItem(id: 'live-badge', title: 'Live sports');
         final controls = desktop
@@ -87,9 +97,7 @@ void main() {
                 getReplayIcon: (_) => Icons.replay,
                 getForwardIcon: (_) => Icons.forward_10,
                 trackControlsState: TrackControlsState(canControl: true, isLive: scenario.live),
-                captureBuffer: buffer,
-                isAtLiveEdge: scenario.edge,
-                liveEpochForPosition: (position) => 1800000000 + position.inSeconds,
+                liveTimelineForPosition: timeline == null ? null : (_) => timeline,
               )
             : MobileVideoControls(
                 player: player,
@@ -102,9 +110,7 @@ void main() {
                 onSeekEnd: (_) {},
                 onPlayPause: () {},
                 isLive: scenario.live,
-                captureBuffer: buffer,
-                isAtLiveEdge: scenario.edge,
-                liveEpochForPosition: (position) => 1800000000 + position.inSeconds,
+                liveTimelineForPosition: timeline == null ? null : (_) => timeline,
               );
         await tester.pumpWidget(
           ChangeNotifierProvider<WatchTogetherProvider>.value(value: watchTogether, child: _shell(controls)),
