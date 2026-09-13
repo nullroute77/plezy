@@ -467,8 +467,6 @@ class _Translations$settings$ru extends Translations$settings$en {
 	@override String get startupSection => 'Начальный раздел';
 	@override String get showExploreTab => 'Показывать вкладку «Обзор»';
 	@override String get showExploreTabDescription => 'Показывать вкладку «Обзор» с контентом из Plex Discover и подключённых трекеров';
-	@override String get liveTvDefaultFavorites => 'Избранные каналы по умолчанию';
-	@override String get liveTvDefaultFavoritesDescription => 'Показывать только избранные каналы при открытии ТВ';
 	@override String get general => 'Основные';
 	@override String get generalDescription => 'Язык, запуск и поведение окна';
 	@override String get languageAndRegion => 'Язык и регион';
@@ -478,7 +476,6 @@ class _Translations$settings$ru extends Translations$settings$en {
 	@override String get homeScreen => 'Главный экран';
 	@override String get navigation => 'Навигация';
 	@override String get window => 'Окно';
-	@override String get liveTv => 'Прямой эфир';
 	@override String get player => 'Плеер';
 	@override String get videoAndDisplay => 'Видео и экран';
 	@override String get audio => 'Аудио';
@@ -1481,9 +1478,6 @@ class _Translations$liveTv$ru extends Translations$liveTv$en {
 	@override String get watchChannel => 'Смотреть канал';
 	@override String get favorites => 'Избранное';
 	@override String get reorderFavorites => 'Изменить порядок избранного';
-	@override String get noFavoriteChannels => 'Нет избранных каналов';
-	@override String get noFavoriteChannelsHint => 'Покажите все каналы, затем нажмите и удерживайте канал, чтобы добавить его в избранное.';
-	@override String get showAllChannels => 'Показать все каналы';
 	@override String get favoritesLoadFailed => 'Не удалось загрузить избранное. Проверьте подключение и повторите попытку.';
 	@override String get favoritesUpdateFailed => 'Не удалось обновить избранное. Проверьте подключение и повторите попытку.';
 	@override String get joinSession => 'Присоединиться к текущему сеансу';
@@ -3297,8 +3291,6 @@ extension on TranslationsRu {
 			'settings.startupSection' => 'Начальный раздел',
 			'settings.showExploreTab' => 'Показывать вкладку «Обзор»',
 			'settings.showExploreTabDescription' => 'Показывать вкладку «Обзор» с контентом из Plex Discover и подключённых трекеров',
-			'settings.liveTvDefaultFavorites' => 'Избранные каналы по умолчанию',
-			'settings.liveTvDefaultFavoritesDescription' => 'Показывать только избранные каналы при открытии ТВ',
 			'settings.general' => 'Основные',
 			'settings.generalDescription' => 'Язык, запуск и поведение окна',
 			'settings.languageAndRegion' => 'Язык и регион',
@@ -3308,7 +3300,6 @@ extension on TranslationsRu {
 			'settings.homeScreen' => 'Главный экран',
 			'settings.navigation' => 'Навигация',
 			'settings.window' => 'Окно',
-			'settings.liveTv' => 'Прямой эфир',
 			'settings.player' => 'Плеер',
 			'settings.videoAndDisplay' => 'Видео и экран',
 			'settings.audio' => 'Аудио',
@@ -3465,11 +3456,11 @@ extension on TranslationsRu {
 			'fileInfo.optimizedVersion' => 'Оптимизированная версия',
 			'fileInfo.optimizationTarget' => 'Цель оптимизации',
 			'fileInfo.deletedAt' => 'Удалено',
-			_ => null,
-		} ?? switch (path) {
 			'fileInfo.remoteSource' => 'Удалённый источник',
 			'fileInfo.infiniteStream' => 'Бесконечный поток',
 			'fileInfo.directPlay' => 'Прямое воспроизведение',
+			_ => null,
+		} ?? switch (path) {
 			'fileInfo.directStream' => 'Прямой поток',
 			'fileInfo.transcoding' => 'Транскодирование',
 			'fileInfo.etag' => 'ETag',
@@ -3979,11 +3970,11 @@ extension on TranslationsRu {
 			'libraries.filterCategories.favorites' => 'Избранное',
 			'libraries.sortLabels.title' => 'Название',
 			'libraries.sortLabels.dateAdded' => 'Дата добавления',
-			_ => null,
-		} ?? switch (path) {
 			'libraries.sortLabels.releaseDate' => 'Дата выхода',
 			'libraries.sortLabels.rating' => 'Рейтинг',
 			'libraries.sortLabels.communityRating' => 'Оценка сообщества',
+			_ => null,
+		} ?? switch (path) {
 			'libraries.sortLabels.criticRating' => 'Оценка критиков',
 			'libraries.sortLabels.userRating' => 'Пользовательская оценка',
 			'libraries.sortLabels.datePlayed' => 'Дата просмотра',
@@ -4228,9 +4219,6 @@ extension on TranslationsRu {
 			'liveTv.watchChannel' => 'Смотреть канал',
 			'liveTv.favorites' => 'Избранное',
 			'liveTv.reorderFavorites' => 'Изменить порядок избранного',
-			'liveTv.noFavoriteChannels' => 'Нет избранных каналов',
-			'liveTv.noFavoriteChannelsHint' => 'Покажите все каналы, затем нажмите и удерживайте канал, чтобы добавить его в избранное.',
-			'liveTv.showAllChannels' => 'Показать все каналы',
 			'liveTv.favoritesLoadFailed' => 'Не удалось загрузить избранное. Проверьте подключение и повторите попытку.',
 			'liveTv.favoritesUpdateFailed' => 'Не удалось обновить избранное. Проверьте подключение и повторите попытку.',
 			'liveTv.joinSession' => 'Присоединиться к текущему сеансу',
@@ -4493,14 +4481,14 @@ extension on TranslationsRu {
 			'downloads.manageSyncRule' => 'Управление синхронизацией',
 			'downloads.editEpisodeCount' => 'Количество эпизодов',
 			'downloads.editSyncFilter' => 'Фильтр синхронизации',
-			_ => null,
-		} ?? switch (path) {
 			'downloads.syncAllItems' => 'Синхронизация всех элементов',
 			'downloads.syncUnwatchedItems' => 'Синхронизация непросмотренных элементов',
 			'downloads.syncRuleServerContext' => ({required Object server, required Object status}) => 'Сервер: ${server} • ${status}',
 			'downloads.syncRuleAvailable' => 'Доступен',
 			'downloads.syncRuleOffline' => 'Офлайн',
 			'downloads.syncRuleSignInRequired' => 'Требуется вход',
+			_ => null,
+		} ?? switch (path) {
 			'downloads.syncRuleNotAvailableForProfile' => 'Недоступно для текущего профиля',
 			'downloads.syncRuleUnknownServer' => 'Неизвестный сервер',
 			'downloads.syncRuleListCreated' => 'Правило синхронизации создано',
