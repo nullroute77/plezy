@@ -1,0 +1,291 @@
+name: Merged feature test builds
+run-name: Merged feature testing — ${{ github.sha }}
+
+on:
+  # A new workflow cannot be manually dispatched until registered on the
+  # default branch. Push starts this fork-only build without changing main.
+  push:
+    branches: [codex/merged-feature-test-build]
+  workflow_dispatch:
+
+env:
+  TEST_CERTIFICATE_SHA256: ee0746b8fe9c1aab0102fe3a5beb4af27dbafa285ec2974abee83a45ebb7dac3
+  TEST_BASE_COMMIT: 5a7e0966a367b252473d1fb8b20c7b6d385dac4c
+  TEST_SOURCE_COMMIT: b9d474643ce20a3f31700c960c478ebf23996bf0
+
+permissions:
+  contents: read
+
+concurrency:
+  group: merged-feature-test-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  portable:
+    name: Windows x64 portable
+    if: github.repository == 'nullroute77/plezy' && github.ref == 'refs/heads/codex/merged-feature-test-build'
+    runs-on: windows-latest
+    timeout-minutes: 90
+    defaults:
+      run:
+        shell: pwsh
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+
+      - name: Verify exact feature source
+        shell: bash
+        run: |
+          set -euo pipefail
+          git merge-base --is-ancestor "$TEST_SOURCE_COMMIT" HEAD
+          git merge-base --is-ancestor "$TEST_BASE_COMMIT" "$TEST_SOURCE_COMMIT"
+          git diff --exit-code "$TEST_BASE_COMMIT" "$TEST_SOURCE_COMMIT" -- android ios macos linux windows packages mpv-build.lock.json pubspec.yaml pubspec.lock
+          git diff --exit-code "$TEST_SOURCE_COMMIT" HEAD -- . ':!.github/workflows/merged-feature-test.yml'
+
+      # Reuse the repository's immutable Flutter pin, avoiding archive lookup.
+      - name: Set up pinned Flutter SDK
+        uses: ./.github/actions/setup-flutter-git
+
+      - name: Install dependencies
+        run: flutter pub get --enforce-lockfile --no-example
+
+      - name: Install patched Windows engine
+        run: |
+          flutter precache --windows
+          if ($LASTEXITCODE -ne 0) { throw "Flutter precache failed" }
+          .\windows\tool\install-patched-engine.ps1
+
+      - name: Build Windows x64 portable bundle
+        run: >-
+          flutter build windows --release
+          --dart-define=ENABLE_UPDATE_CHECK=false
+          --dart-define=ENABLE_SENTRY=false
+          --dart-define=GIT_COMMIT=${{ env.TEST_SOURCE_COMMIT }}
+
+      - name: Verify bundle and record build identity
+        env:
+          TEST_COMMIT: ${{ github.sha }}
+          TEST_REF: ${{ github.ref_name }}
+        run: |
+          $bundle = "build/windows/x64/runner/Release"
+          $required = @(
+            "plezy.exe", "flutter_windows.dll", "sqlite3.dll", "libmpv-2.dll",
+            "msvcp140.dll", "vcruntime140.dll", "vulkan-1.dll", "VulkanRT-License.txt",
+            "data/app.so", "data/icudtl.dat",
+            "data/flutter_assets/NativeAssetsManifest.json"
+          )
+          foreach ($file in $required) {
+            if (-not (Test-Path -LiteralPath (Join-Path $bundle $file) -PathType Leaf) -or (Get-Item -LiteralPath (Join-Path $bundle $file)).Length -eq 0) {
+              throw "Required portable file is missing: $file"
+            }
+          }
+          foreach ($file in @("plezy.lib", "plezy.exp", "simdutf.lib")) {
+            if (Test-Path -LiteralPath (Join-Path $bundle $file)) {
+              throw "Unexpected link by-product in portable bundle: $file"
+            }
+          }
+          $sdkRoot = Split-Path -Parent (Split-Path -Parent (Get-Command flutter).Source)
+          $expectedEngine = Join-Path $sdkRoot "bin/cache/artifacts/engine/windows-x64-release/flutter_windows.dll"
+          if ((Get-FileHash $expectedEngine).Hash -ne (Get-FileHash (Join-Path $bundle "flutter_windows.dll")).Hash) {
+            throw "Packaged engine differs from the installed patched release engine"
+          }
+          python -c "import os,pathlib; assert os.environ['TEST_SOURCE_COMMIT'].encode() in pathlib.Path('build/windows/x64/runner/Release/data/app.so').read_bytes()"
+          if ($LASTEXITCODE -ne 0) { throw "Compiled Windows source identity mismatch" }
+          @(
+            "Plezy Windows x64 test build",
+            "Commit: $env:TEST_COMMIT",
+            "Branch: $env:TEST_REF",
+            "Source commit: b9d474643ce20a3f31700c960c478ebf23996bf0",
+            "Source branch: merged-feature-test",
+            "Extract the complete ZIP and run plezy.exe.",
+            "Automatic update checks and Sentry are disabled for this test build.",
+            "Plex program timeline, TV guide improvements, and Jellyfin/Emby retained HLS timeshifting combined. Real-device validation pending."
+          ) | Set-Content -LiteralPath (Join-Path $bundle "TEST-BUILD.txt") -Encoding utf8
+
+      # GitHub packages the complete folder as a downloadable ZIP artifact.
+      - name: Upload portable ZIP artifact
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: plezy-windows-x64-merged-feature-test-${{ github.sha }}
+          path: build/windows/x64/runner/Release/
+          if-no-files-found: error
+          retention-days: 14
+
+  android:
+    name: Android ARM64 release APK
+    if: github.repository == 'nullroute77/plezy' && github.ref == 'refs/heads/codex/merged-feature-test-build'
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+
+      - name: Verify exact feature source
+        shell: bash
+        run: |
+          set -euo pipefail
+          git merge-base --is-ancestor "$TEST_SOURCE_COMMIT" HEAD
+          git merge-base --is-ancestor "$TEST_BASE_COMMIT" "$TEST_SOURCE_COMMIT"
+          git diff --exit-code "$TEST_BASE_COMMIT" "$TEST_SOURCE_COMMIT" -- android ios macos linux windows packages mpv-build.lock.json pubspec.yaml pubspec.lock
+          git diff --exit-code "$TEST_SOURCE_COMMIT" HEAD -- . ':!.github/workflows/merged-feature-test.yml'
+
+      - name: Set up Java
+        uses: actions/setup-java@03ad4de0992f5dab5e18fcb136590ce7c4a0ac95 # v5
+        with:
+          distribution: temurin
+          java-version: "21"
+
+      - name: Set up repository-pinned Flutter SDK
+        shell: bash
+        run: |
+          set -euo pipefail
+          # Read the same immutable pin used by the Windows setup action.
+          python3 - <<'PYSDK'
+          import os, pathlib, re
+          source = pathlib.Path('.github/actions/setup-flutter-git/action.yml').read_text()
+          version = re.search(r'\$version = "([0-9.]+)"', source).group(1)
+          commit = re.search(r'\$expectedCommit = "([0-9a-f]{40})"', source).group(1)
+          with open(os.environ['GITHUB_ENV'], 'a') as output:
+              output.write(f'TEST_FLUTTER_VERSION={version}\nTEST_FLUTTER_COMMIT={commit}\n')
+          PYSDK
+
+      - name: Bootstrap pinned Flutter on Linux
+        shell: bash
+        run: |
+          set -euo pipefail
+          sdk="$RUNNER_TEMP/flutter"
+          git init "$sdk"
+          git -C "$sdk" remote add origin https://github.com/flutter/flutter.git
+          git -C "$sdk" fetch --depth 1 origin "refs/tags/$TEST_FLUTTER_VERSION:refs/tags/$TEST_FLUTTER_VERSION"
+          git -C "$sdk" checkout --detach "refs/tags/$TEST_FLUTTER_VERSION"
+          test "$(git -C "$sdk" rev-parse HEAD)" = "$TEST_FLUTTER_COMMIT"
+          echo "$sdk/bin" >> "$GITHUB_PATH"
+          "$sdk/bin/flutter" --version
+          "$sdk/bin/flutter" --version --machine > "$RUNNER_TEMP/flutter-version.json"
+          python3 - <<'PYSDK'
+          import json, os, pathlib
+          version = json.loads((pathlib.Path(os.environ['RUNNER_TEMP']) / 'flutter-version.json').read_text())
+          assert version['frameworkVersion'] == os.environ['TEST_FLUTTER_VERSION']
+          PYSDK
+
+      - name: Install locked dependencies
+        run: flutter pub get --enforce-lockfile --no-example
+
+      - name: Assign increasing Android build number
+        shell: bash
+        run: |
+          set -euo pipefail
+          # Run numbers increase for this workflow; attempts reserve 1..99.
+          # Flutter adds a fixed ABI offset (ARMv7 1000, ARM64 2000).
+          [[ "$GITHUB_RUN_NUMBER" =~ ^[1-9][0-9]*$ ]]
+          [[ "$GITHUB_RUN_ATTEMPT" =~ ^[1-9][0-9]*$ ]]
+          (( GITHUB_RUN_ATTEMPT < 100 ))
+          build_number=$((100000 + GITHUB_RUN_NUMBER * 100 + GITHUB_RUN_ATTEMPT))
+          (( build_number > 100000 && build_number <= 2099997000 ))
+          echo "TEST_BUILD_NUMBER=$build_number" >> "$GITHUB_ENV"
+          echo "TEST_VERSION_CODE=$((build_number + 2000))" >> "$GITHUB_ENV"
+
+      - name: Configure persistent test signing
+        shell: bash
+        env:
+          TEST_KEYSTORE_BASE64: ${{ secrets.PLEZY_TEST_KEYSTORE_BASE64 }}
+          TEST_KEYSTORE_PASSWORD: ${{ secrets.PLEZY_TEST_KEYSTORE_PASSWORD }}
+        run: |
+          set -euo pipefail
+          umask 077
+          python3 - <<'PYSIGN'
+          import base64, hashlib, os, pathlib, subprocess
+          encoded = os.environ['TEST_KEYSTORE_BASE64']
+          password = os.environ['TEST_KEYSTORE_PASSWORD']
+          assert encoded and password, 'Persistent test signing secrets are required'
+          # Hex passwords require no escaping in Java properties files.
+          assert all(c in '0123456789abcdef' for c in password) and len(password) == 64
+          key = pathlib.Path(os.environ['RUNNER_TEMP']) / 'merged-feature-test.p12'
+          key.write_bytes(base64.b64decode(encoded, validate=True))
+          cert = subprocess.run([
+              'keytool', '-exportcert', '-keystore', str(key),
+              '-storepass:env', 'TEST_KEYSTORE_PASSWORD', '-alias', 'plezy-test',
+          ], check=True, capture_output=True).stdout
+          assert hashlib.sha256(cert).hexdigest() == os.environ['TEST_CERTIFICATE_SHA256'], 'Unexpected signing certificate'
+          pathlib.Path('android/key.properties').write_text(
+              f'storePassword={password}\nkeyPassword={password}\n'
+              f'keyAlias=plezy-test\nstoreFile={key}\n')
+          PYSIGN
+
+      - name: Build ARM64 release APK
+        run: >-
+          flutter build apk --release --target-platform android-arm64 --split-per-abi
+          --build-number=${{ env.TEST_BUILD_NUMBER }}
+          --dart-define=ENABLE_UPDATE_CHECK=false
+          --dart-define=ENABLE_SENTRY=false
+          --dart-define=GIT_COMMIT=${{ env.TEST_SOURCE_COMMIT }}
+
+      - name: Verify APK and record identity
+        shell: bash
+        env:
+          TEST_COMMIT: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          mkdir -p test-artifacts
+          cp build/app/outputs/flutter-apk/app-arm64-v8a-release.apk test-artifacts/plezy-android-arm64-merged-feature-test.apk
+          apk=test-artifacts/plezy-android-arm64-merged-feature-test.apk
+          build_tools="$ANDROID_HOME/build-tools/36.1.0"
+          "$build_tools/apksigner" verify --verbose --print-certs "$apk" | tee test-artifacts/apk-signature.txt
+          "$build_tools/zipalign" -c -P 16 -v 4 "$apk" > test-artifacts/apk-alignment.txt
+          "$build_tools/aapt" dump badging "$apk" > test-artifacts/apk-badging.txt
+          python3 - <<'PYAPK'
+          import hashlib, os, pathlib, re, struct, zipfile
+          apk = pathlib.Path('test-artifacts/plezy-android-arm64-merged-feature-test.apk')
+          signature = pathlib.Path('test-artifacts/apk-signature.txt').read_text()
+          assert 'Verified using v2 scheme (APK Signature Scheme v2): true' in signature
+          certificate = re.search(r'Signer #1 certificate SHA-256 digest: ([a-f0-9]+)', signature)
+          assert certificate and certificate[1] == os.environ['TEST_CERTIFICATE_SHA256']
+          badging = pathlib.Path('test-artifacts/apk-badging.txt').read_text()
+          package = re.search(r"package: name='([^']+)' versionCode='([^']+)'", badging)
+          assert package and package[1] == 'com.edde746.plezy'
+          assert package[2] == os.environ['TEST_VERSION_CODE'], (package[2], os.environ['TEST_VERSION_CODE'])
+          with zipfile.ZipFile(apk) as archive:
+              assert archive.testzip() is None
+              names = archive.namelist()
+              abis = {name.split('/')[1] for name in names if name.startswith('lib/') and name.endswith('.so')}
+              assert abis == {'arm64-v8a'}, abis
+              for library in ['libapp.so', 'libflutter.so', 'libmpv.so', 'libplayer.so', 'libc++_shared.so', 'libffmpegJNI.so', 'libdovi_bridge.so']:
+                  assert archive.getinfo(f'lib/arm64-v8a/{library}').file_size > 0, library
+              for name in names:
+                  if name.startswith('lib/') and name.endswith('.so'):
+                      data = archive.read(name)
+                      assert data[:4] == b'\x7fELF' and data[4:6] == bytes([2, 1]), name
+                      assert struct.unpack_from('<H', data, 18)[0] == 183, name
+                      offset = struct.unpack_from('<Q', data, 32)[0]
+                      size, count = struct.unpack_from('<HH', data, 54)
+                      loads = [struct.unpack_from('<Q', data, offset + i * size + 48)[0]
+                               for i in range(count) if struct.unpack_from('<I', data, offset + i * size)[0] == 1]
+                      assert loads and min(loads) >= 16384, (name, loads)
+              assert os.environ['TEST_SOURCE_COMMIT'].encode() in archive.read('lib/arm64-v8a/libapp.so')
+              pathlib.Path('test-artifacts/apk-files.txt').write_text('\n'.join(names) + '\n')
+          pathlib.Path('test-artifacts/TEST-BUILD.txt').write_text(
+              'Plezy Android ARM64 release test build\n'
+              f'Build commit: {os.environ["TEST_COMMIT"]}\n'
+              'Source commit: b9d474643ce20a3f31700c960c478ebf23996bf0\n'
+              'Source branch: merged-feature-test\n'
+              f'Android versionCode: {os.environ["TEST_VERSION_CODE"]}\n'
+              f'Persistent signing certificate SHA-256: {os.environ["TEST_CERTIFICATE_SHA256"]}\n'
+              'Release mode, persistently test signed. Updates and Sentry disabled. Real-device validation pending.\n')
+          pathlib.Path(str(apk) + '.sha256').write_text(hashlib.sha256(apk.read_bytes()).hexdigest() + '  ' + apk.name + '\n')
+          PYAPK
+
+      - name: Remove runner signing files
+        if: always()
+        run: rm -f android/key.properties "$RUNNER_TEMP/merged-feature-test.p12"
+
+      - name: Upload ARM64 test package
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: plezy-android-arm64-merged-feature-test-${{ github.sha }}
+          path: test-artifacts/
+          if-no-files-found: error
+          retention-days: 14
