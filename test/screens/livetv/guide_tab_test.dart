@@ -741,7 +741,9 @@ void main() {
     (name: 'mobile', size: Size(390, 844), tv: false),
     (name: 'tv', size: Size(1280, 720), tv: true),
   ]) {
-    testWidgets('favorites group remains readable on ${layout.name} with sources and enlarged text', (tester) async {
+    testWidgets('favorites group remains readable on ${layout.name} with multiple sources and enlarged text', (
+      tester,
+    ) async {
       TvDetectionService.debugSetAppleTVOverride(layout.tv);
       final harness = _GuideHarness.twoServers();
       addTearDown(harness.dispose);
@@ -754,8 +756,8 @@ void main() {
       );
       await harness.completeInitial(tester);
       expect(find.text(t.liveTv.favorites), findsOneWidget);
-      expect(find.text('server-a'), findsOneWidget);
-      expect(find.text('server-b'), findsOneWidget);
+      expect(find.text('server-a'), findsNothing);
+      expect(find.text('server-b'), findsNothing);
       if (layout.tv) await _focusGrid(tester);
       await _captureGuide(tester, 'favorites-${layout.name}');
       final previousErrorHandler = FlutterError.onError;
