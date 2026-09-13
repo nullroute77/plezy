@@ -1373,12 +1373,6 @@ class Translations$settings$en {
 	/// en: 'Display the Explore tab with content from Plex Discover and connected trackers'
 	String get showExploreTabDescription => 'Display the Explore tab with content from Plex Discover and connected trackers';
 
-	/// en: 'Default to Favorite Channels'
-	String get liveTvDefaultFavorites => 'Default to Favorite Channels';
-
-	/// en: 'Show only favorite channels when opening Live TV'
-	String get liveTvDefaultFavoritesDescription => 'Show only favorite channels when opening Live TV';
-
 	/// en: 'General'
 	String get general => 'General';
 
@@ -1405,9 +1399,6 @@ class Translations$settings$en {
 
 	/// en: 'Window'
 	String get window => 'Window';
-
-	/// en: 'Live TV'
-	String get liveTv => 'Live TV';
 
 	/// en: 'Player'
 	String get player => 'Player';
@@ -3996,15 +3987,6 @@ class Translations$liveTv$en {
 
 	/// en: 'Reorder Favorites'
 	String get reorderFavorites => 'Reorder Favorites';
-
-	/// en: 'No favorite channels'
-	String get noFavoriteChannels => 'No favorite channels';
-
-	/// en: 'Show all channels, then long-press a channel to add it to your favorites.'
-	String get noFavoriteChannelsHint => 'Show all channels, then long-press a channel to add it to your favorites.';
-
-	/// en: 'Show All Channels'
-	String get showAllChannels => 'Show All Channels';
 
 	/// en: 'Could not load favorites. Check your connection and try again.'
 	String get favoritesLoadFailed => 'Could not load favorites. Check your connection and try again.';
@@ -8572,8 +8554,6 @@ extension on Translations {
 			'settings.startupSection' => 'Startup Section',
 			'settings.showExploreTab' => 'Show Explore Tab',
 			'settings.showExploreTabDescription' => 'Display the Explore tab with content from Plex Discover and connected trackers',
-			'settings.liveTvDefaultFavorites' => 'Default to Favorite Channels',
-			'settings.liveTvDefaultFavoritesDescription' => 'Show only favorite channels when opening Live TV',
 			'settings.general' => 'General',
 			'settings.generalDescription' => 'Language, startup, and window behavior',
 			'settings.languageAndRegion' => 'Language & Region',
@@ -8583,7 +8563,6 @@ extension on Translations {
 			'settings.homeScreen' => 'Home Screen',
 			'settings.navigation' => 'Navigation',
 			'settings.window' => 'Window',
-			'settings.liveTv' => 'Live TV',
 			'settings.player' => 'Player',
 			'settings.videoAndDisplay' => 'Video & Display',
 			'settings.audio' => 'Audio',
@@ -8770,6 +8749,8 @@ extension on Translations {
 			'fileInfo.totalSize' => 'Total Size',
 			'fileInfo.container' => 'Container',
 			'fileInfo.duration' => 'Duration',
+			_ => null,
+		} ?? switch (path) {
 			'fileInfo.previewThumbnails' => 'Preview Thumbnails',
 			'fileInfo.previewIndex' => 'Preview Index',
 			'fileInfo.packetLength' => 'Packet Length',
@@ -9312,6 +9293,8 @@ extension on Translations {
 			'libraries.folders' => 'folders',
 			'libraries.tabs.recommended' => 'Recommended',
 			'libraries.tabs.browse' => 'Browse',
+			_ => null,
+		} ?? switch (path) {
 			'libraries.tabs.collections' => 'Collections',
 			'libraries.tabs.genres' => 'Genres',
 			'libraries.tabs.playlists' => 'Playlists',
@@ -9616,9 +9599,6 @@ extension on Translations {
 			'liveTv.watchChannel' => 'Watch Channel',
 			'liveTv.favorites' => 'Favorites',
 			'liveTv.reorderFavorites' => 'Reorder Favorites',
-			'liveTv.noFavoriteChannels' => 'No favorite channels',
-			'liveTv.noFavoriteChannelsHint' => 'Show all channels, then long-press a channel to add it to your favorites.',
-			'liveTv.showAllChannels' => 'Show All Channels',
 			'liveTv.favoritesLoadFailed' => 'Could not load favorites. Check your connection and try again.',
 			'liveTv.favoritesUpdateFailed' => 'Could not update favorites. Check your connection and try again.',
 			'liveTv.joinSession' => 'Join Session in Progress',
@@ -9941,6 +9921,8 @@ extension on Translations {
 			'downloads.retryAll' => 'Retry all',
 			'downloads.retryFailed' => 'Retry failed downloads',
 			'downloads.deleteAll' => 'Delete all',
+			_ => null,
+		} ?? switch (path) {
 			'downloads.selectVersion' => 'Select Version',
 			'downloads.allEpisodes' => 'All episodes',
 			'downloads.unwatchedOnly' => 'Unwatched only',
