@@ -5,8 +5,7 @@ import '../../providers/multi_server_provider.dart';
 /// Runs [body] once per Live TV server of [multiServer], isolating per-server failures.
 ///
 /// Owns the iteration shape shared by the Live TV screens: resolve a client per entry via
-/// [resolveClient] (What's On passes the Plex-specific resolver, everything else the generic
-/// one), skip entries without a client, dedupe by `serverId`, and route a thrown [body] error
+/// [resolveClient], skip entries without a client, dedupe by `serverId`, and route a thrown [body] error
 /// to [onError] before moving on to the next server.
 ///
 /// - [dedupeByServerId] is on for server-scoped fetches. `liveTvServers` carries one entry per
