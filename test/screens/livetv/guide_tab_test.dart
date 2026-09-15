@@ -666,7 +666,8 @@ void main() {
         expect(tester.getTopLeft(first).dx, device.column);
         expect(tester.getTopLeft(second).dx - tester.getTopLeft(first).dx, 240);
         final label = find.text(formatClockTime(now.subtract(const Duration(minutes: 15)), is24Hour: false)).last;
-        expect(tester.getTopLeft(label).dx, device.column + 8);
+        final labelInset = device.tv ? 11.0 : 8.0; // TV box margin and border.
+        expect(tester.getTopLeft(label).dx, device.column + labelInset);
         final nowLine = find.byWidgetPredicate(
           (widget) => widget is Container && widget.color == Colors.red && widget.constraints?.maxWidth == 2,
         );
@@ -676,7 +677,7 @@ void main() {
         // The timeline and header remain synchronized after a horizontal drag.
         await tester.drag(first, const Offset(-100, 0));
         await tester.pumpAndSettle();
-        expect(tester.getTopLeft(label).dx - tester.getTopLeft(first).dx, closeTo(8, 0.01));
+        expect(tester.getTopLeft(label).dx - tester.getTopLeft(first).dx, closeTo(labelInset, 0.01));
         expect(tester.getTopLeft(nowLine).dx - tester.getTopLeft(first).dx, closeTo(120, 0.01));
         expect(tester.takeException(), isNull);
       });
@@ -738,7 +739,7 @@ void main() {
     });
   }
 
-  testWidgets('TV guide shows five complete channel rows and updates information without tuning', (tester) async {
+  testWidgets('TV guide shows six complete channel rows and updates information without tuning', (tester) async {
     TvDetectionService.debugSetAppleTVOverride(true);
     final channels = [
       for (var i = 0; i < 8; i++)
@@ -781,12 +782,12 @@ void main() {
     ]);
     await tester.pumpAndSettle();
     final gridRect = tester.getRect(find.byKey(const ValueKey('guide-timeline-grid')));
-    for (var i = 0; i < 5; i++) {
+    for (var i = 0; i < 6; i++) {
       final cell = _gridText('Channel $i');
       expect(cell, findsOneWidget);
       expect(gridRect.contains(tester.getCenter(cell)), isTrue);
     }
-    expect(_gridText('Channel 5').hitTestable(), findsNothing);
+    expect(_gridText('Channel 6').hitTestable(), findsNothing);
     await _focusGrid(tester);
     await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
     await tester.pumpAndSettle();
@@ -810,7 +811,7 @@ void main() {
     expect(tuned, isEmpty);
     await mouse.removePointer();
     await tester.pump();
-    await _captureGuide(tester, 'tv-five-rows');
+    await _captureGuide(tester, 'tv-six-rows');
     expect(tester.takeException(), isNull);
   });
 
