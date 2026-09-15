@@ -11,6 +11,9 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:intl/date_symbol_data_local.dart';
 import 'package:material_symbols_icons/symbols.dart';
 import 'package:plezy/focus/input_mode_tracker.dart';
+import 'package:plezy/focus/card_focus_scope.dart';
+import 'package:plezy/focus/focus_theme.dart';
+import 'package:plezy/theme/mono_tokens.dart';
 import 'package:plezy/i18n/strings.g.dart';
 import 'package:plezy/media/ids.dart';
 import 'package:plezy/media/live_tv_support.dart';
@@ -25,6 +28,7 @@ import 'package:plezy/models/livetv_program.dart';
 import 'package:plezy/screens/livetv/tabs/guide_tab.dart';
 import 'package:plezy/screens/livetv/tv_guide_program_info.dart';
 import 'package:plezy/widgets/status_pill.dart';
+import 'package:plezy/widgets/optimized_media_image.dart';
 import 'package:plezy/providers/multi_server_provider.dart';
 import 'package:plezy/services/multi_server_manager.dart';
 import 'package:plezy/theme/mono_theme.dart';
@@ -509,6 +513,76 @@ void main() {
     (name: 'dark', dark: true, oled: false),
     (name: 'oled', dark: true, oled: true),
   ]) {
+    for (final device in [
+      (name: 'desktop', tv: false, platform: TargetPlatform.windows, size: Size(1280, 720)),
+      (name: 'mobile', tv: false, platform: TargetPlatform.android, size: Size(390, 844)),
+      (name: 'TV', tv: true, platform: TargetPlatform.android, size: Size(1280, 720)),
+    ]) {
+      testWidgets('${appearance.name} ${device.name} channel focus preserves logo presentation', (tester) async {
+        TvDetectionService.debugSetAppleTVOverride(device.tv);
+        final channel = LiveTvChannel(
+          key: 'channel-station-a',
+          identifier: 'station-a',
+          callSign: 'A',
+          serverId: 'server-a',
+          liveDvrKey: 'dvr-server-a',
+          thumb: '/channel-logo',
+        );
+        final harness = _GuideHarness._create(includeServerB: false, channels: [channel]);
+        addTearDown(harness.dispose);
+        final tuned = <LiveTvChannel>[];
+        await harness.pump(
+          tester,
+          dark: appearance.dark,
+          oled: appearance.oled,
+          platform: device.platform,
+          size: device.size,
+          onTuneChannel: tuned.add,
+        );
+        await harness.completeInitial(tester);
+        final logo = find.byType(OptimizedMediaImage);
+        final scope = find.ancestor(of: logo, matching: find.byType(CardFocusScope));
+        final colors = tokens(tester.element(logo));
+        final initialTone = tester.widget<OptimizedMediaImage>(logo).logoToneTarget;
+        final initialRect = tester.getRect(logo);
+        void expectStableLogo() {
+          expect(tester.widget<OptimizedMediaImage>(logo).logoToneTarget, initialTone);
+          expect(tester.getRect(logo), initialRect);
+          expect(find.ancestor(of: logo, matching: find.byType(AnimatedOpacity)), findsNothing);
+          expect(find.ancestor(of: logo, matching: find.byType(Opacity)), findsNothing);
+          expect(
+            find.descendant(
+              of: scope,
+              matching: find.byWidgetPredicate((w) => w is AppIcon && w.icon == Symbols.play_arrow_rounded),
+            ),
+            findsNothing,
+          );
+          final material = tester.widget<Material>(find.descendant(of: scope, matching: find.byType(Material)));
+          expect(material.color, colors.surface);
+          final border = tester.widget<AnimatedContainer>(
+            find.descendant(of: scope, matching: find.byType(AnimatedContainer)),
+          );
+          final decoration = border.foregroundDecoration! as BoxDecoration;
+          expect((decoration.border! as Border).top.width, FocusTheme.focusBorderWidth);
+          expect((decoration.border! as Border).top.color, FocusTheme.getFocusBorderColor(tester.element(logo)));
+          expect((decoration.border! as Border).top.strokeAlign, BorderSide.strokeAlignInside);
+        }
+
+        await _focusGrid(tester);
+        expect(tester.widget<CardFocusScope>(scope).showFocus, isTrue);
+        expectStableLogo();
+        final mouse = await tester.createGesture(kind: ui.PointerDeviceKind.mouse);
+        await mouse.addPointer(location: tester.getCenter(logo));
+        await tester.pumpAndSettle();
+        expect(tester.widget<CardFocusScope>(scope).showFocus, isTrue);
+        expectStableLogo();
+        await mouse.removePointer();
+        await tester.tap(logo);
+        await tester.pumpAndSettle();
+        expect(tuned, [channel]);
+        expect(tester.takeException(), isNull);
+      });
+    }
     for (final tv in [false, true]) {
       testWidgets(
         '${appearance.name} guide badges and subtext fit short cards with pointer and ${tv ? 'TV remote' : 'keyboard'} focus',
@@ -1446,7 +1520,9 @@ Future<void> _focusGrid(WidgetTester tester) async {
 
 Finder _focusedCellFinder(WidgetTester tester) {
   final primary = Theme.of(tester.element(find.byType(GuideTab))).colorScheme.primary;
-  return find.byWidgetPredicate((widget) => widget is Material && widget.color == primary);
+  return find.byWidgetPredicate(
+    (widget) => (widget is Material && widget.color == primary) || (widget is CardFocusScope && widget.showFocus),
+  );
 }
 
 void _expectFocusedChannel(WidgetTester tester, String callSign) {
@@ -1646,6 +1722,9 @@ final class _FakeMediaServerClient implements MediaServerClient {
 
   @override
   ServerCapabilities get capabilities => const ServerCapabilities(liveTv: true);
+
+  @override
+  String thumbnailUrl(String? path, {int? width, int? height, bool cover = true}) => '';
 
   @override
   dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);

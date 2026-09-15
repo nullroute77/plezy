@@ -11,6 +11,7 @@ import 'package:material_symbols_icons/symbols.dart';
 import 'package:provider/provider.dart';
 
 import '../../../focus/dpad_navigator.dart';
+import '../../../focus/card_focus_scope.dart';
 import '../../../focus/dpad_select_long_press_controller.dart';
 import '../../../focus/focus_theme.dart';
 import '../../../focus/input_mode_tracker.dart';
@@ -2203,10 +2204,8 @@ class _ChannelCellState extends State<_ChannelCell> {
   Widget build(BuildContext context) {
     final theme = widget.theme;
     final tk = tokens(context);
-    final showAction = _hovered || widget.isFocused;
-    final radius = BorderRadius.circular(widget.isFocused ? tk.radiusSm : tk.radiusXs);
-    // Inverted focus card, matching the program-block cursor.
-    final contentColor = widget.isFocused ? theme.colorScheme.onPrimary : theme.colorScheme.onSurface;
+    final showFocus = _hovered || widget.isFocused;
+    final radius = BorderRadius.circular(tk.radiusSm);
 
     return MouseRegion(
       cursor: SystemMouseCursors.click,
@@ -2224,50 +2223,49 @@ class _ChannelCellState extends State<_ChannelCell> {
           height: widget.rowHeight,
           child: Padding(
             padding: EdgeInsets.only(right: tk.groupGap, bottom: tk.groupGap),
-            child: Material(
-              color: widget.isFocused ? theme.colorScheme.primary : tk.surface,
-              shape: RoundedRectangleBorder(borderRadius: radius),
-              child: InkWell(
-                borderRadius: radius,
-                canRequestFocus: false,
-                onTap: widget.onTap,
-                onLongPress: widget.onLongPress,
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 8),
-                  child: Stack(
-                    alignment: .center,
-                    children: [
-                      AnimatedOpacity(
-                        opacity: showAction ? 0.3 : 1.0,
-                        duration: FocusTheme.getAnimationDuration(context),
-                        child: widget.channelThumb != null && widget.client != null
-                            ? OptimizedMediaImage.thumb(
-                                client: widget.client!,
-                                imagePath: widget.channelThumb,
-                                width: widget.channelColumnWidth - 16,
-                                height: widget.rowHeight - 16,
-                                fit: BoxFit.contain,
-                                logoToneTarget: logoToneTargetFor(
-                                  surface: widget.isFocused ? theme.colorScheme.primary : tk.surface,
-                                  foreground: widget.isFocused
-                                      ? theme.colorScheme.onPrimary
-                                      : theme.colorScheme.onSurface,
-                                ),
-                              )
-                            : widget.fallbackBuilder(),
+            child: CardFocusScope(
+              showFocus: showFocus,
+              child: CardFocusBorder(
+                borderRadius: tk.radiusSm,
+                // Grid cells touch the viewport edge; keep the shared stroke
+                // inside the tile so all four sides remain visible.
+                strokeAlign: BorderSide.strokeAlignInside,
+                child: Material(
+                  color: tk.surface,
+                  shape: RoundedRectangleBorder(borderRadius: radius),
+                  child: InkWell(
+                    borderRadius: radius,
+                    canRequestFocus: false,
+                    onTap: widget.onTap,
+                    onLongPress: widget.onLongPress,
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 8),
+                      child: Stack(
+                        alignment: .center,
+                        children: [
+                          if (widget.channelThumb != null && widget.client != null)
+                            OptimizedMediaImage.thumb(
+                              client: widget.client!,
+                              imagePath: widget.channelThumb,
+                              width: widget.channelColumnWidth - 16,
+                              height: widget.rowHeight - 16,
+                              fit: BoxFit.contain,
+                              logoToneTarget: logoToneTargetFor(
+                                surface: tk.surface,
+                                foreground: theme.colorScheme.onSurface,
+                              ),
+                            )
+                          else
+                            widget.fallbackBuilder(),
+                          if (widget.isFavorite)
+                            Positioned(
+                              top: 2,
+                              right: 0,
+                              child: AppIcon(Symbols.star_rounded, size: 14, color: theme.colorScheme.primary),
+                            ),
+                        ],
                       ),
-                      if (showAction) AppIcon(Symbols.play_arrow_rounded, size: 32, color: contentColor),
-                      if (widget.isFavorite)
-                        Positioned(
-                          top: 2,
-                          right: 0,
-                          child: AppIcon(
-                            Symbols.star_rounded,
-                            size: 14,
-                            color: widget.isFocused ? theme.colorScheme.onPrimary : theme.colorScheme.primary,
-                          ),
-                        ),
-                    ],
+                    ),
                   ),
                 ),
               ),
