@@ -26,6 +26,9 @@ class LiveTvProgram {
   final int? index; // episode number
   final int? parentIndex; // season number
   final String? thumb;
+
+  /// Portrait artwork when supplied separately from an episode thumbnail.
+  final String? poster;
   final String? art;
   final String? channelIdentifier;
   final String? channelCallSign;
@@ -64,6 +67,7 @@ class LiveTvProgram {
     this.index,
     this.parentIndex,
     this.thumb,
+    this.poster,
     this.art,
     this.channelIdentifier,
     this.channelCallSign,
@@ -123,6 +127,7 @@ class LiveTvProgram {
       index: flexibleInt(json['index']),
       parentIndex: flexibleInt(json['parentIndex']),
       thumb: json['thumb'] as String? ?? json['grandparentThumb'] as String?,
+      poster: hasSeriesTitle ? json['grandparentThumb'] as String? : null,
       art: json['art'] as String?,
       channelIdentifier: pickString('channelIdentifier') ?? channel?['id']?.toString(),
       channelCallSign: pickString('channelCallSign'),
@@ -154,6 +159,7 @@ class LiveTvProgram {
       index: index,
       parentIndex: parentIndex,
       thumb: thumb,
+      poster: poster,
       art: art,
       channelIdentifier: channelIdentifier,
       channelCallSign: channelCallSign,

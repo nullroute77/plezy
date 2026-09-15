@@ -3,6 +3,19 @@ import 'package:plezy/media/ids.dart';
 import 'package:plezy/models/livetv_program.dart';
 
 void main() {
+  test('Plex keeps the series poster distinct from the episode thumbnail', () {
+    final program = LiveTvProgram.fromJson({
+      'title': 'Heat Day',
+      'grandparentTitle': 'Flavortown Food Fight',
+      'thumb': '/episode/still',
+      'grandparentThumb': '/series/poster',
+    });
+    expect(program.thumb, '/episode/still');
+    expect(program.poster, '/series/poster');
+    expect(program.copyWith(serverName: 'Home').poster, '/series/poster');
+    expect(LiveTvProgram.fromJson({'title': 'Movie', 'thumb': '/movie/poster'}).thumb, '/movie/poster');
+  });
+
   test('Plex program descriptions and age ratings survive server tagging and selected airings', () {
     final program = LiveTvProgram.fromJson({'title': 'News', 'summary': 'Latest headlines', 'contentRating': 'TV-PG'});
     final tagged = program.copyWith(serverName: 'Tagged');
