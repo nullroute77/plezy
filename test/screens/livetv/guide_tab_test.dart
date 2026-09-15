@@ -23,6 +23,7 @@ import 'package:plezy/focus/dpad_select_long_press_controller.dart';
 import 'package:plezy/models/livetv_channel.dart';
 import 'package:plezy/models/livetv_program.dart';
 import 'package:plezy/screens/livetv/tabs/guide_tab.dart';
+import 'package:plezy/screens/livetv/tv_guide_program_info.dart';
 import 'package:plezy/widgets/status_pill.dart';
 import 'package:plezy/providers/multi_server_provider.dart';
 import 'package:plezy/services/multi_server_manager.dart';
@@ -545,7 +546,7 @@ void main() {
           ]);
           await tester.pumpAndSettle();
           expect(tester.takeException(), isNull);
-          expect(find.text(t.liveTv.live), findsOneWidget);
+          expect(_gridText(t.liveTv.live), findsOneWidget);
           final newCard = find.ancestor(of: find.text('New series'), matching: find.byType(InkWell)).first;
           expect(find.descendant(of: newCard, matching: find.text(t.liveTv.newProgram)), findsOneWidget);
           final unfocusedPill = tester.widget<StatusPill>(
@@ -565,7 +566,7 @@ void main() {
           final tinyCard = find.ancestor(of: find.text('Tiny recording'), matching: find.byType(InkWell)).first;
           expect(find.descendant(of: tinyCard, matching: find.text(t.liveTv.live)), findsNothing);
           expect(find.text('Episode 2000'), findsNothing);
-          expect(find.text('Final 2026'), findsOneWidget);
+          expect(_gridText('Final 2026'), findsOneWidget);
           expect(find.text('The 100'), findsOneWidget);
           final card = find.ancestor(of: find.text('Live sports'), matching: find.byType(InkWell)).first;
           expect(find.descendant(of: card, matching: find.byType(Text)), findsNWidgets(3));
@@ -730,12 +731,88 @@ void main() {
       await tester.pumpAndSettle();
       _expectFocusedChannel(tester, 'Channel ${scenario.expected}');
       for (var i = 0; i < 4; i++) {
-        expect(find.text('Channel $i'), findsOneWidget);
+        expect(_gridText('Channel $i'), findsOneWidget);
       }
       expect(harness.serverA.schedule.requests, hasLength(1));
       expect(tester.takeException(), isNull);
     });
   }
+
+  testWidgets('TV guide shows five complete channel rows and updates information without tuning', (tester) async {
+    TvDetectionService.debugSetAppleTVOverride(true);
+    final channels = [
+      for (var i = 0; i < 8; i++)
+        _guideChannel(serverId: 'server-a', stationId: i == 0 ? 'station-a' : 'station-$i', callSign: 'Channel $i'),
+    ];
+    final harness = _GuideHarness._create(includeServerB: false, channels: channels);
+    addTearDown(harness.dispose);
+    final tuned = <LiveTvChannel>[];
+    await harness.pump(tester, size: const Size(1280, 720), onTuneChannel: tuned.add);
+    final start = harness.serverA.schedule.requests.single.from.millisecondsSinceEpoch ~/ 1000;
+    final titles = [
+      'Flavortown Food Fight',
+      'Evening News',
+      'Ocean Explorers',
+      'World Football',
+      'The Great Bake',
+      'Movie Night',
+      'Travel Stories',
+      'Flavortown Food Fight',
+    ];
+    harness.serverA.schedule.requests.single.completer.complete([
+      for (var i = 0; i < channels.length; i++)
+        LiveTvProgram(
+          ratingKey: 'program-$i',
+          title: titles[i],
+          programTitle: titles[i],
+          episodeTitle: i == 0 || i == 7 ? 'Heat Day' : null,
+          parentIndex: i == 0 || i == 7 ? 1 : null,
+          index: i == 0 || i == 7 ? 9 : null,
+          summary:
+              'The chefs turn up the heat in a summer cooking challenge, with a surprise ingredient and a race against the clock.',
+          contentRating: 'TV-PG',
+          isNew: i == 0 || i == 7,
+          live: i == 1 || i == 3,
+          beginsAt: start,
+          endsAt: start + 5400,
+          channelIdentifier: channels[i].identifier,
+          serverId: 'server-a',
+        ),
+    ]);
+    await tester.pumpAndSettle();
+    final gridRect = tester.getRect(find.byKey(const ValueKey('guide-timeline-grid')));
+    for (var i = 0; i < 5; i++) {
+      final cell = _gridText('Channel $i');
+      expect(cell, findsOneWidget);
+      expect(gridRect.contains(tester.getCenter(cell)), isTrue);
+    }
+    expect(_gridText('Channel 5').hitTestable(), findsNothing);
+    await _focusGrid(tester);
+    await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
+    await tester.pumpAndSettle();
+    expect(tester.widget<TvGuideProgramInfo>(find.byType(TvGuideProgramInfo)).channel, channels[1]);
+    expect(tuned, isEmpty);
+    for (var i = 0; i < 6; i++) {
+      await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
+      await tester.pumpAndSettle();
+    }
+    expect(tester.widget<TvGuideProgramInfo>(find.byType(TvGuideProgramInfo)).channel, channels[7]);
+    expect(tester.getBottomRight(_gridText('Channel 7')).dy, lessThanOrEqualTo(gridRect.bottom));
+    expect(tuned, isEmpty);
+    final state = tester.state<GuideTabState>(find.byType(_TuningGuideTab));
+    state.restoreFocusAfterPlayback();
+    await tester.pump();
+    expect(tester.widget<TvGuideProgramInfo>(find.byType(TvGuideProgramInfo)).channel, channels[7]);
+    final mouse = await tester.createGesture(kind: ui.PointerDeviceKind.mouse);
+    await mouse.addPointer(location: tester.getCenter(_gridText('Channel 6')));
+    await tester.pump();
+    expect(tester.widget<TvGuideProgramInfo>(find.byType(TvGuideProgramInfo)).channel, channels[6]);
+    expect(tuned, isEmpty);
+    await mouse.removePointer();
+    await tester.pump();
+    await _captureGuide(tester, 'tv-five-rows');
+    expect(tester.takeException(), isNull);
+  });
 
   for (final layout in [
     (name: 'mobile', size: Size(390, 844), tv: false),
@@ -1483,8 +1560,8 @@ final class _GuideHarness {
       serverB.schedule.complete(0, 'Initial B');
     }
     await tester.pumpAndSettle();
-    expect(find.text('Initial A'), findsOneWidget);
-    if (serverB != null) expect(find.text('Initial B'), findsOneWidget);
+    expect(_gridText('Initial A'), findsOneWidget);
+    if (serverB != null) expect(_gridText('Initial B'), findsOneWidget);
   }
 
   Future<void> completeInitialEmpty(WidgetTester tester) async {
@@ -1617,3 +1694,6 @@ class _TuningGuideTabState extends GuideTabState {
   @override
   Future<void> tuneChannel(LiveTvChannel channel) async => (widget as _TuningGuideTab).onTuneChannel(channel);
 }
+
+Finder _gridText(String text) =>
+    find.descendant(of: find.byKey(const ValueKey('guide-timeline-grid')), matching: find.text(text));
