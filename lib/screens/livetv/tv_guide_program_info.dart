@@ -60,7 +60,7 @@ class TvGuideProgramInfo extends StatelessWidget {
               children: [
                 if (poster != null && client != null) ...[
                   ClipRRect(
-                    borderRadius: BorderRadius.circular(tokens(context).radiusMd),
+                    borderRadius: BorderRadius.circular(tokens(context).radiusSm),
                     child: OptimizedMediaImage.thumb(
                       client: client,
                       imagePath: poster,
