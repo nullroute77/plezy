@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:clock/clock.dart';
 import 'package:flutter/material.dart';
 import 'package:material_symbols_icons/symbols.dart';
 import 'package:provider/provider.dart';
@@ -10,6 +11,8 @@ import '../../../i18n/strings.g.dart';
 import '../../../media/ids.dart';
 import '../../../media/media_hub.dart';
 import '../../../media/media_item.dart';
+import '../../../media/media_kind.dart';
+import '../../../media/media_server_client.dart';
 import '../../../media/media_item_types.dart';
 import '../../../mixins/mounted_set_state_mixin.dart';
 import '../../../models/livetv_channel.dart';
@@ -38,6 +41,7 @@ class WhatsOnTabState extends State<WhatsOnTab>
     with LiveTvActionsMixin<WhatsOnTab>, MountedSetStateMixin, WidgetsBindingObserver, LiveTvRefreshMixin<WhatsOnTab> {
   List<_WhatsOnHub> _hubs = [];
   bool _isLoading = true;
+  int _loadGeneration = 0;
   final Map<String, GlobalKey<HubSectionState>> _hubKeysById = {};
   List<GlobalKey<HubSectionState>> _hubKeys = [];
   final _hubFocusMemory = HubFocusMemory();
@@ -45,13 +49,14 @@ class WhatsOnTabState extends State<WhatsOnTab>
   @override
   List<LiveTvChannel> get liveTvChannels => widget.channels;
 
-  // Resume just re-arms the tick — unlike RecordingsTab there is no immediate
-  // reload, since nothing done on the other tabs changes hubs.
   @override
   Duration get refreshInterval => const Duration(seconds: 60);
 
   @override
   void onRefreshTick() => unawaited(_loadHubs());
+
+  @override
+  void onRefreshResumed(LiveTvRefreshResumeReason reason) => unawaited(_loadHubs());
 
   @override
   void initState() {
@@ -61,6 +66,8 @@ class WhatsOnTabState extends State<WhatsOnTab>
 
   Future<void> _loadHubs() async {
     if (!mounted) return;
+    final generation = ++_loadGeneration;
+    final now = clock.now();
     setState(() => _isLoading = _hubs.isEmpty);
 
     try {
@@ -68,14 +75,15 @@ class WhatsOnTabState extends State<WhatsOnTab>
       final allHubs = <_WhatsOnHub>[];
       final allHubIds = <String>[];
 
-      // Plex-only: Live TV hubs API is Plex-specific.
       await forEachLiveTvServer(
         multiServer,
-        resolveClient: multiServer.getPlexClientForServer,
+        resolveClient: multiServer.getClientForServer,
+        isCurrent: () => mounted && generation == _loadGeneration,
         body: (client, serverInfo) async {
-          final hubs = await client.getLiveTvHubs();
+          final plex = multiServer.getPlexClientForServer(client.serverId);
+          final hubs = plex != null ? await plex.getLiveTvHubs() : await _loadCurrentPrograms(client, now);
           for (final hub in hubs) {
-            allHubs.add(_WhatsOnHub.fromResult(hub));
+            allHubs.add(_WhatsOnHub.fromResult(hub, client: client));
             allHubIds.add('${serverInfo.serverId}\u0000${hub.hubKey}');
           }
         },
@@ -84,7 +92,7 @@ class WhatsOnTabState extends State<WhatsOnTab>
         },
       );
 
-      if (!mounted) return;
+      if (!mounted || generation != _loadGeneration) return;
       final hubIds = allHubIds.toSet();
       _hubKeysById.removeWhere((id, _) => !hubIds.contains(id));
       setState(() {
@@ -93,9 +101,46 @@ class WhatsOnTabState extends State<WhatsOnTab>
         _isLoading = false;
       });
     } catch (e) {
+      if (!mounted || generation != _loadGeneration) return;
       appLogger.e('Failed to load live TV hubs', error: e);
       setStateIfMounted(() => _isLoading = false);
     }
+  }
+
+  /// MediaBrowser servers have schedules rather than Plex discovery hubs.
+  /// Reuse their parsed programs so details, recordings, and tuning retain
+  /// the original airing metadata and owning server.
+  Future<List<LiveTvHubResult>> _loadCurrentPrograms(MediaServerClient client, DateTime now) async {
+    // Keep a nonempty window, including programs starting at this second.
+    // Filter below because overlap responses can also include future entries.
+    final programs = await client.liveTv.fetchSchedule(from: now, to: now.add(const Duration(seconds: 1)));
+    final epoch = now.millisecondsSinceEpoch ~/ 1000;
+    final entries = <LiveTvHubEntry>[];
+    for (final program in programs) {
+      final start = program.beginsAt;
+      final end = program.endsAt;
+      if (start == null || end == null || start > epoch || end <= epoch) continue;
+      entries.add(
+        LiveTvHubEntry(
+          program: program,
+          metadata: MediaItem(
+            id: program.ratingKey ?? program.key ?? '${program.channelIdentifier}:$start',
+            backend: client.backend,
+            kind: MediaKind.clip,
+            title: program.guideTitle,
+            summary: program.summary,
+            contentRating: program.contentRating,
+            thumbPath: program.thumb,
+            artPath: program.art,
+            durationMs: (end - start) * 1000,
+            serverId: client.serverId,
+            serverName: client.serverName,
+          ),
+        ),
+      );
+    }
+    if (entries.isEmpty) return const [];
+    return [LiveTvHubResult(title: t.liveTv.whatsOn, hubKey: 'currently-airing', entries: entries)];
   }
 
   /// Focus the first hub (called from parent when tab bar navigates down)
@@ -164,6 +209,7 @@ class WhatsOnTabState extends State<WhatsOnTab>
         return HubSection(
           key: _hubKeys[index],
           hub: hub.mediaHub,
+          showServerName: true,
           focusMemory: _hubFocusMemory,
           icon: Symbols.live_tv_rounded,
           cardSizing: HubCardSizing.grid,
@@ -193,13 +239,12 @@ class _WhatsOnHub {
 
   const _WhatsOnHub._(this.mediaHub, this._entriesByItem);
 
-  factory _WhatsOnHub.fromResult(LiveTvHubResult result) {
+  factory _WhatsOnHub.fromResult(LiveTvHubResult result, {required MediaServerClient client}) {
     final entriesByItem = Map<MediaItem, LiveTvHubEntry>.identity();
     for (final entry in result.entries) {
       entriesByItem[entry.metadata] = entry;
     }
 
-    final firstMetadata = result.entries.isEmpty ? null : result.entries.first.metadata;
     return _WhatsOnHub._(
       MediaHub(
         id: result.hubKey,
@@ -207,8 +252,8 @@ class _WhatsOnHub {
         type: 'mixed',
         items: [for (final entry in result.entries) entry.metadata],
         size: result.entries.length,
-        serverId: firstMetadata?.serverId,
-        serverName: firstMetadata?.serverName,
+        serverId: client.serverId,
+        serverName: client.serverName,
       ),
       entriesByItem,
     );

@@ -75,11 +75,11 @@ jobs:
             "Plezy Windows x64 test build",
             "Commit: $env:TEST_COMMIT",
             "Branch: $env:TEST_REF",
-            "Source commit: 6ff789294febaf730da19c08f50ef572aedd118b",
+            "Source commit: 72f3a253c6ad0da4f695fa653232929f91ff0155",
             "Upstream base: 04b0cda922accfbdb510462a3eb96fabccd76002",
             "Extract the complete ZIP and run plezy.exe.",
             "Automatic update checks and Sentry are disabled for this test build.",
-            "Independent TV guide improvements: badges, wider programs, mobile columns, half-hour entry, popup descriptions, episode subtext, age ratings, and shared Plezy-red LIVE badges. Real-server validation pending."
+            "Independent TV guide improvements including TV information panel, six visible channel rows, half-hour timeline boxes, persistent background playback, favorites grouping, and backend metadata fixes. Real-server validation pending."
           ) | Set-Content -LiteralPath (Join-Path $bundle "TEST-BUILD.txt") -Encoding utf8
 
       # GitHub packages the complete folder as a downloadable ZIP artifact.
@@ -195,7 +195,7 @@ jobs:
           pathlib.Path('test-artifacts/TEST-BUILD.txt').write_text(
               'Plezy Android ARM64 release test build\n'
               f'Build commit: {os.environ["TEST_COMMIT"]}\n'
-              'Source commit: 6ff789294febaf730da19c08f50ef572aedd118b\n'
+              'Source commit: 72f3a253c6ad0da4f695fa653232929f91ff0155\n'
               'Upstream base: 04b0cda922accfbdb510462a3eb96fabccd76002\n'
               'Release mode, test signed. Updates and Sentry disabled. Real-device validation pending.\n')
           pathlib.Path(str(apk) + '.sha256').write_text(hashlib.sha256(apk.read_bytes()).hexdigest() + '  ' + apk.name + '\n')
