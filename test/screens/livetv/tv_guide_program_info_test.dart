@@ -54,22 +54,22 @@ void main() {
           ),
         );
         expect(find.text('Flavortown Food Fight'), findsOneWidget);
-        expect(find.text('Heat Day'), findsOneWidget);
-        expect(find.textContaining('S1E9 • Food Network'), findsOneWidget);
+        expect(find.text('S1E9 Heat Day'), findsOneWidget);
+        expect(find.textContaining('Food Network •'), findsOneWidget);
         expect(find.textContaining('TV-PG • 39 min left'), findsOneWidget);
         expect(
           find.textContaining(is24Hour ? RegExp('20:00 – 21:00') : RegExp(r'8:00\sPM – 9:00\sPM')),
           findsOneWidget,
         );
-        expect(find.text(t.liveTv.live), findsOneWidget);
+        expect(find.text(t.liveTv.live), findsNothing);
         expect(find.text(t.liveTv.newProgram), findsNothing);
-        expect(tester.widget<StatusPill>(find.byType(StatusPill)).color, Colors.red);
+        expect(find.byType(StatusPill), findsNothing);
         expect(tester.takeException(), isNull);
       });
     }
   }
 
-  testWidgets('TV information shares placeholder filtering and never invents a badge', (tester) async {
+  testWidgets('TV information shares placeholder filtering and omits status badges', (tester) async {
     Future<void> pump(LiveTvProgram program) => tester.pumpWidget(
       MaterialApp(
         home: Scaffold(
@@ -84,7 +84,7 @@ void main() {
       LiveTvProgram(title: 'Show', programTitle: 'Show', episodeTitle: 'Episode 2000: A New Beginning', isNew: true),
     );
     expect(find.text('Episode 2000: A New Beginning'), findsOneWidget);
-    expect(find.text(t.liveTv.newProgram), findsOneWidget);
+    expect(find.text(t.liveTv.newProgram), findsNothing);
     expect(tester.takeException(), isNull);
   });
 }

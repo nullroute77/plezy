@@ -138,6 +138,7 @@ class GuideTabState extends State<GuideTab>
   final _hoverPreview = ValueNotifier<({LiveTvChannel channel, LiveTvProgram? program})?>(null);
   static const _sourceHeaderRowHeight = 40.0;
   static const _timeHeaderHeight = 40.0;
+  static const _tvVisibleChannelRows = 6;
   static const _minutesPerSlot = 30;
 
   static const _followNowIdleDelay = Duration(seconds: 5);
@@ -1411,16 +1412,19 @@ class GuideTabState extends State<GuideTab>
         var headers = 0;
         var channels = 0;
         for (final row in rows) {
-          if (channels == 5) break;
+          if (channels == _tvVisibleChannelRows) break;
           if (row is _GuideSourceHeaderRow) {
             headers++;
           } else {
             channels++;
           }
         }
-        // Reserve room for five channel rows, including the source headings
+        // Reserve room for six channel rows, including the source headings
         // above them. Smaller TV viewports use a compact row, not fewer rows.
-        _rowHeight = ((constraints.maxHeight - 240 - headers * _sourceHeaderRowHeight) / 5).clamp(48.0, 72.0);
+        _rowHeight = ((constraints.maxHeight - 240 - headers * _sourceHeaderRowHeight) / _tvVisibleChannelRows).clamp(
+          48.0,
+          72.0,
+        );
         return Column(
           children: [
             Expanded(
@@ -1443,7 +1447,10 @@ class GuideTabState extends State<GuideTab>
               ),
             ),
             _buildTimeNavigation(theme),
-            SizedBox(height: _timeHeaderHeight + _rowHeight * 5 + headers * _sourceHeaderRowHeight, child: grid),
+            SizedBox(
+              height: _timeHeaderHeight + _rowHeight * _tvVisibleChannelRows + headers * _sourceHeaderRowHeight,
+              child: grid,
+            ),
           ],
         );
       },
@@ -1687,6 +1694,8 @@ class GuideTabState extends State<GuideTab>
 
   Widget _buildTimeHeader(ThemeData theme) {
     final is24Hour = MediaQuery.alwaysUse24HourFormatOf(context);
+    final isTv = PlatformDetector.isTV();
+    final colors = tokens(context);
     final slots = <Widget>[];
     var current = _gridStart;
 
@@ -1695,11 +1704,21 @@ class GuideTabState extends State<GuideTab>
       slots.add(
         SizedBox(
           width: _slotWidth,
-          child: Padding(
+          child: Container(
+            key: ValueKey('guide-time-slot-${current.millisecondsSinceEpoch}'),
+            margin: isTv ? const EdgeInsets.all(2) : null,
             padding: const EdgeInsets.symmetric(horizontal: 8),
-            child: Align(
-              alignment: .centerLeft,
-              child: Text(timeStr, style: theme.textTheme.labelSmall?.copyWith(color: tokens(context).textMuted)),
+            alignment: .centerLeft,
+            decoration: isTv
+                ? BoxDecoration(
+                    color: colors.surface,
+                    border: Border.all(color: colors.outline),
+                    borderRadius: BorderRadius.circular(colors.radiusSm),
+                  )
+                : null,
+            child: Text(
+              timeStr,
+              style: theme.textTheme.labelSmall?.copyWith(color: isTv ? colors.text : colors.textMuted),
             ),
           ),
         ),

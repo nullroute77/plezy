@@ -11,7 +11,6 @@ import '../../theme/mono_tokens.dart';
 import '../../utils/content_utils.dart';
 import '../../utils/formatters.dart';
 import '../../widgets/optimized_media_image.dart';
-import '../../widgets/status_pill.dart';
 
 /// The highlighted airing's details, independent of the channel being played.
 class TvGuideProgramInfo extends StatelessWidget {
@@ -40,8 +39,8 @@ class TvGuideProgramInfo extends StatelessWidget {
     final start = airing?.startTime;
     final end = airing?.endTime;
     final is24Hour = MediaQuery.alwaysUse24HourFormatOf(context);
+    final subtitle = [?episode, ?airing?.guideSubtitle].join(' ');
     final metadata = [
-      ?episode,
       if (channel != null && airing != null) channel!.displayName,
       if (start != null && end != null)
         '${formatClockTime(start, is24Hour: is24Hour)} – ${formatClockTime(end, is24Hour: is24Hour)}',
@@ -49,14 +48,6 @@ class TvGuideProgramInfo extends StatelessWidget {
       if (start != null && end != null && !now.isBefore(start) && now.isBefore(end))
         t.discover.minutesLeft(minutes: (end.difference(now).inSeconds / 60).ceil()),
     ].join(' • ');
-    final badge = switch (airing?.guideBadge) {
-      GuideProgramBadge.live => StatusPill.live(),
-      GuideProgramBadge.newProgram => StatusPill.newProgram(
-        foregroundColor: theme.colorScheme.onSurface,
-        backgroundColor: theme.scaffoldBackgroundColor,
-      ),
-      null => null,
-    };
 
     return ExcludeFocus(
       child: Padding(
@@ -92,21 +83,13 @@ class TvGuideProgramInfo extends StatelessWidget {
                           mainAxisSize: MainAxisSize.min,
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Flexible(
-                                  child: Text(
-                                    airing?.guideTitle ?? channel?.displayName ?? t.liveTv.guide,
-                                    style: theme.textTheme.headlineMedium?.copyWith(fontWeight: FontWeight.w600),
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
-                                  ),
-                                ),
-                                if (badge != null) ...[const SizedBox(width: 8), badge],
-                              ],
+                            Text(
+                              airing?.guideTitle ?? channel?.displayName ?? t.liveTv.guide,
+                              style: theme.textTheme.headlineMedium?.copyWith(fontWeight: FontWeight.w600),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
                             ),
-                            if (airing?.guideSubtitle case final subtitle?) ...[
+                            if (subtitle.isNotEmpty) ...[
                               const SizedBox(height: 8),
                               Text(
                                 subtitle,
