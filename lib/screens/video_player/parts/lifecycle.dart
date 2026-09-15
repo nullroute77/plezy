@@ -165,7 +165,7 @@ extension _VideoPlayerLifecycleMethods on VideoPlayerScreenState {
 
     if (_consumeLiveExitOnResume()) {
       _recordLifecycleState('resumed', action: 'exit_stopped_live_session');
-      await _handleBackButton(returnToGuide: false);
+      await _handleBackButton();
       return;
     }
 

@@ -666,7 +666,7 @@ void main() {
         expect(tester.getTopLeft(first).dx, device.column);
         expect(tester.getTopLeft(second).dx - tester.getTopLeft(first).dx, 240);
         final label = find.text(formatClockTime(now.subtract(const Duration(minutes: 15)), is24Hour: false)).last;
-        final labelInset = device.tv ? 11.0 : 8.0; // TV box margin and border.
+        final labelInset = device.tv ? 10.0 : 8.0; // TV box margin.
         expect(tester.getTopLeft(label).dx, device.column + labelInset);
         final nowLine = find.byWidgetPredicate(
           (widget) => widget is Container && widget.color == Colors.red && widget.constraints?.maxWidth == 2,
@@ -800,10 +800,6 @@ void main() {
     expect(tester.widget<TvGuideProgramInfo>(find.byType(TvGuideProgramInfo)).channel, channels[7]);
     expect(tester.getBottomRight(_gridText('Channel 7')).dy, lessThanOrEqualTo(gridRect.bottom));
     expect(tuned, isEmpty);
-    final state = tester.state<GuideTabState>(find.byType(_TuningGuideTab));
-    state.restoreFocusAfterPlayback();
-    await tester.pump();
-    expect(tester.widget<TvGuideProgramInfo>(find.byType(TvGuideProgramInfo)).channel, channels[7]);
     final mouse = await tester.createGesture(kind: ui.PointerDeviceKind.mouse);
     await mouse.addPointer(location: tester.getCenter(_gridText('Channel 6')));
     await tester.pump();

@@ -210,14 +210,6 @@ class GuideTabState extends State<GuideTab>
   LiveTvChannel? _pendingJumpChannel;
   LiveTvProgram? _pendingJumpProgram;
 
-  /// A presentation change must retain the selected airing/channel. Ordinary
-  /// tab entry deliberately starts at the first channel via [focusContent].
-  void restoreFocusAfterPlayback() {
-    if (!InputModeTracker.isKeyboardMode(context)) return;
-    _guideFocusNode.requestFocus();
-    _publishFocusSnapshot();
-  }
-
   /// Focus into the guide content (called from tab bar navigation or initial load).
   void focusContent() {
     if (!InputModeTracker.isKeyboardMode(context)) return;
@@ -1620,6 +1612,11 @@ class GuideTabState extends State<GuideTab>
     );
   }
 
+  BoxDecoration get _timeChipDecoration => BoxDecoration(
+    color: tokens(context).text.withValues(alpha: 0.08),
+    borderRadius: const BorderRadius.all(Radius.circular(MonoTokens.radiusFull)),
+  );
+
   Widget _buildTimeNavigation(ThemeData theme) {
     final timeLabel = formatClockTime(_gridStart, is24Hour: MediaQuery.alwaysUse24HourFormatOf(context));
     final dayLabel = _dayLabel(_gridStart);
@@ -1651,10 +1648,7 @@ class GuideTabState extends State<GuideTab>
                       onTap: _showDayPicker,
                       child: Container(
                         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                        decoration: BoxDecoration(
-                          color: tokens(context).text.withValues(alpha: 0.08),
-                          borderRadius: const BorderRadius.all(Radius.circular(MonoTokens.radiusFull)),
-                        ),
+                        decoration: _timeChipDecoration,
                         child: Row(
                           mainAxisSize: .min,
                           children: [
@@ -1709,13 +1703,7 @@ class GuideTabState extends State<GuideTab>
             margin: isTv ? const EdgeInsets.all(2) : null,
             padding: const EdgeInsets.symmetric(horizontal: 8),
             alignment: .centerLeft,
-            decoration: isTv
-                ? BoxDecoration(
-                    color: colors.surface,
-                    border: Border.all(color: colors.outline),
-                    borderRadius: BorderRadius.circular(colors.radiusSm),
-                  )
-                : null,
+            decoration: isTv ? _timeChipDecoration : null,
             child: Text(
               timeStr,
               style: theme.textTheme.labelSmall?.copyWith(color: isTv ? colors.text : colors.textMuted),

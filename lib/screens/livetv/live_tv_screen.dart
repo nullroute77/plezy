@@ -32,8 +32,6 @@ import 'reorder_favorites_sheet.dart';
 import 'tabs/guide_tab.dart';
 import 'tabs/recordings_tab.dart';
 import 'tabs/whats_on_tab.dart';
-import 'tv_live_tv_player_host.dart';
-import 'tv_live_tv_playback_scope.dart';
 
 typedef _FavoriteScope = ({String source, String storeKey, FavoriteChannelPersistenceMode mode});
 
@@ -49,9 +47,6 @@ class LiveTvScreen extends StatefulWidget {
 class _LiveTvScreenState extends State<LiveTvScreen>
     with TickerProviderStateMixin, TabNavigationMixin
     implements FocusableTab {
-  final _screenKey = GlobalKey();
-  BuildContext get _presentationContext => _screenKey.currentContext ?? context;
-
   final _guideTabFocusNode = FocusNode(debugLabel: 'tab_chip_guide');
   final _whatsOnTabFocusNode = FocusNode(debugLabel: 'tab_chip_whats_on');
   final _recordingsTabFocusNode = FocusNode(debugLabel: 'tab_chip_recordings');
@@ -131,17 +126,6 @@ class _LiveTvScreenState extends State<LiveTvScreen>
     LiveTvTab.whatsOn => _whatsOnTabFocusNode,
     LiveTvTab.recordings => _recordingsTabFocusNode,
   };
-
-  @override
-  void onTabBarBack() {
-    final guideContext = _guideTabKey.currentContext;
-    final scope = guideContext == null ? null : TvLiveTvPlaybackScope.maybeOf(guideContext);
-    if (scope?.hasPlayback == true) {
-      unawaited(scope?.exitGuide?.call());
-      return;
-    }
-    super.onTabBarBack();
-  }
 
   @override
   void initState() {
@@ -233,7 +217,7 @@ class _LiveTvScreenState extends State<LiveTvScreen>
     if (futures.isEmpty) return false;
     await Future.wait(futures);
     if (!mounted) return false;
-    showSnackBar(_presentationContext, successMessage);
+    showSnackBar(context, successMessage);
     return true;
   }
 
@@ -548,7 +532,7 @@ class _LiveTvScreenState extends State<LiveTvScreen>
             if (pendingLoad != null) await pendingLoad;
             if (!mounted) return;
             if (!_favoritesWritable) {
-              showErrorSnackBar(_presentationContext, t.liveTv.favoritesLoadFailed);
+              showErrorSnackBar(context, t.liveTv.favoritesLoadFailed);
               return;
             }
             mutation();
@@ -557,7 +541,7 @@ class _LiveTvScreenState extends State<LiveTvScreen>
           .catchError((Object error, StackTrace stackTrace) {
             appLogger.e('Failed to mutate favorite channels', error: error, stackTrace: stackTrace);
             if (mounted) {
-              showErrorSnackBar(_presentationContext, t.liveTv.favoritesUpdateFailed);
+              showErrorSnackBar(context, t.liveTv.favoritesUpdateFailed);
             }
           }),
     );
@@ -565,7 +549,7 @@ class _LiveTvScreenState extends State<LiveTvScreen>
 
   void _showGuideSearch() {
     OverlaySheetController.showAdaptive(
-      _presentationContext,
+      context,
       isScrollControlled: true,
       builder: (sheetContext) => GuideSearchSheet(
         channels: _channels,
@@ -598,7 +582,7 @@ class _LiveTvScreenState extends State<LiveTvScreen>
     final channelMap = {for (final c in _channels) _favoriteKeyForChannel(c): c};
 
     OverlaySheetController.showAdaptive(
-      _presentationContext,
+      context,
       isScrollControlled: true,
       showDragHandle: true,
       builder: (sheetContext) => ReorderFavoritesSheet(
@@ -697,30 +681,11 @@ class _LiveTvScreenState extends State<LiveTvScreen>
 
   @override
   Widget build(BuildContext context) {
-    if (PlatformDetector.isTV()) {
-      return TvLiveTvPlayerHost(
-        active: _currentTab == LiveTvTab.guide,
-        onGuideShown: () {
-          _guideTabKey.currentState?.resumeRefresh();
-          _guideTabKey.currentState?.restoreFocusAfterPlayback();
-        },
-        builder: _buildScreen,
-      );
-    }
-    return _buildScreen(context);
-  }
-
-  Widget _buildScreen(BuildContext context) {
-    final hasPlayback = TvLiveTvPlaybackScope.maybeOf(context)?.hasPlayback ?? false;
     final useSideNav = PlatformDetector.shouldUseSideNavigation(context);
 
     final isRecordings = _currentTab == LiveTvTab.recordings;
     return Scaffold(
-      key: _screenKey,
-      backgroundColor: hasPlayback ? Colors.transparent : null,
       appBar: AppBar(
-        backgroundColor: hasPlayback ? Colors.transparent : null,
-        surfaceTintColor: hasPlayback ? Colors.transparent : null,
         title: useSideNav ? TabChipStrip(children: _buildTabChipItems()) : Text(t.liveTv.title),
         actions: DesktopAppBarHelper.buildAdjustedActions([
           FocusableActionBar(

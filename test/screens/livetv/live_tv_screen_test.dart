@@ -96,11 +96,19 @@ void main() {
       final first = tester.widget<Container>(boxes.first);
       final decoration = first.decoration! as BoxDecoration;
       final colors = tokens(tester.element(boxes.first));
-      expect(decoration.color, colors.surface);
-      expect(decoration.color!.a, 1);
-      expect(decoration.border, Border.all(color: colors.outline));
+      final todayBackground = tester.widget<Container>(
+        find.ancestor(of: find.text(t.liveTv.today), matching: find.byType(Container)).first,
+      );
+      expect(decoration, todayBackground.decoration);
+      expect(decoration.border, isNull);
       expect(tester.getTopLeft(boxes.at(1)).dx - tester.getTopLeft(boxes.first).dx, 240);
-      final luminances = [colors.text.computeLuminance(), colors.surface.computeLuminance()]..sort();
+      final luminances = [
+        colors.text.computeLuminance(),
+        Color.alphaBlend(
+          decoration.color!,
+          Theme.of(tester.element(boxes.first)).scaffoldBackgroundColor,
+        ).computeLuminance(),
+      ]..sort();
       expect((luminances.last + 0.05) / (luminances.first + 0.05), greaterThanOrEqualTo(4.5));
       expect(find.descendant(of: info, matching: find.text('S1E9 Heat Day')), findsOneWidget);
       const screenshotDir = String.fromEnvironment('GUIDE_SCREENSHOT_DIR');

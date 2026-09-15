@@ -10,7 +10,6 @@ import '../models/livetv_channel.dart';
 import '../providers/multi_server_provider.dart';
 import '../screens/video_player/live_tv_session_args.dart';
 import '../screens/video_player_screen.dart';
-import '../screens/livetv/tv_live_tv_playback_scope.dart';
 import '../utils/app_logger.dart';
 import '../utils/snackbar_helper.dart';
 import '../utils/video_player_navigation.dart';
@@ -72,21 +71,10 @@ Future<void> navigateToLiveTv(
     appLogger.w('Live TV launch channel was not present in navigation list; prepending ${channel.key}');
   }
 
-  final live = LiveTvSessionArgs(
-    channel: channel,
-    channels: normalizedChannels,
-    currentChannelIndex: currentChannelIndex,
-  );
-  final tvHost = TvLiveTvPlaybackScope.maybeOf(context);
-  if (tvHost != null && tvHost.enabled && launchObserver == null && isLaunchCurrent == null) {
-    await tvHost.play(placeholder, live);
-    return;
-  }
-
   final route = buildVideoPlayerRoute(
     builder: (_) => VideoPlayerScreen(
       metadata: placeholder,
-      live: live,
+      live: LiveTvSessionArgs(channel: channel, channels: normalizedChannels, currentChannelIndex: currentChannelIndex),
       launchObserver: launchObserver,
       isLaunchCurrent: isLaunchCurrent,
     ),

@@ -101,7 +101,6 @@ import 'video_player/playback_failure_action.dart';
 import 'video_player/playback_transition_gate.dart';
 import 'video_player/open_http_503_watchdog.dart';
 import 'video_player/live_tv_session_args.dart';
-import 'video_player/live_tv_player_presentation.dart';
 import 'video_player/live_tv_session_state.dart';
 import 'video_player/tv_background_suspend_policy.dart';
 import 'video_player/tv_background_suspend_state.dart';
@@ -403,7 +402,6 @@ class VideoPlayerScreen extends StatefulWidget {
   /// Present iff this screen plays live TV; carries the whole live launch
   /// state (see [LiveTvSessionArgs]).
   final LiveTvSessionArgs? live;
-  final LiveTvPlayerPresentation? livePresentation;
 
   bool get isLive => live != null;
 
@@ -420,7 +418,6 @@ class VideoPlayerScreen extends StatefulWidget {
     this.selectedQualityPreset,
     this.selectedAudioStreamId,
     this.live,
-    this.livePresentation,
     this.watchTogetherLease,
     this.initialPosition,
     this.strictMediaSelection = false,
@@ -433,38 +430,6 @@ class VideoPlayerScreen extends StatefulWidget {
 }
 
 class VideoPlayerScreenState extends State<VideoPlayerScreen> with WidgetsBindingObserver, MountedSetStateMixin {
-  bool get _isGuideBackground => widget.livePresentation?.background ?? false;
-
-  /// Reuse the player's normal channel-switch path, including session cleanup.
-  Future<bool> selectHostedLiveChannel(LiveTvChannel channel) async {
-    final index =
-        widget.live?.channels?.indexWhere(
-          (candidate) => liveTvChannelScopeKey(candidate) == liveTvChannelScopeKey(channel),
-        ) ??
-        -1;
-    if (index < 0) return false;
-    if (index == _live.channelIndex) return true;
-    await _playerInitializationOperation;
-    if (!mounted || _shuttingDown) return false;
-    await _switchLiveChannel(index - _live.channelIndex);
-    return index == _live.channelIndex;
-  }
-
-  void focusHostedPlayer() {
-    if (mounted && !_isGuideBackground) _screenFocusNode.requestFocus();
-  }
-
-  Future<void> stopHostedPlayback() async {
-    try {
-      await _shutdownVideo();
-      await _playerInitializationOperation;
-    } catch (error, stackTrace) {
-      appLogger.w('Failed to stop hosted Live TV playback', error: error, stackTrace: stackTrace);
-    } finally {
-      if (mounted) await _restoreSystemUiAndOrientation();
-    }
-  }
-
   /// How close to the capture buffer's end counts as "live". A live-edge
   /// transcode starts behind the buffer's edge by tuner ingest and encoder
   /// start-up latency (10–20 s observed), so a tighter threshold would flag
@@ -550,13 +515,6 @@ class VideoPlayerScreenState extends State<VideoPlayerScreen> with WidgetsBindin
     }
     // Do not bypass Watch Together's leave-session confirmation.
     if (_watchTogetherProvider?.isInSession == true && !_watchTogetherProvider!.isHost) return false;
-    if (widget.livePresentation case final presentation?) {
-      await stopHostedPlayback();
-      if (mounted) presentation.onExit();
-      await _routeDisposed.future;
-      await _nativeDisposal;
-      return true;
-    }
     final route = ModalRoute.of(context);
     if (route == null || !route.isCurrent || !Navigator.of(context).canPop()) return false;
     final navigator = Navigator.of(context);
@@ -825,7 +783,7 @@ class VideoPlayerScreenState extends State<VideoPlayerScreen> with WidgetsBindin
     canControlPlayback: () => _canControlPlayback(),
     volumeController: () => _volumeController,
     hasNextEpisode: () => _episode.next != null,
-    onStop: () => widget.livePresentation != null ? _exitPlayerRoute(navigateHome: false) : _handleBackButton(),
+    onStop: () => _handleBackButton(),
     onPlayNext: () => _playNext(),
     onPlayPrevious: () => _restartOrPlayPrevious(),
     seekRelative: (offset) => _seekRelative(offset),
@@ -1891,11 +1849,6 @@ class VideoPlayerScreenState extends State<VideoPlayerScreen> with WidgetsBindin
   /// Pause/hide the player, flush stopped progress, restore system UI and
   /// orientation, then leave the player route. No-op when the route cannot pop.
   Future<void> _exitPlayerRoute({required bool navigateHome}) async {
-    if (widget.livePresentation case final presentation?) {
-      await stopHostedPlayback();
-      if (mounted) presentation.onExit();
-      return;
-    }
     final navigator = Navigator.of(context);
     if (!navigator.canPop()) return;
 
@@ -1911,15 +1864,9 @@ class VideoPlayerScreenState extends State<VideoPlayerScreen> with WidgetsBindin
 
   /// Handle back button press
   /// For non-host participants in Watch Together, shows leave session confirmation
-  Future<void> _handleBackButton({bool navigateHome = false, bool returnToGuide = true}) async {
+  Future<void> _handleBackButton({bool navigateHome = false}) async {
     if (!navigateHome && (_episode.showPlayNextDialog || _showStillWatchingPrompt)) {
       _dismissPlaybackPromptForBack();
-      return;
-    }
-    if (!navigateHome && returnToGuide && widget.livePresentation != null) {
-      _chromeController.hide();
-      _chromeController.markControlsHidden();
-      widget.livePresentation!.onReturnToGuide();
       return;
     }
     if (_isHandlingBack) return;
@@ -2155,16 +2102,12 @@ class VideoPlayerScreenState extends State<VideoPlayerScreen> with WidgetsBindin
   /// resume (#2034) — leaves `isCurrent` true, but CoveredRouteFocusBoundary
   /// then excludes the whole session from focus, so the request is a no-op.
   void _onScreenFocusChanged() {
-    if (_reclaimingFocus || _isGuideBackground) return;
+    if (_reclaimingFocus) return;
     if (!_screenFocusNode.hasFocus && mounted && !_isExiting.value) {
       _reclaimingFocus = true;
       WidgetsBinding.instance.addPostFrameCallback((_) {
         _reclaimingFocus = false;
-        if (mounted &&
-            !_isGuideBackground &&
-            !_isExiting.value &&
-            !_screenFocusNode.hasFocus &&
-            ModalRoute.of(context)?.isCurrent == true) {
+        if (mounted && !_isExiting.value && !_screenFocusNode.hasFocus && ModalRoute.of(context)?.isCurrent == true) {
           _screenFocusNode.requestFocus();
         }
       });
@@ -2175,7 +2118,7 @@ class VideoPlayerScreenState extends State<VideoPlayerScreen> with WidgetsBindin
   /// before their autofocus request has settled. Claim focus immediately so
   /// the matching key-up reaches the player route and exits exactly once.
   bool _primeInitializationNavigationFocus(KeyEvent event) {
-    if (!mounted || _isExiting.value || _isGuideBackground) return false;
+    if (!mounted || _isExiting.value) return false;
     primePlayerNavigationFocusForEvent(
       event,
       focusNode: _screenFocusNode,
@@ -2528,7 +2471,7 @@ class VideoPlayerScreenState extends State<VideoPlayerScreen> with WidgetsBindin
 
   @override
   Widget build(BuildContext context) {
-    final isCurrentRoute = !_isGuideBackground && (ModalRoute.of(context)?.isCurrent ?? true);
+    final isCurrentRoute = ModalRoute.of(context)?.isCurrent ?? true;
     // Screen-level Focus wraps ALL phases (loading + initialized).
     // - autofocus: grabs focus when no deeper child claims it.
     // - onKeyEvent: owns player-level navigation after descendants have had the
@@ -2595,9 +2538,8 @@ class VideoPlayerScreenState extends State<VideoPlayerScreen> with WidgetsBindin
         // Host owns sheet + system back: a back with a sheet open closes it;
         // with no sheet, exit the player. canPop:false keeps swipe-back disabled
         // so it doesn't fight timeline scrubbing.
-        canPop: _isGuideBackground,
+        canPop: false,
         onSystemBack: () {
-          if (_isGuideBackground) return;
           if (BackKeyCoordinator.consumeIfHandled()) return;
           BackKeyCoordinator.markHandled();
           _handleScreenPlayerNavigation(PlayerNavigationKey.back);

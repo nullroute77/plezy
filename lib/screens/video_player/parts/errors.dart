@@ -65,7 +65,7 @@ extension _VideoPlayerErrorMethods on VideoPlayerScreenState {
           PlayerError.audioOutputFailed => t.messages.audioOutputFailed,
           _ => _redactPlayerError(_lastLogError ?? err.message),
         });
-        unawaited(_handleBackButton(returnToGuide: false));
+        unawaited(_handleBackButton());
     }
   }
 
@@ -104,13 +104,13 @@ extension _VideoPlayerErrorMethods on VideoPlayerScreenState {
   Future<void> _showServerLimitDialog() async {
     if (!mounted) return;
     await showServerLimitDialog(context);
-    if (mounted) unawaited(_handleBackButton(returnToGuide: false));
+    if (mounted) unawaited(_handleBackButton());
   }
 
   Future<void> _showMediaUnreadableDialog() async {
     if (!mounted) return;
     await showMediaUnreadableDialog(context);
-    if (mounted) unawaited(_handleBackButton(returnToGuide: false));
+    if (mounted) unawaited(_handleBackButton());
   }
 
   Future<void> _showServerBusyDialog() async {
@@ -120,7 +120,7 @@ extension _VideoPlayerErrorMethods on VideoPlayerScreenState {
     // the route is left on dialog close either way.
     unawaited(player?.pause().catchError((_) {}));
     await showServerBusyDialog(context);
-    if (mounted) unawaited(_handleBackButton(returnToGuide: false));
+    if (mounted) unawaited(_handleBackButton());
   }
 
   /// Handle notification when native player switched from ExoPlayer to MPV
