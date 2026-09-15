@@ -11,7 +11,7 @@ on:
 env:
   TEST_CERTIFICATE_SHA256: ee0746b8fe9c1aab0102fe3a5beb4af27dbafa285ec2974abee83a45ebb7dac3
   TEST_BASE_COMMIT: 5a7e0966a367b252473d1fb8b20c7b6d385dac4c
-  TEST_SOURCE_COMMIT: b9d474643ce20a3f31700c960c478ebf23996bf0
+  TEST_SOURCE_COMMIT: 2a381d8e2fbfca95aaa1dbea3fd802f4c195c4d4
 
 permissions:
   contents: read
@@ -97,7 +97,7 @@ jobs:
             "Plezy Windows x64 test build",
             "Commit: $env:TEST_COMMIT",
             "Branch: $env:TEST_REF",
-            "Source commit: b9d474643ce20a3f31700c960c478ebf23996bf0",
+            "Source commit: 2a381d8e2fbfca95aaa1dbea3fd802f4c195c4d4",
             "Source branch: merged-feature-test",
             "Extract the complete ZIP and run plezy.exe.",
             "Automatic update checks and Sentry are disabled for this test build.",
@@ -270,7 +270,7 @@ jobs:
           pathlib.Path('test-artifacts/TEST-BUILD.txt').write_text(
               'Plezy Android ARM64 release test build\n'
               f'Build commit: {os.environ["TEST_COMMIT"]}\n'
-              'Source commit: b9d474643ce20a3f31700c960c478ebf23996bf0\n'
+              'Source commit: 2a381d8e2fbfca95aaa1dbea3fd802f4c195c4d4\n'
               'Source branch: merged-feature-test\n'
               f'Android versionCode: {os.environ["TEST_VERSION_CODE"]}\n'
               f'Persistent signing certificate SHA-256: {os.environ["TEST_CERTIFICATE_SHA256"]}\n'

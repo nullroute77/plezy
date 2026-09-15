@@ -11,6 +11,7 @@ import 'package:material_symbols_icons/symbols.dart';
 import 'package:provider/provider.dart';
 
 import '../../../focus/dpad_navigator.dart';
+import '../../../focus/card_focus_scope.dart';
 import '../../../focus/dpad_select_long_press_controller.dart';
 import '../../../focus/focus_theme.dart';
 import '../../../focus/input_mode_tracker.dart';
@@ -39,6 +40,7 @@ import '../../../widgets/app_menu.dart';
 import '../../../widgets/clickable_cursor.dart';
 import '../../../widgets/optimized_media_image.dart';
 import '../livetv_styles.dart';
+import '../tv_guide_program_info.dart';
 
 class GuideTab extends StatefulWidget {
   final List<LiveTvChannel> channels;
@@ -133,9 +135,11 @@ class GuideTabState extends State<GuideTab>
     with LiveTvActionsMixin<GuideTab>, MountedSetStateMixin, WidgetsBindingObserver, LiveTvRefreshMixin<GuideTab> {
   static const _slotWidth = 240.0;
   double get _channelColumnWidth => PlatformDetector.isMobile(context) ? 96.0 : 132.0;
-  static const _rowHeight = 64.0;
+  double _rowHeight = 64.0;
+  final _hoverPreview = ValueNotifier<({LiveTvChannel channel, LiveTvProgram? program})?>(null);
   static const _sourceHeaderRowHeight = 40.0;
   static const _timeHeaderHeight = 40.0;
+  static const _tvVisibleChannelRows = 6;
   static const _minutesPerSlot = 30;
 
   static const _followNowIdleDelay = Duration(seconds: 5);
@@ -443,6 +447,7 @@ class GuideTabState extends State<GuideTab>
     _gridHorizontalController.dispose();
     _channelVerticalController.dispose();
     _focusSnapshot.dispose();
+    _hoverPreview.dispose();
     super.dispose();
   }
 
@@ -454,6 +459,7 @@ class GuideTabState extends State<GuideTab>
   }
 
   void _updateFocus(VoidCallback update) {
+    _hoverPreview.value = null;
     _resetGridSelectLongPressState();
     update();
     if (_focusZone == _GuideZone.grid) _hasEnteredGrid = true;
@@ -1007,16 +1013,18 @@ class GuideTabState extends State<GuideTab>
   }
 
   KeyEventResult _handleTimeNavKey(LogicalKeyboardKey key) {
+    final order = PlatformDetector.isTV() ? const [1, 0, 2] : const [0, 1, 2];
+    final position = order.indexOf(_timeNavIndex);
     if (key.isLeftKey) {
-      if (_timeNavIndex > 0) {
-        _updateFocus(() => _timeNavIndex--);
+      if (position > 0) {
+        _updateFocus(() => _timeNavIndex = order[position - 1]);
       } else {
         widget.onBack?.call();
       }
       return KeyEventResult.handled;
     }
     if (key.isRightKey) {
-      if (_timeNavIndex < 2) _updateFocus(() => _timeNavIndex++);
+      if (position < order.length - 1) _updateFocus(() => _timeNavIndex = order[position + 1]);
       return KeyEventResult.handled;
     }
     if (key.isDownKey) {
@@ -1285,42 +1293,77 @@ class GuideTabState extends State<GuideTab>
 
   Widget _buildGuideGrid(ThemeData theme) {
     final rows = _guideRows;
-    return Column(
-      children: [
-        _buildTimeNavigation(theme),
-        Expanded(
-          child: ListenableBuilder(
-            listenable: _gridHorizontalController,
-            builder: (context, child) {
-              return Stack(children: [child!, _buildNowIndicatorOverlay(theme)]);
-            },
-            child: Column(
+    final isTv = PlatformDetector.isTV();
+    final grid = ListenableBuilder(
+      key: const ValueKey('guide-timeline-grid'),
+      listenable: _gridHorizontalController,
+      builder: (context, child) {
+        return Stack(children: [child!, _buildNowIndicatorOverlay(theme)]);
+      },
+      child: Column(
+        children: [
+          Row(
+            children: [
+              SizedBox(
+                width: _channelColumnWidth,
+                height: _timeHeaderHeight,
+                child: isTv ? Center(child: _buildDayPicker(theme)) : null,
+              ),
+              Expanded(
+                child: SingleChildScrollView(
+                  controller: _headerHorizontalController,
+                  scrollDirection: Axis.horizontal,
+                  physics: const ClampingScrollPhysics(),
+                  child: SizedBox(width: _totalGridWidth(), height: _timeHeaderHeight, child: _buildTimeHeader(theme)),
+                ),
+              ),
+            ],
+          ),
+          Expanded(
+            child: Row(
               children: [
-                Row(
-                  children: [
-                    SizedBox(width: _channelColumnWidth, height: _timeHeaderHeight),
-                    Expanded(
-                      child: SingleChildScrollView(
-                        controller: _headerHorizontalController,
-                        scrollDirection: Axis.horizontal,
-                        physics: const ClampingScrollPhysics(),
-                        child: SizedBox(
-                          width: _totalGridWidth(),
-                          height: _timeHeaderHeight,
-                          child: _buildTimeHeader(theme),
-                        ),
+                SizedBox(
+                  width: _channelColumnWidth,
+                  child: CustomScrollView(
+                    controller: _channelVerticalController,
+                    physics: const NeverScrollableScrollPhysics(),
+                    slivers: [
+                      SliverVariedExtentList.builder(
+                        itemCount: rows.length,
+                        itemExtentBuilder: (index, _) => _guideRowHeight(rows[index]),
+                        itemBuilder: (context, index) {
+                          final row = rows[index];
+                          return switch (row) {
+                            _GuideSourceHeaderRow(:final label) => _buildSourceHeaderCell(label, theme),
+                            _GuideChannelRow(:final channel, :final channelIndex) => _buildChannelCell(
+                              channel,
+                              theme,
+                              index: channelIndex,
+                            ),
+                          };
+                        },
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
                 Expanded(
-                  child: Row(
-                    children: [
-                      SizedBox(
-                        width: _channelColumnWidth,
+                  child: NotificationListener<ScrollNotification>(
+                    onNotification: (notification) {
+                      if (notification is ScrollUpdateNotification && notification.metrics.axis == Axis.vertical) {
+                        if (_channelVerticalController.hasClients) {
+                          _channelVerticalController.jumpTo(notification.metrics.pixels);
+                        }
+                      }
+                      return false;
+                    },
+                    child: SingleChildScrollView(
+                      controller: _gridHorizontalController,
+                      scrollDirection: Axis.horizontal,
+                      physics: const ClampingScrollPhysics(),
+                      child: SizedBox(
+                        width: _totalGridWidth(),
                         child: CustomScrollView(
-                          controller: _channelVerticalController,
-                          physics: const NeverScrollableScrollPhysics(),
+                          controller: _gridVerticalController,
                           slivers: [
                             SliverVariedExtentList.builder(
                               itemCount: rows.length,
@@ -1328,11 +1371,16 @@ class GuideTabState extends State<GuideTab>
                               itemBuilder: (context, index) {
                                 final row = rows[index];
                                 return switch (row) {
-                                  _GuideSourceHeaderRow(:final label) => _buildSourceHeaderCell(label, theme),
-                                  _GuideChannelRow(:final channel, :final channelIndex) => _buildChannelCell(
-                                    channel,
+                                  _GuideSourceHeaderRow(:final label, :final favorites) => _buildSourceHeaderGridRow(
+                                    label,
                                     theme,
-                                    index: channelIndex,
+                                    favorites: favorites,
+                                  ),
+                                  _GuideChannelRow(:final channel, :final channelIndex) => _buildProgramRow(
+                                    channel,
+                                    _getProgramsForChannel(channel),
+                                    theme,
+                                    channelIndex: channelIndex,
                                   ),
                                 };
                               },
@@ -1340,57 +1388,77 @@ class GuideTabState extends State<GuideTab>
                           ],
                         ),
                       ),
-                      Expanded(
-                        child: NotificationListener<ScrollNotification>(
-                          onNotification: (notification) {
-                            if (notification is ScrollUpdateNotification &&
-                                notification.metrics.axis == Axis.vertical) {
-                              if (_channelVerticalController.hasClients) {
-                                _channelVerticalController.jumpTo(notification.metrics.pixels);
-                              }
-                            }
-                            return false;
-                          },
-                          child: SingleChildScrollView(
-                            controller: _gridHorizontalController,
-                            scrollDirection: Axis.horizontal,
-                            physics: const ClampingScrollPhysics(),
-                            child: SizedBox(
-                              width: _totalGridWidth(),
-                              child: CustomScrollView(
-                                controller: _gridVerticalController,
-                                slivers: [
-                                  SliverVariedExtentList.builder(
-                                    itemCount: rows.length,
-                                    itemExtentBuilder: (index, _) => _guideRowHeight(rows[index]),
-                                    itemBuilder: (context, index) {
-                                      final row = rows[index];
-                                      return switch (row) {
-                                        _GuideSourceHeaderRow(:final label, :final favorites) =>
-                                          _buildSourceHeaderGridRow(label, theme, favorites: favorites),
-                                        _GuideChannelRow(:final channel, :final channelIndex) => _buildProgramRow(
-                                          channel,
-                                          _getProgramsForChannel(channel),
-                                          theme,
-                                          channelIndex: channelIndex,
-                                        ),
-                                      };
-                                    },
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ),
-                        ),
-                      ),
-                    ],
+                    ),
                   ),
                 ),
               ],
             ),
           ),
-        ),
-      ],
+        ],
+      ),
+    );
+    if (!isTv) {
+      _rowHeight = 64;
+      return Column(
+        children: [
+          _buildTimeNavigation(theme),
+          Expanded(child: grid),
+        ],
+      );
+    }
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        var headers = 0;
+        var channels = 0;
+        for (final row in rows) {
+          if (channels == _tvVisibleChannelRows) break;
+          if (row is _GuideSourceHeaderRow) {
+            headers++;
+          } else {
+            channels++;
+          }
+        }
+        // Reserve room for six channel rows, including the source headings
+        // above them. Smaller TV viewports use a compact row, not fewer rows.
+        _rowHeight = ((constraints.maxHeight - 240 - headers * _sourceHeaderRowHeight) / _tvVisibleChannelRows).clamp(
+          48.0,
+          72.0,
+        );
+        return Column(
+          children: [
+            Expanded(
+              child: ListenableBuilder(
+                listenable: Listenable.merge([_focusSnapshot, _hoverPreview]),
+                builder: (context, _) {
+                  final focus = _focusSnapshot.value;
+                  final hover = _hoverPreview.value;
+                  final channel = hover?.channel ?? widget.channels.elementAtOrNull(focus.channelIndex);
+                  final programs = channel == null ? const <LiveTvProgram>[] : _getProgramsForChannel(channel);
+                  final epoch = clock.now().millisecondsSinceEpoch ~/ 1000;
+                  final program =
+                      (hover == null ? focus.program : hover.program) ??
+                      programs
+                          .where((p) => (p.beginsAt ?? epoch + 1) <= epoch && (p.endsAt ?? 0) > epoch)
+                          .firstOrNull ??
+                      programs.firstOrNull;
+                  return TvGuideProgramInfo(channel: channel, program: program);
+                },
+              ),
+            ),
+            Align(
+              alignment: Alignment.centerRight,
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [_buildTimeArrow(forward: false), _buildTimeArrow(forward: true)],
+              ),
+            ),
+            SizedBox(
+              height: _timeHeaderHeight + _rowHeight * _tvVisibleChannelRows + headers * _sourceHeaderRowHeight,
+              child: grid,
+            ),
+          ],
+        );
+      },
     );
   }
 
@@ -1557,73 +1625,67 @@ class GuideTabState extends State<GuideTab>
     );
   }
 
+  Widget _buildDayPicker(ThemeData theme) => _timeNavFocusWrap(
+    index: 1,
+    child: ClickableCursor(
+      child: GestureDetector(
+        key: _dayPickerKey,
+        onTap: _showDayPicker,
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+          decoration: BoxDecoration(
+            color: tokens(context).text.withValues(alpha: 0.08),
+            borderRadius: const BorderRadius.all(Radius.circular(MonoTokens.radiusFull)),
+          ),
+          child: Row(
+            mainAxisSize: .min,
+            children: [
+              Flexible(
+                child: Text(
+                  _dayLabel(_gridStart),
+                  style: theme.textTheme.labelLarge,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+              const SizedBox(width: 2),
+              AppIcon(Symbols.arrow_drop_down_rounded, size: 18, color: theme.colorScheme.onSurface),
+            ],
+          ),
+        ),
+      ),
+    ),
+  );
+
+  Widget _buildTimeArrow({required bool forward}) => _timeNavFocusWrap(
+    index: forward ? 2 : 0,
+    child: IconButton(
+      icon: AppIcon(forward ? Symbols.chevron_right_rounded : Symbols.chevron_left_rounded),
+      onPressed: () => _shiftTimeRange(forward ? 2 : -2),
+      iconSize: 20,
+      visualDensity: VisualDensity.compact,
+    ),
+  );
+
   Widget _buildTimeNavigation(ThemeData theme) {
     final timeLabel = formatClockTime(_gridStart, is24Hour: MediaQuery.alwaysUse24HourFormatOf(context));
-    final dayLabel = _dayLabel(_gridStart);
-
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
       child: Row(
         children: [
-          _timeNavFocusWrap(
-            index: 0,
-            child: IconButton(
-              icon: const AppIcon(Symbols.chevron_left_rounded),
-              onPressed: () => _shiftTimeRange(-2),
-              iconSize: 20,
-              visualDensity: VisualDensity.compact,
-            ),
-          ),
+          _buildTimeArrow(forward: false),
           Expanded(
             child: Wrap(
               alignment: WrapAlignment.center,
               crossAxisAlignment: WrapCrossAlignment.center,
               spacing: 8,
               children: [
-                _timeNavFocusWrap(
-                  index: 1,
-                  child: ClickableCursor(
-                    child: GestureDetector(
-                      key: _dayPickerKey,
-                      onTap: _showDayPicker,
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                        decoration: BoxDecoration(
-                          color: tokens(context).text.withValues(alpha: 0.08),
-                          borderRadius: const BorderRadius.all(Radius.circular(MonoTokens.radiusFull)),
-                        ),
-                        child: Row(
-                          mainAxisSize: .min,
-                          children: [
-                            Flexible(
-                              child: Text(
-                                dayLabel,
-                                style: theme.textTheme.labelLarge,
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                              ),
-                            ),
-                            const SizedBox(width: 2),
-                            AppIcon(Symbols.arrow_drop_down_rounded, size: 18, color: theme.colorScheme.onSurface),
-                          ],
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
+                _buildDayPicker(theme),
                 Text(timeLabel, style: theme.textTheme.labelLarge),
               ],
             ),
           ),
-          _timeNavFocusWrap(
-            index: 2,
-            child: IconButton(
-              icon: const AppIcon(Symbols.chevron_right_rounded),
-              onPressed: () => _shiftTimeRange(2),
-              iconSize: 20,
-              visualDensity: VisualDensity.compact,
-            ),
-          ),
+          _buildTimeArrow(forward: true),
         ],
       ),
     );
@@ -1631,6 +1693,8 @@ class GuideTabState extends State<GuideTab>
 
   Widget _buildTimeHeader(ThemeData theme) {
     final is24Hour = MediaQuery.alwaysUse24HourFormatOf(context);
+    final isTv = PlatformDetector.isTV();
+    final colors = tokens(context);
     final slots = <Widget>[];
     var current = _gridStart;
 
@@ -1639,11 +1703,13 @@ class GuideTabState extends State<GuideTab>
       slots.add(
         SizedBox(
           width: _slotWidth,
-          child: Padding(
+          child: Container(
+            key: ValueKey('guide-time-slot-${current.millisecondsSinceEpoch}'),
             padding: const EdgeInsets.symmetric(horizontal: 8),
-            child: Align(
-              alignment: .centerLeft,
-              child: Text(timeStr, style: theme.textTheme.labelSmall?.copyWith(color: tokens(context).textMuted)),
+            alignment: .centerLeft,
+            child: Text(
+              timeStr,
+              style: theme.textTheme.labelSmall?.copyWith(color: isTv ? colors.text : colors.textMuted),
             ),
           ),
         ),
@@ -1731,6 +1797,9 @@ class GuideTabState extends State<GuideTab>
           rowHeight: _rowHeight,
           channelColumnWidth: _channelColumnWidth,
           channelThumb: channel.thumb,
+          onHover: PlatformDetector.isTV()
+              ? (hovered) => _hoverPreview.value = hovered ? (channel: channel, program: null) : null
+              : null,
           client: client,
           channel: channel,
           theme: theme,
@@ -1896,6 +1965,9 @@ class GuideTabState extends State<GuideTab>
               borderRadius: radius,
               mouseCursor: SystemMouseCursors.click,
               canRequestFocus: false,
+              onHover: PlatformDetector.isTV()
+                  ? (hovered) => _hoverPreview.value = hovered ? (channel: channel, program: program) : null
+                  : null,
               onTap: () => _activateProgram(channel, program),
               onLongPress: () => _showProgramDetails(channel, program),
               onSecondaryTap: () => _showProgramDetails(channel, program),
@@ -2101,6 +2173,7 @@ class _ChannelCell extends StatefulWidget {
   final ThemeData theme;
   final VoidCallback onTap;
   final VoidCallback? onLongPress;
+  final ValueChanged<bool>? onHover;
   final bool isFocused;
   final bool isFavorite;
   final Widget Function() fallbackBuilder;
@@ -2114,6 +2187,7 @@ class _ChannelCell extends StatefulWidget {
     required this.theme,
     required this.onTap,
     this.onLongPress,
+    this.onHover,
     required this.isFocused,
     this.isFavorite = false,
     required this.fallbackBuilder,
@@ -2130,65 +2204,68 @@ class _ChannelCellState extends State<_ChannelCell> {
   Widget build(BuildContext context) {
     final theme = widget.theme;
     final tk = tokens(context);
-    final showAction = _hovered || widget.isFocused;
-    final radius = BorderRadius.circular(widget.isFocused ? tk.radiusSm : tk.radiusXs);
-    // Inverted focus card, matching the program-block cursor.
-    final contentColor = widget.isFocused ? theme.colorScheme.onPrimary : theme.colorScheme.onSurface;
+    final showFocus = _hovered || widget.isFocused;
+    final radius = BorderRadius.circular(tk.radiusSm);
 
     return MouseRegion(
       cursor: SystemMouseCursors.click,
-      onEnter: (_) => setState(() => _hovered = true),
-      onExit: (_) => setState(() => _hovered = false),
+      onEnter: (_) {
+        setState(() => _hovered = true);
+        widget.onHover?.call(true);
+      },
+      onExit: (_) {
+        setState(() => _hovered = false);
+        widget.onHover?.call(false);
+      },
       child: GestureDetector(
         onSecondaryTap: widget.onLongPress,
         child: SizedBox(
           height: widget.rowHeight,
           child: Padding(
             padding: EdgeInsets.only(right: tk.groupGap, bottom: tk.groupGap),
-            child: Material(
-              color: widget.isFocused ? theme.colorScheme.primary : tk.surface,
-              shape: RoundedRectangleBorder(borderRadius: radius),
-              child: InkWell(
-                borderRadius: radius,
-                canRequestFocus: false,
-                onTap: widget.onTap,
-                onLongPress: widget.onLongPress,
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 8),
-                  child: Stack(
-                    alignment: .center,
-                    children: [
-                      AnimatedOpacity(
-                        opacity: showAction ? 0.3 : 1.0,
-                        duration: FocusTheme.getAnimationDuration(context),
-                        child: widget.channelThumb != null && widget.client != null
-                            ? OptimizedMediaImage.thumb(
-                                client: widget.client!,
-                                imagePath: widget.channelThumb,
-                                width: widget.channelColumnWidth - 16,
-                                height: widget.rowHeight - 16,
-                                fit: BoxFit.contain,
-                                logoToneTarget: logoToneTargetFor(
-                                  surface: widget.isFocused ? theme.colorScheme.primary : tk.surface,
-                                  foreground: widget.isFocused
-                                      ? theme.colorScheme.onPrimary
-                                      : theme.colorScheme.onSurface,
-                                ),
-                              )
-                            : widget.fallbackBuilder(),
+            child: CardFocusScope(
+              showFocus: showFocus,
+              child: CardFocusBorder(
+                borderRadius: tk.radiusSm,
+                // Grid cells touch the viewport edge; keep the shared stroke
+                // inside the tile so all four sides remain visible.
+                strokeAlign: BorderSide.strokeAlignInside,
+                child: Material(
+                  color: tk.surface,
+                  shape: RoundedRectangleBorder(borderRadius: radius),
+                  child: InkWell(
+                    borderRadius: radius,
+                    canRequestFocus: false,
+                    onTap: widget.onTap,
+                    onLongPress: widget.onLongPress,
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 8),
+                      child: Stack(
+                        alignment: .center,
+                        children: [
+                          if (widget.channelThumb != null && widget.client != null)
+                            OptimizedMediaImage.thumb(
+                              client: widget.client!,
+                              imagePath: widget.channelThumb,
+                              width: widget.channelColumnWidth - 16,
+                              height: widget.rowHeight - 16,
+                              fit: BoxFit.contain,
+                              logoToneTarget: logoToneTargetFor(
+                                surface: tk.surface,
+                                foreground: theme.colorScheme.onSurface,
+                              ),
+                            )
+                          else
+                            widget.fallbackBuilder(),
+                          if (widget.isFavorite)
+                            Positioned(
+                              top: 2,
+                              right: 0,
+                              child: AppIcon(Symbols.star_rounded, size: 14, color: theme.colorScheme.primary),
+                            ),
+                        ],
                       ),
-                      if (showAction) AppIcon(Symbols.play_arrow_rounded, size: 32, color: contentColor),
-                      if (widget.isFavorite)
-                        Positioned(
-                          top: 2,
-                          right: 0,
-                          child: AppIcon(
-                            Symbols.star_rounded,
-                            size: 14,
-                            color: widget.isFocused ? theme.colorScheme.onPrimary : theme.colorScheme.primary,
-                          ),
-                        ),
-                    ],
+                    ),
                   ),
                 ),
               ),

@@ -11,6 +11,9 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:intl/date_symbol_data_local.dart';
 import 'package:material_symbols_icons/symbols.dart';
 import 'package:plezy/focus/input_mode_tracker.dart';
+import 'package:plezy/focus/card_focus_scope.dart';
+import 'package:plezy/focus/focus_theme.dart';
+import 'package:plezy/theme/mono_tokens.dart';
 import 'package:plezy/i18n/strings.g.dart';
 import 'package:plezy/media/ids.dart';
 import 'package:plezy/media/live_tv_support.dart';
@@ -23,7 +26,9 @@ import 'package:plezy/focus/dpad_select_long_press_controller.dart';
 import 'package:plezy/models/livetv_channel.dart';
 import 'package:plezy/models/livetv_program.dart';
 import 'package:plezy/screens/livetv/tabs/guide_tab.dart';
+import 'package:plezy/screens/livetv/tv_guide_program_info.dart';
 import 'package:plezy/widgets/status_pill.dart';
+import 'package:plezy/widgets/optimized_media_image.dart';
 import 'package:plezy/providers/multi_server_provider.dart';
 import 'package:plezy/services/multi_server_manager.dart';
 import 'package:plezy/theme/mono_theme.dart';
@@ -160,6 +165,43 @@ void main() {
       });
     });
   }
+
+  testWidgets('TV date header keeps day selection and both time arrows reachable by remote', (tester) async {
+    TvDetectionService.debugSetAppleTVOverride(true);
+    await withClock(Clock.fixed(DateTime(2026, 9, 10, 20, 15)), () async {
+      final harness = _GuideHarness.oneServer();
+      addTearDown(harness.dispose);
+      await harness.pump(tester, size: const Size(1280, 720));
+      await harness.completeInitial(tester);
+      _guideTabFocusNode(tester).requestFocus();
+      await tester.pump();
+      await _openDayPicker(tester);
+      expect(find.text(t.liveTv.now), findsOneWidget);
+      await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+      await tester.pumpAndSettle();
+
+      // The date comes first, then previous and next window controls.
+      await tester.sendKeyEvent(LogicalKeyboardKey.arrowRight);
+      await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+      await tester.pump();
+      expect(harness.serverA.schedule.requests.last.from, DateTime(2026, 9, 10, 18).toUtc());
+      harness.serverA.schedule.complete(1, 'History');
+      await tester.pumpAndSettle();
+      await tester.sendKeyEvent(LogicalKeyboardKey.arrowRight);
+      await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+      await tester.pump();
+      expect(harness.serverA.schedule.requests.last.from, DateTime(2026, 9, 10, 20).toUtc());
+      harness.serverA.schedule.complete(2, 'Current');
+      await tester.pumpAndSettle();
+      await tester.sendKeyEvent(LogicalKeyboardKey.arrowLeft);
+      await tester.sendKeyEvent(LogicalKeyboardKey.arrowLeft);
+      await _openDayPicker(tester);
+      expect(find.text(t.liveTv.now), findsOneWidget);
+      await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+      await tester.pumpAndSettle();
+      expect(tester.takeException(), isNull);
+    });
+  });
 
   testWidgets('backward schedule remains browsable across refresh after live window expires', (tester) async {
     var now = DateTime(2026, 9, 10, 20, 51);
@@ -471,6 +513,76 @@ void main() {
     (name: 'dark', dark: true, oled: false),
     (name: 'oled', dark: true, oled: true),
   ]) {
+    for (final device in [
+      (name: 'desktop', tv: false, platform: TargetPlatform.windows, size: Size(1280, 720)),
+      (name: 'mobile', tv: false, platform: TargetPlatform.android, size: Size(390, 844)),
+      (name: 'TV', tv: true, platform: TargetPlatform.android, size: Size(1280, 720)),
+    ]) {
+      testWidgets('${appearance.name} ${device.name} channel focus preserves logo presentation', (tester) async {
+        TvDetectionService.debugSetAppleTVOverride(device.tv);
+        final channel = LiveTvChannel(
+          key: 'channel-station-a',
+          identifier: 'station-a',
+          callSign: 'A',
+          serverId: 'server-a',
+          liveDvrKey: 'dvr-server-a',
+          thumb: '/channel-logo',
+        );
+        final harness = _GuideHarness._create(includeServerB: false, channels: [channel]);
+        addTearDown(harness.dispose);
+        final tuned = <LiveTvChannel>[];
+        await harness.pump(
+          tester,
+          dark: appearance.dark,
+          oled: appearance.oled,
+          platform: device.platform,
+          size: device.size,
+          onTuneChannel: tuned.add,
+        );
+        await harness.completeInitial(tester);
+        final logo = find.byType(OptimizedMediaImage);
+        final scope = find.ancestor(of: logo, matching: find.byType(CardFocusScope));
+        final colors = tokens(tester.element(logo));
+        final initialTone = tester.widget<OptimizedMediaImage>(logo).logoToneTarget;
+        final initialRect = tester.getRect(logo);
+        void expectStableLogo() {
+          expect(tester.widget<OptimizedMediaImage>(logo).logoToneTarget, initialTone);
+          expect(tester.getRect(logo), initialRect);
+          expect(find.ancestor(of: logo, matching: find.byType(AnimatedOpacity)), findsNothing);
+          expect(find.ancestor(of: logo, matching: find.byType(Opacity)), findsNothing);
+          expect(
+            find.descendant(
+              of: scope,
+              matching: find.byWidgetPredicate((w) => w is AppIcon && w.icon == Symbols.play_arrow_rounded),
+            ),
+            findsNothing,
+          );
+          final material = tester.widget<Material>(find.descendant(of: scope, matching: find.byType(Material)));
+          expect(material.color, colors.surface);
+          final border = tester.widget<AnimatedContainer>(
+            find.descendant(of: scope, matching: find.byType(AnimatedContainer)),
+          );
+          final decoration = border.foregroundDecoration! as BoxDecoration;
+          expect((decoration.border! as Border).top.width, FocusTheme.focusBorderWidth);
+          expect((decoration.border! as Border).top.color, FocusTheme.getFocusBorderColor(tester.element(logo)));
+          expect((decoration.border! as Border).top.strokeAlign, BorderSide.strokeAlignInside);
+        }
+
+        await _focusGrid(tester);
+        expect(tester.widget<CardFocusScope>(scope).showFocus, isTrue);
+        expectStableLogo();
+        final mouse = await tester.createGesture(kind: ui.PointerDeviceKind.mouse);
+        await mouse.addPointer(location: tester.getCenter(logo));
+        await tester.pumpAndSettle();
+        expect(tester.widget<CardFocusScope>(scope).showFocus, isTrue);
+        expectStableLogo();
+        await mouse.removePointer();
+        await tester.tap(logo);
+        await tester.pumpAndSettle();
+        expect(tuned, [channel]);
+        expect(tester.takeException(), isNull);
+      });
+    }
     for (final tv in [false, true]) {
       testWidgets(
         '${appearance.name} guide badges and subtext fit short cards with pointer and ${tv ? 'TV remote' : 'keyboard'} focus',
@@ -545,7 +657,7 @@ void main() {
           ]);
           await tester.pumpAndSettle();
           expect(tester.takeException(), isNull);
-          expect(find.text(t.liveTv.live), findsOneWidget);
+          expect(_gridText(t.liveTv.live), findsOneWidget);
           final newCard = find.ancestor(of: find.text('New series'), matching: find.byType(InkWell)).first;
           expect(find.descendant(of: newCard, matching: find.text(t.liveTv.newProgram)), findsOneWidget);
           final unfocusedPill = tester.widget<StatusPill>(
@@ -565,7 +677,7 @@ void main() {
           final tinyCard = find.ancestor(of: find.text('Tiny recording'), matching: find.byType(InkWell)).first;
           expect(find.descendant(of: tinyCard, matching: find.text(t.liveTv.live)), findsNothing);
           expect(find.text('Episode 2000'), findsNothing);
-          expect(find.text('Final 2026'), findsOneWidget);
+          expect(_gridText('Final 2026'), findsOneWidget);
           expect(find.text('The 100'), findsOneWidget);
           final card = find.ancestor(of: find.text('Live sports'), matching: find.byType(InkWell)).first;
           expect(find.descendant(of: card, matching: find.byType(Text)), findsNWidgets(3));
@@ -665,7 +777,8 @@ void main() {
         expect(tester.getTopLeft(first).dx, device.column);
         expect(tester.getTopLeft(second).dx - tester.getTopLeft(first).dx, 240);
         final label = find.text(formatClockTime(now.subtract(const Duration(minutes: 15)), is24Hour: false)).last;
-        expect(tester.getTopLeft(label).dx, device.column + 8);
+        const labelInset = 8.0;
+        expect(tester.getTopLeft(label).dx, device.column + labelInset);
         final nowLine = find.byWidgetPredicate(
           (widget) => widget is Container && widget.color == Colors.red && widget.constraints?.maxWidth == 2,
         );
@@ -675,7 +788,7 @@ void main() {
         // The timeline and header remain synchronized after a horizontal drag.
         await tester.drag(first, const Offset(-100, 0));
         await tester.pumpAndSettle();
-        expect(tester.getTopLeft(label).dx - tester.getTopLeft(first).dx, closeTo(8, 0.01));
+        expect(tester.getTopLeft(label).dx - tester.getTopLeft(first).dx, closeTo(labelInset, 0.01));
         expect(tester.getTopLeft(nowLine).dx - tester.getTopLeft(first).dx, closeTo(120, 0.01));
         expect(tester.takeException(), isNull);
       });
@@ -730,12 +843,84 @@ void main() {
       await tester.pumpAndSettle();
       _expectFocusedChannel(tester, 'Channel ${scenario.expected}');
       for (var i = 0; i < 4; i++) {
-        expect(find.text('Channel $i'), findsOneWidget);
+        expect(_gridText('Channel $i'), findsOneWidget);
       }
       expect(harness.serverA.schedule.requests, hasLength(1));
       expect(tester.takeException(), isNull);
     });
   }
+
+  testWidgets('TV guide shows six complete channel rows and updates information without tuning', (tester) async {
+    TvDetectionService.debugSetAppleTVOverride(true);
+    final channels = [
+      for (var i = 0; i < 8; i++)
+        _guideChannel(serverId: 'server-a', stationId: i == 0 ? 'station-a' : 'station-$i', callSign: 'Channel $i'),
+    ];
+    final harness = _GuideHarness._create(includeServerB: false, channels: channels);
+    addTearDown(harness.dispose);
+    final tuned = <LiveTvChannel>[];
+    await harness.pump(tester, size: const Size(1280, 720), onTuneChannel: tuned.add);
+    final start = harness.serverA.schedule.requests.single.from.millisecondsSinceEpoch ~/ 1000;
+    final titles = [
+      'Flavortown Food Fight',
+      'Evening News',
+      'Ocean Explorers',
+      'World Football',
+      'The Great Bake',
+      'Movie Night',
+      'Travel Stories',
+      'Flavortown Food Fight',
+    ];
+    harness.serverA.schedule.requests.single.completer.complete([
+      for (var i = 0; i < channels.length; i++)
+        LiveTvProgram(
+          ratingKey: 'program-$i',
+          title: titles[i],
+          programTitle: titles[i],
+          episodeTitle: i == 0 || i == 7 ? 'Heat Day' : null,
+          parentIndex: i == 0 || i == 7 ? 1 : null,
+          index: i == 0 || i == 7 ? 9 : null,
+          summary:
+              'The chefs turn up the heat in a summer cooking challenge, with a surprise ingredient and a race against the clock.',
+          contentRating: 'TV-PG',
+          isNew: i == 0 || i == 7,
+          live: i == 1 || i == 3,
+          beginsAt: start,
+          endsAt: start + 5400,
+          channelIdentifier: channels[i].identifier,
+          serverId: 'server-a',
+        ),
+    ]);
+    await tester.pumpAndSettle();
+    final gridRect = tester.getRect(find.byKey(const ValueKey('guide-timeline-grid')));
+    for (var i = 0; i < 6; i++) {
+      final cell = _gridText('Channel $i');
+      expect(cell, findsOneWidget);
+      expect(gridRect.contains(tester.getCenter(cell)), isTrue);
+    }
+    expect(_gridText('Channel 6').hitTestable(), findsNothing);
+    await _focusGrid(tester);
+    await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
+    await tester.pumpAndSettle();
+    expect(tester.widget<TvGuideProgramInfo>(find.byType(TvGuideProgramInfo)).channel, channels[1]);
+    expect(tuned, isEmpty);
+    for (var i = 0; i < 6; i++) {
+      await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
+      await tester.pumpAndSettle();
+    }
+    expect(tester.widget<TvGuideProgramInfo>(find.byType(TvGuideProgramInfo)).channel, channels[7]);
+    expect(tester.getBottomRight(_gridText('Channel 7')).dy, lessThanOrEqualTo(gridRect.bottom));
+    expect(tuned, isEmpty);
+    final mouse = await tester.createGesture(kind: ui.PointerDeviceKind.mouse);
+    await mouse.addPointer(location: tester.getCenter(_gridText('Channel 6')));
+    await tester.pump();
+    expect(tester.widget<TvGuideProgramInfo>(find.byType(TvGuideProgramInfo)).channel, channels[6]);
+    expect(tuned, isEmpty);
+    await mouse.removePointer();
+    await tester.pump();
+    await _captureGuide(tester, 'tv-six-rows');
+    expect(tester.takeException(), isNull);
+  });
 
   for (final layout in [
     (name: 'mobile', size: Size(390, 844), tv: false),
@@ -1335,7 +1520,9 @@ Future<void> _focusGrid(WidgetTester tester) async {
 
 Finder _focusedCellFinder(WidgetTester tester) {
   final primary = Theme.of(tester.element(find.byType(GuideTab))).colorScheme.primary;
-  return find.byWidgetPredicate((widget) => widget is Material && widget.color == primary);
+  return find.byWidgetPredicate(
+    (widget) => (widget is Material && widget.color == primary) || (widget is CardFocusScope && widget.showFocus),
+  );
 }
 
 void _expectFocusedChannel(WidgetTester tester, String callSign) {
@@ -1483,8 +1670,8 @@ final class _GuideHarness {
       serverB.schedule.complete(0, 'Initial B');
     }
     await tester.pumpAndSettle();
-    expect(find.text('Initial A'), findsOneWidget);
-    if (serverB != null) expect(find.text('Initial B'), findsOneWidget);
+    expect(_gridText('Initial A'), findsOneWidget);
+    if (serverB != null) expect(_gridText('Initial B'), findsOneWidget);
   }
 
   Future<void> completeInitialEmpty(WidgetTester tester) async {
@@ -1535,6 +1722,9 @@ final class _FakeMediaServerClient implements MediaServerClient {
 
   @override
   ServerCapabilities get capabilities => const ServerCapabilities(liveTv: true);
+
+  @override
+  String thumbnailUrl(String? path, {int? width, int? height, bool cover = true}) => '';
 
   @override
   dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
@@ -1617,3 +1807,6 @@ class _TuningGuideTabState extends GuideTabState {
   @override
   Future<void> tuneChannel(LiveTvChannel channel) async => (widget as _TuningGuideTab).onTuneChannel(channel);
 }
+
+Finder _gridText(String text) =>
+    find.descendant(of: find.byKey(const ValueKey('guide-timeline-grid')), matching: find.text(text));
