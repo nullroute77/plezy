@@ -54,84 +54,81 @@ void main() {
   });
 
   for (final appearance in [(dark: false, oled: false), (dark: true, oled: false), (dark: true, oled: true)]) {
-    testWidgets('TV page keeps tabs above information and six rows with readable time boxes ($appearance)', (
-      tester,
-    ) async {
-      TvDetectionService.debugSetAppleTVOverride(true);
-      tester.view.physicalSize = const Size(1280, 720);
-      tester.view.devicePixelRatio = 1;
-      addTearDown(() {
-        TvDetectionService.debugSetAppleTVOverride(null);
-        tester.view.resetPhysicalSize();
-        tester.view.resetDevicePixelRatio();
-      });
-      final harness = await _pumpLiveTvScreen(
-        tester,
-        channelKeys: List.generate(8, (i) => 'channel-$i'),
-        withDvr: true,
-        withPrograms: true,
-        theme: monoTheme(dark: appearance.dark, oled: appearance.oled),
-      );
-      addTearDown(() async {
-        await tester.pumpWidget(const SizedBox.shrink());
-        harness.dispose();
-      });
-      harness.liveTv.favorites.complete([]);
-      await tester.pumpAndSettle();
-      final info = find.byType(TvGuideProgramInfo);
-      final appBar = find.byType(AppBar);
-      for (final label in [t.liveTv.guide, t.liveTv.whatsOn, t.liveTv.recordings]) {
-        final tab = find.descendant(of: appBar, matching: find.text(label));
-        expect(tab.hitTestable(), findsOneWidget);
-        expect(tester.getBottomLeft(tab).dy, lessThan(tester.getTopLeft(info).dy));
-      }
-      final grid = find.byKey(const ValueKey('guide-timeline-grid'));
-      final gridRect = tester.getRect(grid);
-      for (var i = 0; i < 6; i++) {
-        final channel = find.descendant(of: grid, matching: find.text('Unique Channel channel-$i'));
-        expect(gridRect.contains(tester.getCenter(channel)), isTrue);
-      }
-      expect(find.descendant(of: grid, matching: find.text('Unique Channel channel-6')).hitTestable(), findsNothing);
-      final boxes = find.byWidgetPredicate((w) => w is Container && w.key.toString().contains('guide-time-slot-'));
-      final first = tester.widget<Container>(boxes.first);
-      final decoration = first.decoration! as BoxDecoration;
-      final colors = tokens(tester.element(boxes.first));
-      final todayBackground = tester.widget<Container>(
-        find.ancestor(of: find.text(t.liveTv.today), matching: find.byType(Container)).first,
-      );
-      expect(decoration, todayBackground.decoration);
-      expect(decoration.border, isNull);
-      expect(tester.getTopLeft(boxes.at(1)).dx - tester.getTopLeft(boxes.first).dx, 240);
-      final luminances = [
-        colors.text.computeLuminance(),
-        Color.alphaBlend(
-          decoration.color!,
-          Theme.of(tester.element(boxes.first)).scaffoldBackgroundColor,
-        ).computeLuminance(),
-      ]..sort();
-      expect((luminances.last + 0.05) / (luminances.first + 0.05), greaterThanOrEqualTo(4.5));
-      expect(find.descendant(of: info, matching: find.text('S1E9 Heat Day')), findsOneWidget);
-      const screenshotDir = String.fromEnvironment('GUIDE_SCREENSHOT_DIR');
-      if (screenshotDir.isNotEmpty) {
-        final boundary = tester.renderObject<RenderRepaintBoundary>(find.byKey(const ValueKey('live-tv-capture')));
-        await tester.runAsync(() async {
-          final image = await boundary.toImage();
-          try {
-            final bytes = await image.toByteData(format: ui.ImageByteFormat.png);
-            Directory(screenshotDir).createSync(recursive: true);
-            final name = appearance.oled
-                ? 'oled'
-                : appearance.dark
-                ? 'dark'
-                : 'light';
-            File('$screenshotDir/tv-full-page-$name.png').writeAsBytesSync(bytes!.buffer.asUint8List());
-          } finally {
-            image.dispose();
-          }
+    testWidgets(
+      'TV page keeps tabs above information and six rows with a date picker beside plain time labels ($appearance)',
+      (tester) async {
+        TvDetectionService.debugSetAppleTVOverride(true);
+        tester.view.physicalSize = const Size(1280, 720);
+        tester.view.devicePixelRatio = 1;
+        addTearDown(() {
+          TvDetectionService.debugSetAppleTVOverride(null);
+          tester.view.resetPhysicalSize();
+          tester.view.resetDevicePixelRatio();
         });
-      }
-      expect(tester.takeException(), isNull);
-    });
+        final harness = await _pumpLiveTvScreen(
+          tester,
+          channelKeys: List.generate(8, (i) => 'channel-$i'),
+          withDvr: true,
+          withPrograms: true,
+          theme: monoTheme(dark: appearance.dark, oled: appearance.oled),
+        );
+        addTearDown(() async {
+          await tester.pumpWidget(const SizedBox.shrink());
+          harness.dispose();
+        });
+        harness.liveTv.favorites.complete([]);
+        await tester.pumpAndSettle();
+        final info = find.byType(TvGuideProgramInfo);
+        final appBar = find.byType(AppBar);
+        for (final label in [t.liveTv.guide, t.liveTv.whatsOn, t.liveTv.recordings]) {
+          final tab = find.descendant(of: appBar, matching: find.text(label));
+          expect(tab.hitTestable(), findsOneWidget);
+          expect(tester.getBottomLeft(tab).dy, lessThan(tester.getTopLeft(info).dy));
+        }
+        final grid = find.byKey(const ValueKey('guide-timeline-grid'));
+        final gridRect = tester.getRect(grid);
+        for (var i = 0; i < 6; i++) {
+          final channel = find.descendant(of: grid, matching: find.text('Unique Channel channel-$i'));
+          expect(gridRect.contains(tester.getCenter(channel)), isTrue);
+        }
+        expect(find.descendant(of: grid, matching: find.text('Unique Channel channel-6')).hitTestable(), findsNothing);
+        final slots = find.byWidgetPredicate((w) => w is Container && w.key.toString().contains('guide-time-slot-'));
+        final first = tester.widget<Container>(slots.first);
+        final colors = tokens(tester.element(slots.first));
+        expect(first.decoration, isNull);
+        expect(first.color, isNull);
+        expect(tester.getTopLeft(slots.at(1)).dx - tester.getTopLeft(slots.first).dx, 240);
+        final today = find.text(t.liveTv.today);
+        expect(tester.getRect(today).right, lessThan(tester.getRect(slots.first).left));
+        expect(tester.getCenter(today).dy, closeTo(tester.getCenter(slots.first).dy, 1));
+        final luminances = [
+          colors.text.computeLuminance(),
+          Theme.of(tester.element(slots.first)).scaffoldBackgroundColor.computeLuminance(),
+        ]..sort();
+        expect((luminances.last + 0.05) / (luminances.first + 0.05), greaterThanOrEqualTo(4.5));
+        expect(find.descendant(of: info, matching: find.text('S1E9 Heat Day')), findsOneWidget);
+        const screenshotDir = String.fromEnvironment('GUIDE_SCREENSHOT_DIR');
+        if (screenshotDir.isNotEmpty) {
+          final boundary = tester.renderObject<RenderRepaintBoundary>(find.byKey(const ValueKey('live-tv-capture')));
+          await tester.runAsync(() async {
+            final image = await boundary.toImage();
+            try {
+              final bytes = await image.toByteData(format: ui.ImageByteFormat.png);
+              Directory(screenshotDir).createSync(recursive: true);
+              final name = appearance.oled
+                  ? 'oled'
+                  : appearance.dark
+                  ? 'dark'
+                  : 'light';
+              File('$screenshotDir/tv-full-page-$name.png').writeAsBytesSync(bytes!.buffer.asUint8List());
+            } finally {
+              image.dispose();
+            }
+          });
+        }
+        expect(tester.takeException(), isNull);
+      },
+    );
   }
 
   for (final staleFavorite in [false, true]) {

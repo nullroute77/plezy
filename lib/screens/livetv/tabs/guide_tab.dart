@@ -1012,16 +1012,18 @@ class GuideTabState extends State<GuideTab>
   }
 
   KeyEventResult _handleTimeNavKey(LogicalKeyboardKey key) {
+    final order = PlatformDetector.isTV() ? const [1, 0, 2] : const [0, 1, 2];
+    final position = order.indexOf(_timeNavIndex);
     if (key.isLeftKey) {
-      if (_timeNavIndex > 0) {
-        _updateFocus(() => _timeNavIndex--);
+      if (position > 0) {
+        _updateFocus(() => _timeNavIndex = order[position - 1]);
       } else {
         widget.onBack?.call();
       }
       return KeyEventResult.handled;
     }
     if (key.isRightKey) {
-      if (_timeNavIndex < 2) _updateFocus(() => _timeNavIndex++);
+      if (position < order.length - 1) _updateFocus(() => _timeNavIndex = order[position + 1]);
       return KeyEventResult.handled;
     }
     if (key.isDownKey) {
@@ -1301,7 +1303,11 @@ class GuideTabState extends State<GuideTab>
         children: [
           Row(
             children: [
-              SizedBox(width: _channelColumnWidth, height: _timeHeaderHeight),
+              SizedBox(
+                width: _channelColumnWidth,
+                height: _timeHeaderHeight,
+                child: isTv ? Center(child: _buildDayPicker(theme)) : null,
+              ),
               Expanded(
                 child: SingleChildScrollView(
                   controller: _headerHorizontalController,
@@ -1438,7 +1444,13 @@ class GuideTabState extends State<GuideTab>
                 },
               ),
             ),
-            _buildTimeNavigation(theme),
+            Align(
+              alignment: Alignment.centerRight,
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [_buildTimeArrow(forward: false), _buildTimeArrow(forward: true)],
+              ),
+            ),
             SizedBox(
               height: _timeHeaderHeight + _rowHeight * _tvVisibleChannelRows + headers * _sourceHeaderRowHeight,
               child: grid,
@@ -1612,75 +1624,67 @@ class GuideTabState extends State<GuideTab>
     );
   }
 
-  BoxDecoration get _timeChipDecoration => BoxDecoration(
-    color: tokens(context).text.withValues(alpha: 0.08),
-    borderRadius: const BorderRadius.all(Radius.circular(MonoTokens.radiusFull)),
+  Widget _buildDayPicker(ThemeData theme) => _timeNavFocusWrap(
+    index: 1,
+    child: ClickableCursor(
+      child: GestureDetector(
+        key: _dayPickerKey,
+        onTap: _showDayPicker,
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+          decoration: BoxDecoration(
+            color: tokens(context).text.withValues(alpha: 0.08),
+            borderRadius: const BorderRadius.all(Radius.circular(MonoTokens.radiusFull)),
+          ),
+          child: Row(
+            mainAxisSize: .min,
+            children: [
+              Flexible(
+                child: Text(
+                  _dayLabel(_gridStart),
+                  style: theme.textTheme.labelLarge,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+              const SizedBox(width: 2),
+              AppIcon(Symbols.arrow_drop_down_rounded, size: 18, color: theme.colorScheme.onSurface),
+            ],
+          ),
+        ),
+      ),
+    ),
+  );
+
+  Widget _buildTimeArrow({required bool forward}) => _timeNavFocusWrap(
+    index: forward ? 2 : 0,
+    child: IconButton(
+      icon: AppIcon(forward ? Symbols.chevron_right_rounded : Symbols.chevron_left_rounded),
+      onPressed: () => _shiftTimeRange(forward ? 2 : -2),
+      iconSize: 20,
+      visualDensity: VisualDensity.compact,
+    ),
   );
 
   Widget _buildTimeNavigation(ThemeData theme) {
     final timeLabel = formatClockTime(_gridStart, is24Hour: MediaQuery.alwaysUse24HourFormatOf(context));
-    final dayLabel = _dayLabel(_gridStart);
-
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
       child: Row(
         children: [
-          _timeNavFocusWrap(
-            index: 0,
-            child: IconButton(
-              icon: const AppIcon(Symbols.chevron_left_rounded),
-              onPressed: () => _shiftTimeRange(-2),
-              iconSize: 20,
-              visualDensity: VisualDensity.compact,
-            ),
-          ),
+          _buildTimeArrow(forward: false),
           Expanded(
             child: Wrap(
               alignment: WrapAlignment.center,
               crossAxisAlignment: WrapCrossAlignment.center,
               spacing: 8,
               children: [
-                _timeNavFocusWrap(
-                  index: 1,
-                  child: ClickableCursor(
-                    child: GestureDetector(
-                      key: _dayPickerKey,
-                      onTap: _showDayPicker,
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                        decoration: _timeChipDecoration,
-                        child: Row(
-                          mainAxisSize: .min,
-                          children: [
-                            Flexible(
-                              child: Text(
-                                dayLabel,
-                                style: theme.textTheme.labelLarge,
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                              ),
-                            ),
-                            const SizedBox(width: 2),
-                            AppIcon(Symbols.arrow_drop_down_rounded, size: 18, color: theme.colorScheme.onSurface),
-                          ],
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
+                _buildDayPicker(theme),
                 Text(timeLabel, style: theme.textTheme.labelLarge),
               ],
             ),
           ),
-          _timeNavFocusWrap(
-            index: 2,
-            child: IconButton(
-              icon: const AppIcon(Symbols.chevron_right_rounded),
-              onPressed: () => _shiftTimeRange(2),
-              iconSize: 20,
-              visualDensity: VisualDensity.compact,
-            ),
-          ),
+          _buildTimeArrow(forward: true),
         ],
       ),
     );
@@ -1700,10 +1704,8 @@ class GuideTabState extends State<GuideTab>
           width: _slotWidth,
           child: Container(
             key: ValueKey('guide-time-slot-${current.millisecondsSinceEpoch}'),
-            margin: isTv ? const EdgeInsets.all(2) : null,
             padding: const EdgeInsets.symmetric(horizontal: 8),
             alignment: .centerLeft,
-            decoration: isTv ? _timeChipDecoration : null,
             child: Text(
               timeStr,
               style: theme.textTheme.labelSmall?.copyWith(color: isTv ? colors.text : colors.textMuted),

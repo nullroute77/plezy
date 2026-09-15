@@ -162,6 +162,43 @@ void main() {
     });
   }
 
+  testWidgets('TV date header keeps day selection and both time arrows reachable by remote', (tester) async {
+    TvDetectionService.debugSetAppleTVOverride(true);
+    await withClock(Clock.fixed(DateTime(2026, 9, 10, 20, 15)), () async {
+      final harness = _GuideHarness.oneServer();
+      addTearDown(harness.dispose);
+      await harness.pump(tester, size: const Size(1280, 720));
+      await harness.completeInitial(tester);
+      _guideTabFocusNode(tester).requestFocus();
+      await tester.pump();
+      await _openDayPicker(tester);
+      expect(find.text(t.liveTv.now), findsOneWidget);
+      await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+      await tester.pumpAndSettle();
+
+      // The date comes first, then previous and next window controls.
+      await tester.sendKeyEvent(LogicalKeyboardKey.arrowRight);
+      await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+      await tester.pump();
+      expect(harness.serverA.schedule.requests.last.from, DateTime(2026, 9, 10, 18).toUtc());
+      harness.serverA.schedule.complete(1, 'History');
+      await tester.pumpAndSettle();
+      await tester.sendKeyEvent(LogicalKeyboardKey.arrowRight);
+      await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+      await tester.pump();
+      expect(harness.serverA.schedule.requests.last.from, DateTime(2026, 9, 10, 20).toUtc());
+      harness.serverA.schedule.complete(2, 'Current');
+      await tester.pumpAndSettle();
+      await tester.sendKeyEvent(LogicalKeyboardKey.arrowLeft);
+      await tester.sendKeyEvent(LogicalKeyboardKey.arrowLeft);
+      await _openDayPicker(tester);
+      expect(find.text(t.liveTv.now), findsOneWidget);
+      await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+      await tester.pumpAndSettle();
+      expect(tester.takeException(), isNull);
+    });
+  });
+
   testWidgets('backward schedule remains browsable across refresh after live window expires', (tester) async {
     var now = DateTime(2026, 9, 10, 20, 51);
     await withClock(Clock(() => now), () async {
@@ -666,7 +703,7 @@ void main() {
         expect(tester.getTopLeft(first).dx, device.column);
         expect(tester.getTopLeft(second).dx - tester.getTopLeft(first).dx, 240);
         final label = find.text(formatClockTime(now.subtract(const Duration(minutes: 15)), is24Hour: false)).last;
-        final labelInset = device.tv ? 10.0 : 8.0; // TV box margin.
+        const labelInset = 8.0;
         expect(tester.getTopLeft(label).dx, device.column + labelInset);
         final nowLine = find.byWidgetPredicate(
           (widget) => widget is Container && widget.color == Colors.red && widget.constraints?.maxWidth == 2,
