@@ -167,6 +167,9 @@ class GuideTabState extends State<GuideTab>
 
   late DateTime _gridStart;
   late DateTime _gridEnd;
+  // Automatic paging returns to live, or to explicitly selected history.
+  late DateTime _navigationFloor;
+  int _focusRevision = 0;
 
   final ScrollController _headerHorizontalController = ScrollController();
   final ScrollController _gridHorizontalController = ScrollController();
@@ -281,6 +284,7 @@ class GuideTabState extends State<GuideTab>
       start = start.subtract(const Duration(minutes: 30));
       setState(() {
         _gridStart = start;
+        _resetNavigationFloor();
         _gridEnd = start.add(const Duration(hours: 6));
         _followNow = false;
       });
@@ -454,11 +458,13 @@ class GuideTabState extends State<GuideTab>
   void _handleGuideFocusChange(bool hasFocus) {
     if (_hasFocus == hasFocus) return;
     if (!hasFocus) _resetGridSelectLongPressState();
+    _focusRevision++;
     _hasFocus = hasFocus;
     _publishFocusSnapshot();
   }
 
   void _updateFocus(VoidCallback update) {
+    _focusRevision++;
     _hoverPreview.value = null;
     _resetGridSelectLongPressState();
     update();
@@ -497,8 +503,14 @@ class GuideTabState extends State<GuideTab>
     _syncingScroll = false;
   }
 
+  void _resetNavigationFloor() {
+    final liveStart = guideHalfHourStart(clock.now());
+    _navigationFloor = _gridStart.isBefore(liveStart) ? _gridStart : liveStart;
+  }
+
   void _initTimeRange() {
     _gridStart = guideHalfHourStart(clock.now());
+    _resetNavigationFloor();
     _gridEnd = _gridStart.add(const Duration(hours: 6));
     _followNow = true;
   }
@@ -506,6 +518,7 @@ class GuideTabState extends State<GuideTab>
   void _shiftTimeRange(int hours) {
     setState(() {
       _gridStart = _gridStart.add(Duration(hours: hours));
+      _resetNavigationFloor();
       _gridEnd = _gridStart.add(const Duration(hours: 6));
       _followNow = false;
     });
@@ -629,7 +642,9 @@ class GuideTabState extends State<GuideTab>
             } else if (channel != null) {
               final airing = guideAiringIdentity(channel, focused!);
               _focusedProgram =
-                  _getProgramsForChannel(channel).where((p) => guideAiringIdentity(channel, p) == airing).firstOrNull ??
+                  _getProgramsForChannel(
+                    channel,
+                  ).where((p) => _intersectsGrid(p) && guideAiringIdentity(channel, p) == airing).firstOrNull ??
                   _findCurrentProgram(_gridChannelIndex);
             } else {
               _focusedProgram = null;
@@ -906,7 +921,7 @@ class GuideTabState extends State<GuideTab>
   }
 
   KeyEventResult _handleFocusedGridSelectKey(KeyEvent event) {
-    if (_focusZone == _GuideZone.grid && _gridColumn == 0) {
+    if (_focusZone == _GuideZone.grid && (_gridColumn == 0 || _focusedProgram == null)) {
       final channel = widget.channels.elementAtOrNull(_gridChannelIndex);
       if (channel == null) return KeyEventResult.ignored;
       final identity = liveTvChannelScopeKey(channel);
@@ -915,7 +930,7 @@ class GuideTabState extends State<GuideTab>
         return mounted &&
             _hasFocus &&
             _focusZone == _GuideZone.grid &&
-            _gridColumn == 0 &&
+            (_gridColumn == 0 || _focusedProgram == null) &&
             focused != null &&
             liveTvChannelScopeKey(focused) == identity;
       }
@@ -1088,6 +1103,8 @@ class GuideTabState extends State<GuideTab>
   }
 
   KeyEventResult _handleGridKey(LogicalKeyboardKey key) {
+    // A held direction must not launch overlapping schedule requests.
+    if (_isLoading && (key.isLeftKey || key.isRightKey)) return KeyEventResult.handled;
     if (key.isUpKey || key.isDownKey) {
       // Move through rows in displayed (source-grouped) order. Stepping the
       // flat channel index would interleave sources whose channel numbers
@@ -1118,6 +1135,9 @@ class GuideTabState extends State<GuideTab>
             _focusedProgram = program;
           });
           _scrollToProgramTime(program);
+        } else {
+          _updateFocus(() => _gridColumn = 1);
+          unawaited(_pageProgramWindow(forward: true));
         }
       } else {
         // Already in program column — move to next program
@@ -1127,7 +1147,7 @@ class GuideTabState extends State<GuideTab>
     }
     if (key.isLeftKey) {
       if (_gridColumn == 1) {
-        // Try moving to previous program; if at first program, go back to channel column
+        // At live/the browsing origin, Left returns to the channel tile.
         if (!_navigateToAdjacentProgram(_gridChannelIndex, forward: false)) {
           _updateFocus(() {
             _gridColumn = 0;
@@ -1142,7 +1162,7 @@ class GuideTabState extends State<GuideTab>
     if (key.isSelectKey) {
       if (_gridChannelIndex >= 0 && _gridChannelIndex < widget.channels.length) {
         final channel = widget.channels[_gridChannelIndex];
-        if (_gridColumn == 0) {
+        if (_gridColumn == 0 || _focusedProgram == null) {
           tuneChannel(channel);
         } else if (_focusedProgram != null) {
           _activateProgram(channel, _focusedProgram!);
@@ -1151,7 +1171,7 @@ class GuideTabState extends State<GuideTab>
       return KeyEventResult.handled;
     }
     // 'F' key toggles favorite on focused channel
-    if (key == LogicalKeyboardKey.keyF && _gridColumn == 0) {
+    if (key == LogicalKeyboardKey.keyF && (_gridColumn == 0 || _focusedProgram == null)) {
       if (_gridChannelIndex >= 0 && _gridChannelIndex < widget.channels.length) {
         widget.onToggleFavorite?.call(widget.channels[_gridChannelIndex]);
       }
@@ -1160,42 +1180,97 @@ class GuideTabState extends State<GuideTab>
     return KeyEventResult.ignored;
   }
 
-  LiveTvProgram? _findCurrentProgram(int channelIndex) {
-    if (channelIndex < 0 || channelIndex >= widget.channels.length) return null;
-    final channel = widget.channels[channelIndex];
-    final programs = _getProgramsForChannel(channel);
-    final now = clock.now().millisecondsSinceEpoch ~/ 1000;
-
-    // Currently airing
-    for (final p in programs) {
-      if ((p.beginsAt ?? 0) <= now && (p.endsAt ?? 0) > now) return p;
-    }
-    // First future program
-    for (final p in programs) {
-      if ((p.endsAt ?? 0) > now) return p;
-    }
-    return programs.firstOrNull;
+  bool _intersectsGrid(LiveTvProgram program) {
+    final start = _gridStart.millisecondsSinceEpoch ~/ 1000;
+    final end = _gridEnd.millisecondsSinceEpoch ~/ 1000;
+    return (program.beginsAt ?? start) < end &&
+        (program.endsAt ?? end) > start &&
+        (program.endsAt ?? end) > (program.beginsAt ?? start);
   }
 
-  /// Navigate to the next or previous program on the same channel.
-  /// Returns true if navigation succeeded, false if at the boundary.
+  LiveTvProgram? _findCurrentProgram(int channelIndex) {
+    if (channelIndex < 0 || channelIndex >= widget.channels.length) return null;
+    final programs = _getProgramsForChannel(widget.channels[channelIndex]).where(_intersectsGrid);
+    final now = clock.now().millisecondsSinceEpoch ~/ 1000;
+    return programs.where((p) => (p.beginsAt ?? 0) <= now && (p.endsAt ?? 0) > now).firstOrNull ??
+        programs.where((p) => (p.endsAt ?? 0) > now).firstOrNull ??
+        programs.firstOrNull;
+  }
+
+  /// Returns false only when Left should move onto the channel tile.
   bool _navigateToAdjacentProgram(int channelIndex, {required bool forward}) {
     if (channelIndex < 0 || channelIndex >= widget.channels.length) return false;
-    final channel = widget.channels[channelIndex];
-    final programs = _getProgramsForChannel(channel);
-    if (programs.isEmpty || _focusedProgram == null) return false;
-
-    final currentIndex = programs.indexWhere((p) => identical(p, _focusedProgram));
-    if (currentIndex < 0) return false;
-
-    final nextIndex = forward ? currentIndex + 1 : currentIndex - 1;
-    if (nextIndex < 0 || nextIndex >= programs.length) return false;
-
-    final nextProgram = programs[nextIndex];
-    _pauseFollowingForProgram(nextProgram);
-    _updateFocus(() => _focusedProgram = nextProgram);
-    _scrollToProgramTime(nextProgram);
+    final current = _focusedProgram;
+    final now = clock.now().millisecondsSinceEpoch ~/ 1000;
+    if (!forward && current != null && (current.beginsAt ?? now + 1) <= now && (current.endsAt ?? 0) > now) {
+      return false;
+    }
+    final programs = _getProgramsForChannel(widget.channels[channelIndex]).where(_intersectsGrid).toList();
+    final currentIndex = programs.indexWhere((p) => identical(p, current));
+    final nextIndex = currentIndex + (forward ? 1 : -1);
+    if (currentIndex >= 0 && nextIndex >= 0 && nextIndex < programs.length) {
+      final nextProgram = programs[nextIndex];
+      _pauseFollowingForProgram(nextProgram);
+      _updateFocus(() => _focusedProgram = nextProgram);
+      _scrollToProgramTime(nextProgram);
+      return true;
+    }
+    if (!forward && !_gridStart.isAfter(_navigationFloor)) return false;
+    unawaited(_pageProgramWindow(forward: forward));
     return true;
+  }
+
+  Future<void> _pageProgramWindow({required bool forward}) async {
+    if (_isLoading) return;
+    final channel = widget.channels.elementAtOrNull(_gridChannelIndex);
+    if (channel == null) return;
+    final revision = _focusRevision;
+    final anchor = _focusedProgram;
+    // Half-hour overlap preserves airings which straddle the window edge.
+    // Long broadcasts can extend beyond the loaded window; cross their end
+    // directly rather than getting stuck selecting the same airing again.
+    final anchorStart = anchor?.startTime;
+    final anchorEnd = anchor?.endTime;
+    final edge = forward
+        ? (anchorEnd != null && anchorEnd.isAfter(_gridEnd) ? anchorEnd : _gridEnd)
+        : (anchorStart != null && anchorStart.isBefore(_gridStart) ? anchorStart : _gridStart);
+    var nextStart = guideHalfHourStart(
+      edge,
+    ).subtract(forward ? const Duration(minutes: 30) : const Duration(hours: 5, minutes: 30));
+    if (nextStart.isBefore(_navigationFloor)) nextStart = _navigationFloor;
+    if (nextStart.isAtSameMomentAs(_gridStart)) return;
+    setState(() {
+      _gridStart = nextStart;
+      _gridEnd = nextStart.add(const Duration(hours: 6));
+      _followNow = false;
+    });
+    final load = _loadPrograms();
+    final generation = _programLoadGeneration;
+    await load;
+    if (!_isCurrentProgramLoad(generation)) return;
+    final currentChannel = widget.channels.elementAtOrNull(_gridChannelIndex);
+    if (currentChannel == null ||
+        liveTvChannelScopeKey(currentChannel) != liveTvChannelScopeKey(channel) ||
+        revision != _focusRevision ||
+        _focusZone != _GuideZone.grid ||
+        _gridColumn != 1) {
+      return;
+    }
+    final anchorEpoch = anchor?.beginsAt;
+    final candidates = _getProgramsForChannel(channel).where(_intersectsGrid).where((program) {
+      if (anchorEpoch == null) return true;
+      return forward ? (program.beginsAt ?? 0) > anchorEpoch : (program.beginsAt ?? 0) < anchorEpoch;
+    });
+    final target = forward ? candidates.firstOrNull : candidates.lastOrNull;
+    _updateFocus(() => _focusedProgram = target);
+    final navigationRevision = _focusRevision;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!_isCurrentProgramLoad(generation) || navigationRevision != _focusRevision) return;
+      if (_gridHorizontalController.hasClients) {
+        _gridHorizontalController.jumpTo(forward ? 0 : _gridHorizontalController.position.maxScrollExtent);
+        _scrollToProgramTime(target);
+      }
+    });
   }
 
   void _scrollToChannel(int index) {
@@ -1565,6 +1640,7 @@ class GuideTabState extends State<GuideTab>
     final minute = _gridStart.minute;
     setState(() {
       _gridStart = DateTime(day.year, day.month, day.day, hour, minute);
+      _resetNavigationFloor();
       _gridEnd = _gridStart.add(const Duration(hours: 6));
       _followNow = false;
     });
@@ -1604,6 +1680,7 @@ class GuideTabState extends State<GuideTab>
     }
     setState(() {
       _gridStart = DateTime(day.year, day.month, day.day, value);
+      _resetNavigationFloor();
       _gridEnd = _gridStart.add(const Duration(hours: 6));
       _followNow = false;
     });
@@ -1791,7 +1868,10 @@ class GuideTabState extends State<GuideTab>
     return _GuideFocusSelector(
       valueListenable: _focusSnapshot,
       isSelected: (focus) =>
-          focus.hasFocus && focus.zone == _GuideZone.grid && focus.gridColumn == 0 && focus.channelIndex == index,
+          focus.hasFocus &&
+          focus.zone == _GuideZone.grid &&
+          (focus.gridColumn == 0 || focus.program == null) &&
+          focus.channelIndex == index,
       builder: (context, isFocused) {
         return _ChannelCell(
           rowHeight: _rowHeight,

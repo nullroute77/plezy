@@ -1326,6 +1326,201 @@ void main() {
     expect(find.text('Tomorrow Programs'), findsOneWidget);
   });
 
+  testWidgets('Left from live goes to the channel even when the server includes hidden history', (tester) async {
+    TvDetectionService.debugSetAppleTVOverride(true);
+    await withClock(Clock.fixed(DateTime(2026, 9, 10, 20, 15)), () async {
+      final harness = _GuideHarness.oneServer();
+      addTearDown(harness.dispose);
+      await harness.pump(tester);
+      final start = harness.serverA.schedule.requests.single.from.millisecondsSinceEpoch ~/ 1000;
+      harness.serverA.schedule.requests.single.completer.complete([
+        for (final slot in [-2, -1, 0, 1])
+          LiveTvProgram(
+            title: 'Airing $slot',
+            beginsAt: start + slot * 1800,
+            endsAt: start + (slot + 1) * 1800,
+            channelIdentifier: 'station-a',
+            serverId: 'server-a',
+          ),
+      ]);
+      await tester.pumpAndSettle();
+      await _focusGrid(tester);
+      await tester.sendKeyEvent(LogicalKeyboardKey.arrowRight);
+      await tester.pumpAndSettle();
+      expect(find.ancestor(of: _gridText('Airing 0'), matching: _focusedCellFinder(tester)), findsOneWidget);
+      await tester.sendKeyEvent(LogicalKeyboardKey.arrowLeft);
+      await tester.pumpAndSettle();
+      _expectFocusedChannel(tester, 'A');
+      expect(_gridText('Airing -1'), findsNothing);
+      expect(harness.serverA.schedule.requests, hasLength(1));
+    });
+  });
+
+  for (final now in [DateTime(2026, 9, 10, 23, 15), DateTime.utc(2026, 11, 1, 6, 15).toLocal()]) {
+    testWidgets('remote walks multiple future windows and back to live across $now', (tester) async {
+      TvDetectionService.debugSetAppleTVOverride(true);
+      await withClock(Clock.fixed(now), () async {
+        final harness = _GuideHarness.oneServer();
+        addTearDown(harness.dispose);
+        await harness.pump(tester);
+        final origin = harness.serverA.schedule.requests.single.from;
+        final start = origin.millisecondsSinceEpoch ~/ 1000;
+        var served = 0;
+        Future<void> completeRequests() async {
+          while (served < harness.serverA.schedule.requests.length) {
+            final request = harness.serverA.schedule.requests[served++];
+            expect(request.to.difference(request.from), const Duration(hours: 6));
+            request.completer.complete([
+              // Deliberately include one stale airing outside each requested window.
+              for (
+                var slot = request.from.difference(origin).inMinutes ~/ 30 - 1;
+                slot < request.to.difference(origin).inMinutes ~/ 30;
+                slot++
+              )
+                LiveTvProgram(
+                  title: 'Airing $slot',
+                  ratingKey: 'airing-$slot',
+                  beginsAt: start + slot * 1800,
+                  endsAt: start + (slot + 1) * 1800,
+                  channelIdentifier: 'station-a',
+                  serverId: 'server-a',
+                ),
+            ]);
+            await tester.pump();
+          }
+          await tester.pumpAndSettle();
+        }
+
+        await completeRequests();
+        await _focusGrid(tester);
+        await tester.sendKeyEvent(LogicalKeyboardKey.arrowRight);
+        await completeRequests();
+        for (var slot = 1; slot <= 30; slot++) {
+          await tester.sendKeyEvent(LogicalKeyboardKey.arrowRight);
+          await completeRequests();
+          expect(find.ancestor(of: _gridText('Airing $slot'), matching: _focusedCellFinder(tester)), findsOneWidget);
+          expect(_gridText('Airing $slot').hitTestable(), findsOneWidget);
+        }
+        expect(harness.serverA.schedule.requests.length, greaterThanOrEqualTo(3));
+        for (var slot = 29; slot >= 0; slot--) {
+          await tester.sendKeyEvent(LogicalKeyboardKey.arrowLeft);
+          await completeRequests();
+          expect(find.ancestor(of: _gridText('Airing $slot'), matching: _focusedCellFinder(tester)), findsOneWidget);
+          expect(_gridText('Airing $slot').hitTestable(), findsOneWidget);
+        }
+        expect(harness.serverA.schedule.requests.last.from, origin);
+        await tester.sendKeyEvent(LogicalKeyboardKey.arrowLeft);
+        await tester.pumpAndSettle();
+        _expectFocusedChannel(tester, 'A');
+        expect(tester.takeException(), isNull);
+      });
+    });
+  }
+
+  testWidgets('empty future windows remain traversable and repeated keys share one pending load', (tester) async {
+    TvDetectionService.debugSetAppleTVOverride(true);
+    await withClock(Clock.fixed(DateTime(2026, 9, 10, 20, 15)), () async {
+      final harness = _GuideHarness.oneServer();
+      addTearDown(harness.dispose);
+      final tuned = <LiveTvChannel>[];
+      await harness.pump(tester, onTuneChannel: tuned.add);
+      await harness.completeInitialEmpty(tester);
+      final origin = harness.serverA.schedule.requests.first.from;
+      await _focusGrid(tester);
+      await tester.sendKeyEvent(LogicalKeyboardKey.arrowRight);
+      for (var i = 0; i < 5; i++) {
+        await tester.sendKeyEvent(LogicalKeyboardKey.arrowRight);
+      }
+      expect(harness.serverA.schedule.requests, hasLength(2));
+      harness.serverA.schedule.completeEmpty(1);
+      await tester.pumpAndSettle();
+      await tester.sendKeyEvent(LogicalKeyboardKey.arrowRight);
+      expect(harness.serverA.schedule.requests, hasLength(3));
+      harness.serverA.schedule.completeEmpty(2);
+      await tester.pumpAndSettle();
+      await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+      await tester.pump();
+      expect(tuned, [harness.channels.single]);
+      for (var i = 3; i <= 4; i++) {
+        await tester.sendKeyEvent(LogicalKeyboardKey.arrowLeft);
+        harness.serverA.schedule.completeEmpty(i);
+        await tester.pumpAndSettle();
+      }
+      expect(harness.serverA.schedule.requests.last.from, origin);
+      await tester.sendKeyEvent(LogicalKeyboardKey.arrowLeft);
+      await tester.pumpAndSettle();
+      _expectFocusedChannel(tester, 'A');
+      expect(tester.takeException(), isNull);
+    });
+  });
+
+  testWidgets('future paging skips a long broadcast and does not reclaim focus after a row change', (tester) async {
+    await withClock(Clock.fixed(DateTime(2026, 9, 10, 20, 15)), () async {
+      final channels = [
+        _guideChannel(serverId: 'server-a', stationId: 'station-a', callSign: 'A'),
+        _guideChannel(serverId: 'server-a', stationId: 'station-b', callSign: 'B'),
+      ];
+      final harness = _GuideHarness._create(includeServerB: false, channels: channels);
+      addTearDown(harness.dispose);
+      await harness.pump(tester);
+      final start = harness.serverA.schedule.requests.single.from;
+      harness.serverA.schedule.requests.single.completer.complete([
+        LiveTvProgram(
+          title: 'Long broadcast',
+          beginsAt: start.millisecondsSinceEpoch ~/ 1000,
+          endsAt: start.add(const Duration(hours: 12)).millisecondsSinceEpoch ~/ 1000,
+          channelIdentifier: 'station-a',
+          serverId: 'server-a',
+        ),
+      ]);
+      await tester.pumpAndSettle();
+      await _focusGrid(tester);
+      await tester.sendKeyEvent(LogicalKeyboardKey.arrowRight);
+      await tester.sendKeyEvent(LogicalKeyboardKey.arrowRight);
+      expect(harness.serverA.schedule.requests.last.from, start.add(const Duration(hours: 11, minutes: 30)));
+      await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
+      harness.serverA.schedule.completeSlots(1, 12);
+      await tester.pumpAndSettle();
+      _expectFocusedChannel(tester, 'B');
+      expect(find.ancestor(of: _gridText('Slot 2'), matching: _focusedCellFinder(tester)), findsNothing);
+      expect(tester.takeException(), isNull);
+    });
+  });
+
+  testWidgets('Now supersedes an in-flight automatic page without stale focus or window changes', (tester) async {
+    TvDetectionService.debugSetAppleTVOverride(true);
+    await withClock(Clock.fixed(DateTime(2026, 9, 10, 20, 15)), () async {
+      final harness = _GuideHarness.oneServer();
+      addTearDown(harness.dispose);
+      await harness.pump(tester);
+      harness.serverA.schedule.completeSlots(0, 12);
+      await tester.pumpAndSettle();
+      final origin = harness.serverA.schedule.requests.first.from;
+      await _focusGrid(tester);
+      for (var i = 0; i < 13; i++) {
+        await tester.sendKeyEvent(LogicalKeyboardKey.arrowRight);
+        await tester.pump();
+      }
+      expect(harness.serverA.schedule.requests, hasLength(2));
+      await tester.tap(
+        find.byWidgetPredicate((widget) => widget is AppIcon && widget.icon == Symbols.arrow_drop_down_rounded),
+      );
+      await _pumpMenuTransition(tester);
+      await tester.tap(find.text(t.liveTv.now));
+      await _pumpMenuTransition(tester);
+      expect(harness.serverA.schedule.requests.last.from, origin);
+      harness.serverA.schedule.completeSlots(2, 12);
+      await tester.pumpAndSettle();
+      harness.serverA.schedule.complete(1, 'Stale future');
+      await tester.pumpAndSettle();
+      expect(_gridText('Stale future'), findsNothing);
+      expect(find.ancestor(of: _gridText('Slot 1'), matching: _focusedCellFinder(tester)), findsOneWidget);
+      expect(_gridText('Slot 1').hitTestable(), findsOneWidget);
+      expect(harness.serverA.schedule.requests, hasLength(3));
+      expect(tester.takeException(), isNull);
+    });
+  });
+
   testWidgets('horizontal guide virtualization keeps the D-pad focus target rendered', (tester) async {
     final harness = _GuideHarness.oneServer();
     addTearDown(harness.dispose);
@@ -1345,7 +1540,7 @@ void main() {
     await tester.sendKeyEvent(LogicalKeyboardKey.arrowRight);
     await tester.pump();
 
-    for (var index = 0; index < 12; index++) {
+    for (var index = 0; index < 11; index++) {
       await tester.sendKeyEvent(LogicalKeyboardKey.arrowRight);
       await tester.pump();
     }
@@ -1519,7 +1714,7 @@ Future<void> _focusGrid(WidgetTester tester) async {
 }
 
 Finder _focusedCellFinder(WidgetTester tester) {
-  final primary = Theme.of(tester.element(find.byType(GuideTab))).colorScheme.primary;
+  final primary = Theme.of(tester.element(find.byWidgetPredicate((widget) => widget is GuideTab))).colorScheme.primary;
   return find.byWidgetPredicate(
     (widget) => (widget is Material && widget.color == primary) || (widget is CardFocusScope && widget.showFocus),
   );
