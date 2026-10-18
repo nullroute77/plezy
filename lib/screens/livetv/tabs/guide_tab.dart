@@ -1550,12 +1550,18 @@ class GuideTabState extends State<GuideTab>
             channels++;
           }
         }
-        // Reserve room for six channel rows, including the source headings
-        // above them. Smaller TV viewports use a compact row, not fewer rows.
-        _rowHeight = ((constraints.maxHeight - 240 - headers * _sourceHeaderRowHeight) / _tvVisibleChannelRows).clamp(
-          48.0,
-          72.0,
-        );
+        // Reserve the information panel separately from the time labels and
+        // navigation controls, so six rows do not squeeze the details at 720p.
+        const infoHeight = 240.0;
+        const navigationHeight = 40.0;
+        _rowHeight =
+            ((constraints.maxHeight -
+                        infoHeight -
+                        navigationHeight -
+                        _timeHeaderHeight -
+                        headers * _sourceHeaderRowHeight) /
+                    _tvVisibleChannelRows)
+                .clamp(48.0, 72.0);
         return Column(
           children: [
             Expanded(
@@ -1577,11 +1583,14 @@ class GuideTabState extends State<GuideTab>
                 },
               ),
             ),
-            Align(
-              alignment: Alignment.centerRight,
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [_buildTimeArrow(forward: false), _buildTimeArrow(forward: true)],
+            SizedBox(
+              height: navigationHeight,
+              child: Align(
+                alignment: Alignment.centerRight,
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [_buildTimeArrow(forward: false), _buildTimeArrow(forward: true)],
+                ),
               ),
             ),
             SizedBox(
