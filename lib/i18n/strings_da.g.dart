@@ -499,8 +499,6 @@ class _Translations$settings$da extends Translations$settings$en {
 	@override String get startupSection => 'Startsektion';
 	@override String get showExploreTab => 'Vis fanen Opdag';
 	@override String get showExploreTabDescription => 'Vis fanen Opdag med indhold fra Plex Discover og tilknyttede trackere';
-	@override String get liveTvDefaultFavorites => 'Vis favoritkanaler som standard';
-	@override String get liveTvDefaultFavoritesDescription => 'Vis kun favoritkanaler ved åbning af Live TV';
 	@override String get general => 'Generelt';
 	@override String get generalDescription => 'Sprog, opstart og vinduesadfærd';
 	@override String get languageAndRegion => 'Sprog og region';
@@ -510,7 +508,6 @@ class _Translations$settings$da extends Translations$settings$en {
 	@override String get homeScreen => 'Startskærm';
 	@override String get navigation => 'Navigation';
 	@override String get window => 'Vindue';
-	@override String get liveTv => 'Live TV';
 	@override String get player => 'Afspiller';
 	@override String get videoAndDisplay => 'Video og skærm';
 	@override String get audio => 'Lyd';
@@ -1526,9 +1523,6 @@ class _Translations$liveTv$da extends Translations$liveTv$en {
 	@override String get watchChannel => 'Se kanal';
 	@override String get favorites => 'Favoritter';
 	@override String get reorderFavorites => 'Omarranger favoritter';
-	@override String get noFavoriteChannels => 'Ingen favoritkanaler';
-	@override String get noFavoriteChannelsHint => 'Vis alle kanaler, og tryk derefter længe på en kanal for at føje den til dine favoritter.';
-	@override String get showAllChannels => 'Vis alle kanaler';
 	@override String get favoritesLoadFailed => 'Favoritter kunne ikke indlæses. Kontrollér forbindelsen, og prøv igen.';
 	@override String get favoritesUpdateFailed => 'Favoritterne kunne ikke opdateres. Kontrollér forbindelsen, og prøv igen.';
 	@override String get joinSession => 'Deltag i igangværende session';
@@ -3417,8 +3411,6 @@ extension on TranslationsDa {
 			'settings.startupSection' => 'Startsektion',
 			'settings.showExploreTab' => 'Vis fanen Opdag',
 			'settings.showExploreTabDescription' => 'Vis fanen Opdag med indhold fra Plex Discover og tilknyttede trackere',
-			'settings.liveTvDefaultFavorites' => 'Vis favoritkanaler som standard',
-			'settings.liveTvDefaultFavoritesDescription' => 'Vis kun favoritkanaler ved åbning af Live TV',
 			'settings.general' => 'Generelt',
 			'settings.generalDescription' => 'Sprog, opstart og vinduesadfærd',
 			'settings.languageAndRegion' => 'Sprog og region',
@@ -3428,7 +3420,6 @@ extension on TranslationsDa {
 			'settings.homeScreen' => 'Startskærm',
 			'settings.navigation' => 'Navigation',
 			'settings.window' => 'Vindue',
-			'settings.liveTv' => 'Live TV',
 			'settings.player' => 'Afspiller',
 			'settings.videoAndDisplay' => 'Video og skærm',
 			'settings.audio' => 'Lyd',
@@ -3551,11 +3542,11 @@ extension on TranslationsDa {
 			'fileInfo.streamIdentifier' => 'Strømidentifikator',
 			'fileInfo.streamIndex' => 'Strømindex',
 			'fileInfo.streamId' => 'Strøm-ID',
-			_ => null,
-		} ?? switch (path) {
 			'fileInfo.language' => 'Sprog',
 			'fileInfo.languageCode' => 'Sprogkode',
 			'fileInfo.streamTitle' => 'Sportitel',
+			_ => null,
+		} ?? switch (path) {
 			'fileInfo.channels' => 'Kanaler',
 			'fileInfo.sampleRate' => 'Samplingshastighed',
 			'fileInfo.spatialAudio' => 'Rumlig lyd',
@@ -4065,11 +4056,11 @@ extension on TranslationsDa {
 			'libraries.analyze' => 'Analysér',
 			'libraries.analyzeLibrary' => 'Analysér bibliotek',
 			'libraries.refreshMetadata' => 'Opdater metadata',
-			_ => null,
-		} ?? switch (path) {
 			'libraries.emptyTrash' => 'Tøm papirkurv',
 			'libraries.emptyingTrash' => ({required Object title}) => 'Tømmer papirkurv for "${title}"...',
 			'libraries.trashEmptied' => ({required Object title}) => 'Papirkurv tømt for "${title}"',
+			_ => null,
+		} ?? switch (path) {
 			'libraries.failedToEmptyTrash' => ({required Object error}) => 'Kunne ikke tømme papirkurv: ${error}',
 			'libraries.analyzing' => ({required Object title}) => 'Analyserer "${title}"...',
 			'libraries.analysisStarted' => ({required Object title}) => 'Analyse startet for "${title}"',
@@ -4375,9 +4366,6 @@ extension on TranslationsDa {
 			'liveTv.watchChannel' => 'Se kanal',
 			'liveTv.favorites' => 'Favoritter',
 			'liveTv.reorderFavorites' => 'Omarranger favoritter',
-			'liveTv.noFavoriteChannels' => 'Ingen favoritkanaler',
-			'liveTv.noFavoriteChannelsHint' => 'Vis alle kanaler, og tryk derefter længe på en kanal for at føje den til dine favoritter.',
-			'liveTv.showAllChannels' => 'Vis alle kanaler',
 			'liveTv.favoritesLoadFailed' => 'Favoritter kunne ikke indlæses. Kontrollér forbindelsen, og prøv igen.',
 			'liveTv.favoritesUpdateFailed' => 'Favoritterne kunne ikke opdateres. Kontrollér forbindelsen, og prøv igen.',
 			'liveTv.joinSession' => 'Deltag i igangværende session',
@@ -4579,14 +4567,14 @@ extension on TranslationsDa {
 			'watchTogether.waitingForName' => ({required Object name}) => 'Venter på ${name}...',
 			'watchTogether.recentRooms' => 'Seneste rum',
 			'watchTogether.renameRoom' => 'Omdøb rum',
-			_ => null,
-		} ?? switch (path) {
 			'watchTogether.removeRoom' => 'Fjern',
 			'watchTogether.guestSwitchUnavailable' => 'Kunne ikke skifte — server ikke tilgængelig for synkronisering',
 			'watchTogether.guestSwitchFailed' => 'Kunne ikke skifte — indhold blev ikke fundet på denne server',
 			'watchTogether.defaultDisplayName' => 'Bruger',
 			'watchTogether.errors.timedOut' => 'Relayserveren svarede ikke i tide',
 			'watchTogether.errors.connectionLost' => 'Forbindelsen blev lukket, før sessionen var klar',
+			_ => null,
+		} ?? switch (path) {
 			'watchTogether.errors.invalidRelayResponse' => 'Relayserveren sendte et uventet svar',
 			'watchTogether.errors.sessionEnded' => 'Værten afsluttede sessionen',
 			'watchTogether.errors.sessionUnavailable' => 'Kan ikke genoptage denne session. Deltag i eller opret et rum for at fortsætte.',
@@ -5093,14 +5081,14 @@ extension on TranslationsDa {
 			'addServer.connectToMediaBrowserCardSubtitleScoped' => ({required Object product, required Object name}) => 'Log ind på din ${product}-server. Tilknyttes til ${name}.',
 			'addServer.borrowFromAnotherProfile' => 'Lån fra en anden profil',
 			'addServer.borrowFromAnotherProfileSubtitle' => 'Genbrug en anden profils forbindelse. PIN-beskyttede profiler kræver en PIN.',
-			_ => null,
-		} ?? switch (path) {
 			'addServer.invalidCredentials' => 'Ugyldigt brugernavn eller ugyldig adgangskode',
 			'addServer.authResponseNotJson' => 'Godkendelsessvaret var ikke gyldig JSON',
 			'addServer.authResponseIncomplete' => 'Loginsvaret fra serveren var ufuldstændigt',
 			'addServer.quickConnectRejected' => 'Quick Connect blev afvist af serveren',
 			'addServer.quickConnectNotJson' => 'Quick Connect-svaret var ikke gyldig JSON',
 			'addServer.quickConnectMissingFields' => 'Quick Connect-svaret mangler en kode eller hemmelighed',
+			_ => null,
+		} ?? switch (path) {
 			'addServer.quickConnectPollRejected' => 'Quick Connect-polling blev afvist af serveren',
 			'addServer.serverTimedOut' => 'Serveren svarede ikke i tide',
 			'addServer.responseNotJson' => 'Serversvaret var ikke gyldig JSON',

@@ -2,13 +2,21 @@ import '../i18n/strings.g.dart';
 import '../utils/json_utils.dart';
 import '../media/ids.dart';
 
+enum GuideProgramBadge { live, newProgram }
+
 /// Represents an EPG program entry (what's on a channel at a given time)
 class LiveTvProgram {
   final String? key;
   final String? ratingKey;
   final String? guid;
   final String title;
+
+  /// Backend-normalized broadcast name and episode/secondary title. Keep
+  /// [title] and the Plex hierarchy intact for details and recording actions.
+  final String? programTitle;
+  final String? episodeTitle;
   final String? summary;
+  final String? contentRating;
   final String? type;
   final int? year;
   final int? beginsAt; // epoch seconds
@@ -18,11 +26,16 @@ class LiveTvProgram {
   final int? index; // episode number
   final int? parentIndex; // season number
   final String? thumb;
+
+  /// Portrait artwork when supplied separately from an episode thumbnail.
+  final String? poster;
   final String? art;
   final String? channelIdentifier;
   final String? channelCallSign;
   final bool? live;
   final bool? premiere;
+  final bool? isNew;
+  final bool? repeat;
 
   /// Recording-rule key targeting this airing directly (`subscriptionID`).
   /// Plex stamps subscribed airings in the grid/metadata responses themselves;
@@ -41,7 +54,10 @@ class LiveTvProgram {
     this.ratingKey,
     this.guid,
     required this.title,
+    this.programTitle,
+    this.episodeTitle,
     this.summary,
+    this.contentRating,
     this.type,
     this.year,
     this.beginsAt,
@@ -51,11 +67,14 @@ class LiveTvProgram {
     this.index,
     this.parentIndex,
     this.thumb,
+    this.poster,
     this.art,
     this.channelIdentifier,
     this.channelCallSign,
     this.live,
     this.premiere,
+    this.isNew,
+    this.repeat,
     this.subscriptionId,
     this.grandparentSubscriptionId,
     this.serverId,
@@ -85,12 +104,20 @@ class LiveTvProgram {
       return hasOverride ? (fromMedia ?? fromJson) : (fromJson ?? fromMedia);
     }
 
+    // Broadcast flags belong to the selected airing when Media supplies them.
+    bool? pickBool(String key) => flexibleBoolNullable(media?[key]) ?? flexibleBoolNullable(json[key]);
+
+    final seriesTitle = (json['grandparentTitle'] as String?)?.trim();
+    final hasSeriesTitle = seriesTitle != null && seriesTitle.isNotEmpty;
     return LiveTvProgram(
+      programTitle: hasSeriesTitle ? seriesTitle : json['title'] as String?,
+      episodeTitle: hasSeriesTitle ? json['title'] as String? : null,
       key: json['key'] as String?,
       ratingKey: json['ratingKey'] as String?,
       guid: json['guid'] as String?,
       title: json['title'] as String? ?? t.liveTv.unknownProgram,
       summary: json['summary'] as String?,
+      contentRating: pickString('contentRating'),
       type: json['type'] as String?,
       year: flexibleInt(json['year']),
       beginsAt: pickInt('beginsAt'),
@@ -100,11 +127,14 @@ class LiveTvProgram {
       index: flexibleInt(json['index']),
       parentIndex: flexibleInt(json['parentIndex']),
       thumb: json['thumb'] as String? ?? json['grandparentThumb'] as String?,
+      poster: hasSeriesTitle ? json['grandparentThumb'] as String? : null,
       art: json['art'] as String?,
       channelIdentifier: pickString('channelIdentifier') ?? channel?['id']?.toString(),
       channelCallSign: pickString('channelCallSign'),
-      live: flexibleBool(json['live']),
-      premiere: flexibleBool(json['premiere']),
+      live: pickBool('live'),
+      premiere: pickBool('premiere'),
+      isNew: pickBool('new'),
+      repeat: pickBool('repeat'),
       subscriptionId: json['subscriptionID']?.toString(),
       grandparentSubscriptionId: json['grandparentSubscriptionID']?.toString(),
     );
@@ -116,7 +146,10 @@ class LiveTvProgram {
       ratingKey: ratingKey,
       guid: guid,
       title: title,
+      programTitle: programTitle,
+      episodeTitle: episodeTitle,
       summary: summary,
+      contentRating: contentRating,
       type: type,
       year: year,
       beginsAt: beginsAt,
@@ -126,11 +159,14 @@ class LiveTvProgram {
       index: index,
       parentIndex: parentIndex,
       thumb: thumb,
+      poster: poster,
       art: art,
       channelIdentifier: channelIdentifier,
       channelCallSign: channelCallSign,
       live: live,
       premiere: premiere,
+      isNew: isNew,
+      repeat: repeat,
       subscriptionId: subscriptionId,
       grandparentSubscriptionId: grandparentSubscriptionId,
       serverId: serverId ?? this.serverId,
@@ -138,6 +174,27 @@ class LiveTvProgram {
       liveDvrKey: liveDvrKey ?? this.liveDvrKey,
       providerIdentifier: providerIdentifier ?? this.providerIdentifier,
     );
+  }
+
+  /// A currently airing repeat is not a live broadcast. Unknown flags never
+  /// imply NEW, and an explicit repeat vetoes conflicting new/premiere flags.
+  GuideProgramBadge? get guideBadge {
+    if (live == true) return GuideProgramBadge.live;
+    if (repeat != true && (isNew == true || premiere == true)) return GuideProgramBadge.newProgram;
+    return null;
+  }
+
+  String get guideTitle => programTitle ?? grandparentTitle ?? title;
+
+  static final _episodePlaceholder = RegExp(r'^episode\s+[0-9]+$', caseSensitive: false);
+
+  /// Match the guide's episode-title-only presentation, without synthesizing
+  /// season/episode numbers. Only an entire `Episode <digits>` is a placeholder;
+  /// titles such as "Episode 2000: A New Beginning" remain useful.
+  String? get guideSubtitle {
+    final secondary = (episodeTitle ?? (programTitle == null && grandparentTitle != null ? title : null))?.trim();
+    if (secondary == null || secondary.isEmpty || _episodePlaceholder.hasMatch(secondary)) return null;
+    return secondary;
   }
 
   /// Key of the recording rule covering this airing, or null when the server

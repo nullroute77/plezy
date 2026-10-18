@@ -1369,12 +1369,6 @@ class Translations$settings$en {
 	/// en: 'Display the Explore tab with content from Plex Discover and connected trackers'
 	String get showExploreTabDescription => 'Display the Explore tab with content from Plex Discover and connected trackers';
 
-	/// en: 'Default to Favorite Channels'
-	String get liveTvDefaultFavorites => 'Default to Favorite Channels';
-
-	/// en: 'Show only favorite channels when opening Live TV'
-	String get liveTvDefaultFavoritesDescription => 'Show only favorite channels when opening Live TV';
-
 	/// en: 'General'
 	String get general => 'General';
 
@@ -1401,9 +1395,6 @@ class Translations$settings$en {
 
 	/// en: 'Window'
 	String get window => 'Window';
-
-	/// en: 'Live TV'
-	String get liveTv => 'Live TV';
 
 	/// en: 'Player'
 	String get player => 'Player';
@@ -3927,6 +3918,9 @@ class Translations$liveTv$en {
 	/// en: 'LIVE'
 	String get live => 'LIVE';
 
+	/// en: 'NEW'
+	String get newProgram => 'NEW';
+
 	/// en: 'Reload Guide'
 	String get reloadGuide => 'Reload Guide';
 
@@ -3983,15 +3977,6 @@ class Translations$liveTv$en {
 
 	/// en: 'Reorder Favorites'
 	String get reorderFavorites => 'Reorder Favorites';
-
-	/// en: 'No favorite channels'
-	String get noFavoriteChannels => 'No favorite channels';
-
-	/// en: 'Show all channels, then long-press a channel to add it to your favorites.'
-	String get noFavoriteChannelsHint => 'Show all channels, then long-press a channel to add it to your favorites.';
-
-	/// en: 'Show All Channels'
-	String get showAllChannels => 'Show All Channels';
 
 	/// en: 'Could not load favorites. Check your connection and try again.'
 	String get favoritesLoadFailed => 'Could not load favorites. Check your connection and try again.';
@@ -8259,8 +8244,6 @@ extension on Translations {
 			'settings.startupSection' => 'Startup Section',
 			'settings.showExploreTab' => 'Show Explore Tab',
 			'settings.showExploreTabDescription' => 'Display the Explore tab with content from Plex Discover and connected trackers',
-			'settings.liveTvDefaultFavorites' => 'Default to Favorite Channels',
-			'settings.liveTvDefaultFavoritesDescription' => 'Show only favorite channels when opening Live TV',
 			'settings.general' => 'General',
 			'settings.generalDescription' => 'Language, startup, and window behavior',
 			'settings.languageAndRegion' => 'Language & Region',
@@ -8270,7 +8253,6 @@ extension on Translations {
 			'settings.homeScreen' => 'Home Screen',
 			'settings.navigation' => 'Navigation',
 			'settings.window' => 'Window',
-			'settings.liveTv' => 'Live TV',
 			'settings.player' => 'Player',
 			'settings.videoAndDisplay' => 'Video & Display',
 			'settings.audio' => 'Audio',
@@ -8319,11 +8301,11 @@ extension on Translations {
 			'themeEditor.slots.textMuted' => 'Secondary text',
 			'themeEditor.slots.accent' => 'Accent',
 			'themeEditor.opacity' => 'Opacity',
-			_ => null,
-		} ?? switch (path) {
 			'themeEditor.hexHint' => '#RRGGBB or #AARRGGBB',
 			'themeEditor.fromOtherThemes' => 'From other themes',
 			'themeEditor.swatchLabel' => ({required Object theme, required Object color}) => '${theme} ${color}',
+			_ => null,
+		} ?? switch (path) {
 			'themeEditor.contrast.textOnBg' => 'Text on background',
 			'themeEditor.contrast.textOnSurface' => 'Text on surface',
 			'themeEditor.contrast.textMutedOnBg' => 'Secondary text on background',
@@ -8833,11 +8815,11 @@ extension on Translations {
 			'connections.addConnection' => 'Add connection',
 			'connections.addConnectionSubtitleNoProfile' => 'Sign in with Plex or connect a Jellyfin or Emby server',
 			'connections.addConnectionSubtitleScoped' => ({required Object displayName}) => 'Add to ${displayName}: Plex, Jellyfin, Emby, or another profile connection',
-			_ => null,
-		} ?? switch (path) {
 			'connections.sessionExpiredOne' => ({required Object name}) => 'Session expired for ${name}',
 			'connections.sessionExpiredMany' => ({required Object count}) => 'Session expired for ${count} servers',
 			'connections.accessDeniedOne' => ({required Object name}) => '${name} refused access for this account',
+			_ => null,
+		} ?? switch (path) {
 			'connections.accessDeniedMany' => ({required Object count}) => '${count} servers refused access for this account',
 			'connections.signInAgain' => 'Sign in again',
 			'connections.editMediaBrowserTitle' => ({required Object product}) => 'Edit ${product} connection',
@@ -9278,6 +9260,7 @@ extension on Translations {
 			'liveTv.channelNumber' => ({required Object number}) => 'Channel ${number}',
 			'liveTv.unknownChannel' => 'Unknown channel',
 			'liveTv.live' => 'LIVE',
+			'liveTv.newProgram' => 'NEW',
 			'liveTv.reloadGuide' => 'Reload Guide',
 			'liveTv.searchGuide' => 'Search Guide',
 			'liveTv.searchHint' => 'Search channels & programs',
@@ -9297,9 +9280,6 @@ extension on Translations {
 			'liveTv.watchChannel' => 'Watch Channel',
 			'liveTv.favorites' => 'Favorites',
 			'liveTv.reorderFavorites' => 'Reorder Favorites',
-			'liveTv.noFavoriteChannels' => 'No favorite channels',
-			'liveTv.noFavoriteChannelsHint' => 'Show all channels, then long-press a channel to add it to your favorites.',
-			'liveTv.showAllChannels' => 'Show All Channels',
 			'liveTv.favoritesLoadFailed' => 'Could not load favorites. Check your connection and try again.',
 			'liveTv.favoritesUpdateFailed' => 'Could not update favorites. Check your connection and try again.',
 			'liveTv.joinSession' => 'Join Session in Progress',
@@ -9347,13 +9327,13 @@ extension on Translations {
 			'liveTv.recordSettings.anyChannel' => 'Record on any channel',
 			'liveTv.recordSettings.anyTime' => 'Record at any time',
 			'liveTv.recordSettings.skipInLibrary' => 'Skip episodes already in the library',
-			_ => null,
-		} ?? switch (path) {
 			'liveTv.recordSettings.keepUpTo' => 'Episodes to keep',
 			'liveTv.recordSettings.keepUpToHint' => '0 keeps every episode',
 			'liveTv.startingInMinutes' => ({required Object minutes}) => 'Starting in ${minutes} min',
 			'liveTv.dayAtTime' => ({required Object day, required Object time}) => '${day} at ${time}',
 			'liveTv.invalidPlaybackData' => ({required Object product}) => '${product} returned invalid Live TV playback data',
+			_ => null,
+		} ?? switch (path) {
 			'liveTv.failedToStartChannel' => 'Could not start the live channel',
 			'liveTv.failedToBuildStreamUrl' => 'Could not build the stream URL',
 			'liveTv.playbackStartFailed' => ({required Object reason}) => 'Couldn\'t start the channel: ${reason}',
@@ -9861,13 +9841,13 @@ extension on Translations {
 			'metadataEdit.never' => 'Never',
 			'metadataEdit.afterADay' => 'After a day',
 			'metadataEdit.afterAWeek' => 'After a week',
-			_ => null,
-		} ?? switch (path) {
 			'metadataEdit.afterAMonth' => 'After a month',
 			'metadataEdit.onNextRefresh' => 'On next refresh',
 			'metadataEdit.seasons' => 'Seasons',
 			'metadataEdit.show' => 'Show',
 			'metadataEdit.hide' => 'Hide',
+			_ => null,
+		} ?? switch (path) {
 			'metadataEdit.episodeOrdering' => 'Episode Ordering',
 			'metadataEdit.tmdbAiring' => 'The Movie Database (Aired)',
 			'metadataEdit.tvdbAiring' => 'TheTVDB (Aired)',

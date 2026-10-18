@@ -1,4 +1,9 @@
 import 'dart:async';
+import 'dart:io';
+import 'dart:ui' as ui;
+
+import 'package:flutter/rendering.dart';
+import 'package:flutter/services.dart';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -16,6 +21,9 @@ import 'package:plezy/models/livetv_channel.dart';
 import 'package:plezy/models/livetv_program.dart';
 import 'package:plezy/models/media_grab_operation.dart';
 import 'package:plezy/models/media_subscription.dart';
+import 'package:plezy/screens/livetv/tv_guide_program_info.dart';
+import 'package:plezy/theme/mono_tokens.dart';
+import 'package:plezy/utils/platform_detector.dart';
 import 'package:plezy/providers/multi_server_provider.dart';
 import 'package:plezy/screens/livetv/guide_search_sheet.dart';
 import 'package:plezy/screens/livetv/live_tv_screen.dart';
@@ -30,56 +38,126 @@ import '../../test_helpers/prefs.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
-  setUpAll(() => initializeDateFormatting('en'));
+  setUpAll(() async {
+    await initializeDateFormatting('en');
+    if (const String.fromEnvironment('GUIDE_SCREENSHOT_DIR').isNotEmpty) {
+      await (FontLoader('GuidePreview')..addFont(rootBundle.load('assets/go-noto-current-regular.ttf'))).load();
+      await (FontLoader(
+        'packages/material_symbols_icons/MaterialSymbolsRounded',
+      )..addFont(rootBundle.load('packages/material_symbols_icons/lib/fonts/MaterialSymbolsRounded.ttf'))).load();
+    }
+  });
 
   setUp(() async {
-    resetSharedPreferencesForTest();
+    resetSharedPreferencesForTest(initialAsync: {'live_tv_default_favorites': true});
     LocaleSettings.setLocaleSync(AppLocale.en);
-    final settings = await SettingsService.getInstance();
-    await settings.write(SettingsService.liveTvDefaultFavorites, true);
+    await SettingsService.getInstance();
   });
 
-  testWidgets('loaded empty favorites shows the favorites empty state and can restore all channels', (tester) async {
-    final harness = await _pumpLiveTvScreen(tester);
-    addTearDown(() async {
-      await tester.pumpWidget(const SizedBox.shrink());
-      harness.dispose();
+  for (final appearance in [(dark: false, oled: false), (dark: true, oled: false), (dark: true, oled: true)]) {
+    testWidgets(
+      'TV page keeps tabs above information and six rows with a date picker beside plain time labels ($appearance)',
+      (tester) async {
+        TvDetectionService.debugSetAppleTVOverride(true);
+        tester.view.physicalSize = const Size(1280, 720);
+        tester.view.devicePixelRatio = 1;
+        addTearDown(() {
+          TvDetectionService.debugSetAppleTVOverride(null);
+          tester.view.resetPhysicalSize();
+          tester.view.resetDevicePixelRatio();
+        });
+        final harness = await _pumpLiveTvScreen(
+          tester,
+          channelKeys: List.generate(8, (i) => 'channel-$i'),
+          withDvr: true,
+          withPrograms: true,
+          theme: monoTheme(
+            appearance.oled
+                ? MonoPalette.oled
+                : appearance.dark
+                ? MonoPalette.dark
+                : MonoPalette.light,
+          ),
+        );
+        addTearDown(() async {
+          await tester.pumpWidget(const SizedBox.shrink());
+          harness.dispose();
+        });
+        harness.liveTv.favorites.complete([]);
+        await tester.pumpAndSettle();
+        final info = find.byType(TvGuideProgramInfo);
+        final appBar = find.byType(AppBar);
+        for (final label in [t.liveTv.guide, t.liveTv.whatsOn, t.liveTv.recordings]) {
+          final tab = find.descendant(of: appBar, matching: find.text(label));
+          expect(tab.hitTestable(), findsOneWidget);
+          expect(tester.getBottomLeft(tab).dy, lessThan(tester.getTopLeft(info).dy));
+        }
+        final grid = find.byKey(const ValueKey('guide-timeline-grid'));
+        final gridRect = tester.getRect(grid);
+        for (var i = 0; i < 6; i++) {
+          final channel = find.descendant(of: grid, matching: find.text('Unique Channel channel-$i'));
+          expect(gridRect.contains(tester.getCenter(channel)), isTrue);
+        }
+        expect(find.descendant(of: grid, matching: find.text('Unique Channel channel-6')).hitTestable(), findsNothing);
+        final slots = find.byWidgetPredicate((w) => w is Container && w.key.toString().contains('guide-time-slot-'));
+        final first = tester.widget<Container>(slots.first);
+        final colors = tokens(tester.element(slots.first));
+        expect(first.decoration, isNull);
+        expect(first.color, isNull);
+        expect(tester.getTopLeft(slots.at(1)).dx - tester.getTopLeft(slots.first).dx, 240);
+        final today = find.text(t.liveTv.today);
+        expect(tester.getRect(today).right, lessThan(tester.getRect(slots.first).left));
+        expect(tester.getCenter(today).dy, closeTo(tester.getCenter(slots.first).dy, 1));
+        final luminances = [
+          colors.text.computeLuminance(),
+          Theme.of(tester.element(slots.first)).scaffoldBackgroundColor.computeLuminance(),
+        ]..sort();
+        expect((luminances.last + 0.05) / (luminances.first + 0.05), greaterThanOrEqualTo(4.5));
+        expect(find.descendant(of: info, matching: find.text('S1E9 Heat Day')), findsOneWidget);
+        const screenshotDir = String.fromEnvironment('GUIDE_SCREENSHOT_DIR');
+        if (screenshotDir.isNotEmpty) {
+          final boundary = tester.renderObject<RenderRepaintBoundary>(find.byKey(const ValueKey('live-tv-capture')));
+          await tester.runAsync(() async {
+            final image = await boundary.toImage();
+            try {
+              final bytes = await image.toByteData(format: ui.ImageByteFormat.png);
+              Directory(screenshotDir).createSync(recursive: true);
+              final name = appearance.oled
+                  ? 'oled'
+                  : appearance.dark
+                  ? 'dark'
+                  : 'light';
+              File('$screenshotDir/tv-full-page-$name.png').writeAsBytesSync(bytes!.buffer.asUint8List());
+            } finally {
+              image.dispose();
+            }
+          });
+        }
+        expect(tester.takeException(), isNull);
+      },
+    );
+  }
+
+  for (final staleFavorite in [false, true]) {
+    testWidgets('empty or stale favorites keep all channels visible (stale: $staleFavorite)', (tester) async {
+      final harness = await _pumpLiveTvScreen(tester);
+      addTearDown(() async {
+        await tester.pumpWidget(const SizedBox.shrink());
+        harness.dispose();
+      });
+      harness.liveTv.favorites.complete([
+        if (staleFavorite) FavoriteChannel(id: 'channel-gone', source: 'server://server-a/provider-a'),
+      ]);
+      await tester.pumpAndSettle();
+      final guide = tester.widget<GuideTab>(find.byType(GuideTab));
+      expect(guide.channels.map((c) => c.key), ['channel-a']);
+      expect(guide.favoriteChannels, isEmpty);
+      expect(find.byTooltip(t.liveTv.favorites), findsNothing);
+      expect(find.text(t.liveTv.favorites), findsNothing);
     });
+  }
 
-    expect(find.byIcon(Symbols.star_rounded), findsOneWidget);
-    expect(_guideChannels(tester).map((channel) => channel.key), ['channel-a']);
-
-    harness.liveTv.favorites.complete(const []);
-    await tester.pumpAndSettle();
-
-    expect(find.byType(GuideTab), findsNothing);
-    expect(find.text(t.liveTv.noFavoriteChannels), findsOneWidget);
-    expect(find.text(t.liveTv.showAllChannels), findsOneWidget);
-
-    await tester.tap(find.text(t.liveTv.showAllChannels));
-    await tester.pumpAndSettle();
-
-    expect(find.text(t.liveTv.noFavoriteChannels), findsNothing);
-    expect(find.byIcon(Symbols.star_outline_rounded), findsOneWidget);
-    expect(_guideChannels(tester).map((channel) => channel.key), ['channel-a']);
-  });
-
-  testWidgets('favorites matching no loaded channel show the favorites empty state', (tester) async {
-    final harness = await _pumpLiveTvScreen(tester);
-    addTearDown(() async {
-      await tester.pumpWidget(const SizedBox.shrink());
-      harness.dispose();
-    });
-
-    harness.liveTv.favorites.complete([FavoriteChannel(id: 'channel-gone', source: 'server://server-a/provider-a')]);
-    await tester.pumpAndSettle();
-
-    expect(find.byType(GuideTab), findsNothing);
-    expect(find.text(t.liveTv.noFavoriteChannels), findsOneWidget);
-    expect(find.text(t.liveTv.showAllChannels), findsOneWidget);
-  });
-
-  testWidgets('refresh keeps the favorites filter narrow while favorites reload', (tester) async {
+  testWidgets('refresh keeps the favorites group populated while favorites reload', (tester) async {
     final harness = await _pumpLiveTvScreen(tester, channelKeys: const ['channel-a', 'channel-b']);
     addTearDown(() async {
       await tester.pumpWidget(const SizedBox.shrink());
@@ -90,22 +168,23 @@ void main() {
     harness.liveTv.favorites.complete([favorite]);
     await tester.pumpAndSettle();
 
-    expect(_guideChannels(tester).map((channel) => channel.key), ['channel-a']);
+    expect(_guideChannels(tester).map((channel) => channel.key), ['channel-a', 'channel-b']);
+    expect(tester.widget<GuideTab>(find.byType(GuideTab)).favoriteChannels.map((c) => c.key), ['channel-a']);
 
     await tester.tap(find.byIcon(Symbols.refresh_rounded));
     await tester.pumpAndSettle();
 
-    expect(_guideChannels(tester).map((channel) => channel.key), ['channel-a']);
+    expect(_guideChannels(tester).map((channel) => channel.key), ['channel-a', 'channel-b']);
+    expect(tester.widget<GuideTab>(find.byType(GuideTab)).favoriteChannels.map((c) => c.key), ['channel-a']);
 
     harness.liveTv.favorites.complete([favorite]);
     await tester.pumpAndSettle();
 
-    expect(_guideChannels(tester).map((channel) => channel.key), ['channel-a']);
+    expect(_guideChannels(tester).map((channel) => channel.key), ['channel-a', 'channel-b']);
+    expect(tester.widget<GuideTab>(find.byType(GuideTab)).favoriteChannels.map((c) => c.key), ['channel-a']);
   });
 
-  testWidgets('guide search covers all channels and selecting a non-favorite drops the favorites filter', (
-    tester,
-  ) async {
+  testWidgets('guide search can reach a channel below the favorites group', (tester) async {
     final harness = await _pumpLiveTvScreen(tester, channelKeys: const ['channel-a', 'channel-b']);
     addTearDown(() async {
       await tester.pumpWidget(const SizedBox.shrink());
@@ -114,12 +193,13 @@ void main() {
 
     harness.liveTv.favorites.complete([FavoriteChannel(id: 'channel-a', source: 'server://server-a/provider-a')]);
     await tester.pumpAndSettle();
-    expect(_guideChannels(tester).map((channel) => channel.key), ['channel-a']);
+    expect(_guideChannels(tester).map((channel) => channel.key), ['channel-a', 'channel-b']);
+    expect(tester.widget<GuideTab>(find.byType(GuideTab)).favoriteChannels.map((c) => c.key), ['channel-a']);
 
     await tester.tap(find.byIcon(Symbols.search_rounded));
     await tester.pumpAndSettle();
 
-    // The sheet searches the full lineup, not the favorites-filtered one.
+    // Search includes favorites and the rest of the lineup.
     final sheet = find.byType(GuideSearchSheet);
     expect(find.descendant(of: sheet, matching: find.text('Unique Channel A')), findsOneWidget);
     expect(find.descendant(of: sheet, matching: find.text('Unique Channel channel-b')), findsOneWidget);
@@ -127,8 +207,7 @@ void main() {
     await tester.tap(find.descendant(of: sheet, matching: find.text('Unique Channel channel-b')));
     await tester.pumpAndSettle();
 
-    // The target row must exist to land on, so the filter is dropped and the
-    // guide widens to the full lineup.
+    // Both groups remain available after the jump.
     expect(_guideChannels(tester).map((channel) => channel.key), ['channel-a', 'channel-b']);
   });
 
@@ -144,7 +223,7 @@ void main() {
     harness.liveTv.favorites.completeError(StateError('favorite read failed'));
     await tester.pumpAndSettle();
 
-    expect(find.byIcon(Symbols.star_rounded), findsOneWidget);
+    expect(find.byTooltip(t.liveTv.favorites), findsNothing);
     expect(_guideChannels(tester).map((channel) => channel.key), ['channel-a']);
   });
   testWidgets('favorite failure keeps favorites loaded from healthy stores', (tester) async {
@@ -182,14 +261,46 @@ void main() {
     final guide = tester.widget<GuideTab>(find.byType(GuideTab));
     final healthyChannel = guide.channels.singleWhere((channel) => channel.serverId == 'server-b');
     expect(guide.isFavoriteChannel!(healthyChannel), isTrue);
-    expect(guide.channels.map((channel) => channel.serverId), ['server-b']);
+    expect(guide.channels.map((channel) => channel.serverId), ['server-a', 'server-b']);
+    expect(guide.favoriteChannels.map((channel) => channel.serverId), ['server-b']);
   });
+
+  for (final recovers in [true, false]) {
+    testWidgets('favorite mutation retries a failed read before writing (recovers: $recovers)', (tester) async {
+      final harness = await _pumpLiveTvScreen(tester);
+      addTearDown(() async {
+        await tester.pumpWidget(const SizedBox.shrink());
+        harness.dispose();
+      });
+      harness.liveTv.favorites.completeError(StateError('temporary cloud failure'));
+      await tester.pumpAndSettle();
+      await tester.longPress(find.text('Unique Channel A'));
+      await tester.pump();
+      expect(harness.liveTv.writes, isEmpty);
+      if (recovers) {
+        harness.liveTv.favorites.complete([
+          FavoriteChannel(id: 'unlisted-channel', source: 'server://server-a/provider-a'),
+        ]);
+      } else {
+        harness.liveTv.favorites.completeError(StateError('cloud still unavailable'));
+      }
+      await tester.pumpAndSettle();
+      expect(harness.liveTv._servedFavoriteRequests, 2);
+      if (recovers) {
+        expect(harness.liveTv.writes.single.map((favorite) => favorite.id), ['unlisted-channel', 'channel-a']);
+        expect(tester.widget<GuideTab>(find.byType(GuideTab)).favoriteChannels.single.key, 'channel-a');
+        expect(find.text(t.liveTv.favoritesLoadFailed), findsNothing);
+      } else {
+        expect(harness.liveTv.writes, isEmpty);
+        expect(tester.widget<GuideTab>(find.byType(GuideTab)).favoriteChannels, isEmpty);
+        expect(find.text(t.liveTv.favoritesLoadFailed), findsOneWidget);
+      }
+    });
+  }
 
   testWidgets('favorite write failure keeps optimistic state, shows feedback, and leaves the queue usable', (
     tester,
   ) async {
-    final settings = await SettingsService.getInstance();
-    await settings.write(SettingsService.liveTvDefaultFavorites, false);
     final harness = await _pumpLiveTvScreen(tester);
     addTearDown(() async {
       await tester.pumpWidget(const SizedBox.shrink());
@@ -221,7 +332,7 @@ void main() {
     ]);
   });
 
-  testWidgets('What\'s On is hidden when no Live TV server is Plex', (tester) async {
+  testWidgets('What\'s On remains available for MediaBrowser schedules', (tester) async {
     final harness = await _pumpLiveTvScreen(tester);
     addTearDown(() async {
       await tester.pumpWidget(const SizedBox.shrink());
@@ -231,7 +342,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text(t.liveTv.guide), findsWidgets);
-    expect(find.text(t.liveTv.whatsOn), findsNothing);
+    expect(find.text(t.liveTv.whatsOn), findsOneWidget);
   });
 
   testWidgets('a refresh that fails on every server keeps the loaded channels', (tester) async {
@@ -241,8 +352,6 @@ void main() {
       harness.dispose();
     });
     harness.liveTv.favorites.complete(const []);
-    await tester.pumpAndSettle();
-    await tester.tap(find.text(t.liveTv.showAllChannels));
     await tester.pumpAndSettle();
     expect(_guideChannels(tester).map((channel) => channel.key), ['channel-a', 'channel-b']);
 
@@ -314,8 +423,15 @@ Future<_LiveTvHarness> _pumpLiveTvScreen(
   List<String>? channelKeys,
   _FakeLiveTvDvrSupport? dvr,
   Object? channelsFailure,
+  bool withDvr = false,
+  bool withPrograms = false,
+  ThemeData? theme,
 }) async {
-  final liveTv = _FakeLiveTvSupport(channelKeys: channelKeys, dvr: dvr)..channelsFailure = channelsFailure;
+  final liveTv = _FakeLiveTvSupport(
+    channelKeys: channelKeys,
+    dvr: dvr ?? (withDvr ? _FakeLiveTvDvrSupport() : null),
+    withPrograms: withPrograms,
+  )..channelsFailure = channelsFailure;
   final client = _FakeMediaServerClient(liveTv);
   final manager = MultiServerManager()..debugRegisterClientForTesting(client);
   final provider = testMultiServerProvider(manager);
@@ -329,7 +445,14 @@ Future<_LiveTvHarness> _pumpLiveTvScreen(
       child: InputModeTracker(
         child: ChangeNotifierProvider<MultiServerProvider>.value(
           value: provider,
-          child: MaterialApp(theme: monoTheme(MonoPalette.dark), home: const LiveTvScreen()),
+          child: MaterialApp(
+            theme: (theme ?? monoTheme(MonoPalette.dark)).copyWith(
+              textTheme: const String.fromEnvironment('GUIDE_SCREENSHOT_DIR').isEmpty
+                  ? null
+                  : (theme ?? monoTheme(MonoPalette.dark)).textTheme.apply(fontFamily: 'GuidePreview'),
+            ),
+            home: const RepaintBoundary(key: ValueKey('live-tv-capture'), child: LiveTvScreen()),
+          ),
         ),
       ),
     ),
@@ -377,8 +500,13 @@ class _FakeMediaServerClient implements MediaServerClient {
 }
 
 class _FakeLiveTvSupport implements LiveTvSupport {
-  _FakeLiveTvSupport({this.serverId = 'server-a', this.storeKey = 'test-store', List<String>? channelKeys, this.dvr})
-    : channelKeys = channelKeys ?? [serverId == 'server-a' ? 'channel-a' : 'channel-$serverId'];
+  _FakeLiveTvSupport({
+    this.serverId = 'server-a',
+    this.storeKey = 'test-store',
+    this.dvr,
+    this.withPrograms = false,
+    List<String>? channelKeys,
+  }) : channelKeys = channelKeys ?? [serverId == 'server-a' ? 'channel-a' : 'channel-$serverId'];
 
   final String serverId;
   final String storeKey;
@@ -402,6 +530,8 @@ class _FakeLiveTvSupport implements LiveTvSupport {
   @override
   final LiveTvDvrSupport? dvr;
 
+  final bool withPrograms;
+
   @override
   String get favoriteStoreKey => storeKey;
 
@@ -423,7 +553,27 @@ class _FakeLiveTvSupport implements LiveTvSupport {
   ];
 
   @override
-  Future<List<LiveTvProgram>> fetchSchedule({DateTime? from, DateTime? to}) async => const [];
+  Future<List<LiveTvProgram>> fetchSchedule({DateTime? from, DateTime? to}) async => [
+    if (withPrograms)
+      for (var i = 0; i < channelKeys.length; i++)
+        LiveTvProgram(
+          ratingKey: 'program-$i',
+          title: i == 0 ? 'Flavortown Food Fight' : 'Evening program ${i + 1}',
+          programTitle: i == 0 ? 'Flavortown Food Fight' : 'Evening program ${i + 1}',
+          episodeTitle: i == 0 ? 'Heat Day' : null,
+          parentIndex: i == 0 ? 1 : null,
+          index: i == 0 ? 9 : null,
+          summary:
+              'The chefs turn up the heat in a summer cooking challenge, with a surprise ingredient and a race against the clock.',
+          contentRating: 'TV-PG',
+          isNew: i == 0,
+          live: i == 1,
+          beginsAt: from!.millisecondsSinceEpoch ~/ 1000,
+          endsAt: from.add(const Duration(minutes: 90)).millisecondsSinceEpoch ~/ 1000,
+          channelIdentifier: channelKeys[i],
+          serverId: serverId,
+        ),
+  ];
 
   @override
   Future<List<FavoriteChannel>> fetchFavoriteChannels({bool migrate = true, void Function()? checkCurrent}) {

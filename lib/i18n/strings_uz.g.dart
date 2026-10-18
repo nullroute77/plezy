@@ -499,8 +499,6 @@ class _Translations$settings$uz extends Translations$settings$en {
 	@override String get startupSection => 'Boshlangʻich boʻlim';
 	@override String get showExploreTab => 'Kashf qilish varagʻini koʻrsatish';
 	@override String get showExploreTabDescription => 'Plex Discover va ulangan kuzatuvchilardagi kontent bilan Kashf qilish varagʻini koʻrsatish';
-	@override String get liveTvDefaultFavorites => 'Jonli TV-da tanlangan kanallarni standart qilish';
-	@override String get liveTvDefaultFavoritesDescription => 'Jonli TV ochilganda faqat tanlangan kanallarni koʻrsatish';
 	@override String get general => 'Umumiy';
 	@override String get generalDescription => 'Til, ishga tushirish va oyna xatti-harakati';
 	@override String get languageAndRegion => 'Til va mintaqa';
@@ -510,7 +508,6 @@ class _Translations$settings$uz extends Translations$settings$en {
 	@override String get homeScreen => 'Bosh ekran';
 	@override String get navigation => 'Navigatsiya';
 	@override String get window => 'Oyna';
-	@override String get liveTv => 'Jonli TV';
 	@override String get player => 'Pleyer';
 	@override String get videoAndDisplay => 'Video va displey';
 	@override String get audio => 'Audio';
@@ -1526,9 +1523,6 @@ class _Translations$liveTv$uz extends Translations$liveTv$en {
 	@override String get watchChannel => 'Kanalni tomosha qilish';
 	@override String get favorites => 'Tanlanganlar';
 	@override String get reorderFavorites => 'Tanlanganlarni tartiblash';
-	@override String get noFavoriteChannels => 'Sevimli kanallar yoʻq';
-	@override String get noFavoriteChannelsHint => 'Barcha kanallarni koʻrsating, soʻng kanalni sevimlilarga qoʻshish uchun uni bosib turing.';
-	@override String get showAllChannels => 'Barcha kanallarni koʻrsatish';
 	@override String get favoritesLoadFailed => 'Tanlanganlarni yuklab boʻlmadi. Ulanishni tekshirib, qayta urinib koʻring.';
 	@override String get favoritesUpdateFailed => 'Tanlanganlarni yangilab boʻlmadi.';
 	@override String get joinSession => 'Davom etayotgan seansga qoʻshilish';
@@ -3417,8 +3411,6 @@ extension on TranslationsUz {
 			'settings.startupSection' => 'Boshlangʻich boʻlim',
 			'settings.showExploreTab' => 'Kashf qilish varagʻini koʻrsatish',
 			'settings.showExploreTabDescription' => 'Plex Discover va ulangan kuzatuvchilardagi kontent bilan Kashf qilish varagʻini koʻrsatish',
-			'settings.liveTvDefaultFavorites' => 'Jonli TV-da tanlangan kanallarni standart qilish',
-			'settings.liveTvDefaultFavoritesDescription' => 'Jonli TV ochilganda faqat tanlangan kanallarni koʻrsatish',
 			'settings.general' => 'Umumiy',
 			'settings.generalDescription' => 'Til, ishga tushirish va oyna xatti-harakati',
 			'settings.languageAndRegion' => 'Til va mintaqa',
@@ -3428,7 +3420,6 @@ extension on TranslationsUz {
 			'settings.homeScreen' => 'Bosh ekran',
 			'settings.navigation' => 'Navigatsiya',
 			'settings.window' => 'Oyna',
-			'settings.liveTv' => 'Jonli TV',
 			'settings.player' => 'Pleyer',
 			'settings.videoAndDisplay' => 'Video va displey',
 			'settings.audio' => 'Audio',
@@ -3551,11 +3542,11 @@ extension on TranslationsUz {
 			'fileInfo.streamIdentifier' => 'Oqim identifikatori',
 			'fileInfo.streamIndex' => 'Oqim indeksi',
 			'fileInfo.streamId' => 'Oqim ID-si',
-			_ => null,
-		} ?? switch (path) {
 			'fileInfo.language' => 'Til',
 			'fileInfo.languageCode' => 'Til kodi',
 			'fileInfo.streamTitle' => 'Trek nomi',
+			_ => null,
+		} ?? switch (path) {
 			'fileInfo.channels' => 'Kanallar',
 			'fileInfo.sampleRate' => 'Namuna tezligi',
 			'fileInfo.spatialAudio' => 'Fazoviy audio',
@@ -4065,11 +4056,11 @@ extension on TranslationsUz {
 			'libraries.analyze' => 'Tahlil qilish',
 			'libraries.analyzeLibrary' => 'Kutubxonani tahlil qilish',
 			'libraries.refreshMetadata' => 'Metamaʼlumotlarni yangilash',
-			_ => null,
-		} ?? switch (path) {
 			'libraries.emptyTrash' => 'Savatni tozalash',
 			'libraries.emptyingTrash' => ({required Object title}) => '"${title}" savati tozalanmoqda...',
 			'libraries.trashEmptied' => ({required Object title}) => '"${title}" savati tozalandi',
+			_ => null,
+		} ?? switch (path) {
 			'libraries.failedToEmptyTrash' => ({required Object error}) => 'Savatni tozalab boʻlmadi: ${error}',
 			'libraries.analyzing' => ({required Object title}) => '"${title}" tahlil qilinmoqda...',
 			'libraries.analysisStarted' => ({required Object title}) => '"${title}" uchun tahlil boshlandi',
@@ -4375,9 +4366,6 @@ extension on TranslationsUz {
 			'liveTv.watchChannel' => 'Kanalni tomosha qilish',
 			'liveTv.favorites' => 'Tanlanganlar',
 			'liveTv.reorderFavorites' => 'Tanlanganlarni tartiblash',
-			'liveTv.noFavoriteChannels' => 'Sevimli kanallar yoʻq',
-			'liveTv.noFavoriteChannelsHint' => 'Barcha kanallarni koʻrsating, soʻng kanalni sevimlilarga qoʻshish uchun uni bosib turing.',
-			'liveTv.showAllChannels' => 'Barcha kanallarni koʻrsatish',
 			'liveTv.favoritesLoadFailed' => 'Tanlanganlarni yuklab boʻlmadi. Ulanishni tekshirib, qayta urinib koʻring.',
 			'liveTv.favoritesUpdateFailed' => 'Tanlanganlarni yangilab boʻlmadi.',
 			'liveTv.joinSession' => 'Davom etayotgan seansga qoʻshilish',
@@ -4579,14 +4567,14 @@ extension on TranslationsUz {
 			'watchTogether.waitingForName' => ({required Object name}) => '${name} kutilmoqda...',
 			'watchTogether.recentRooms' => 'Yaqindagi xonalar',
 			'watchTogether.renameRoom' => 'Xona nomini oʻzgartirish',
-			_ => null,
-		} ?? switch (path) {
 			'watchTogether.removeRoom' => 'Oʻchirish',
 			'watchTogether.guestSwitchUnavailable' => 'Oʻtib boʻlmadi — server sinxronlash uchun mavjud emas',
 			'watchTogether.guestSwitchFailed' => 'Oʻtib boʻlmadi — kontent topilmadi',
 			'watchTogether.defaultDisplayName' => 'Foydalanuvchi',
 			'watchTogether.errors.timedOut' => 'Rele serveri oʻz vaqtida javob bermadi',
 			'watchTogether.errors.connectionLost' => 'Seans tayyor boʻlmasidan ulanish uzildi',
+			_ => null,
+		} ?? switch (path) {
 			'watchTogether.errors.invalidRelayResponse' => 'Rele serveri kutilmagan javob yubordi',
 			'watchTogether.errors.sessionEnded' => 'Tashkilotchi seansni tugatdi',
 			'watchTogether.errors.sessionUnavailable' => 'Bu seansni davom ettirib boʻlmaydi. Davom etish uchun xonaga qoʻshiling yoki xona yarating.',
@@ -5093,14 +5081,14 @@ extension on TranslationsUz {
 			'addServer.connectToMediaBrowserCardSubtitleScoped' => ({required Object product, required Object name}) => '${product} serveringizga kiring. ${name} profiliga bogʻlanadi.',
 			'addServer.borrowFromAnotherProfile' => 'Boshqa profildan olish',
 			'addServer.borrowFromAnotherProfileSubtitle' => 'Boshqa profilning ulanishidan qayta foydalaning.',
-			_ => null,
-		} ?? switch (path) {
 			'addServer.invalidCredentials' => 'Foydalanuvchi nomi yoki parol notoʻgʻri',
 			'addServer.authResponseNotJson' => 'Autentifikatsiya javobi yaroqli JSON emas',
 			'addServer.authResponseIncomplete' => 'Serverdan kelgan kirish javobi toʻliq emas',
 			'addServer.quickConnectRejected' => 'Quick Connect server tomonidan rad etildi',
 			'addServer.quickConnectNotJson' => 'Quick Connect javobi yaroqli JSON emas',
 			'addServer.quickConnectMissingFields' => 'Quick Connect javobida kod yoki maxfiy kalit yoʻq',
+			_ => null,
+		} ?? switch (path) {
 			'addServer.quickConnectPollRejected' => 'Quick Connect soʻrovi server tomonidan rad etildi',
 			'addServer.serverTimedOut' => 'Server oʻz vaqtida javob bermadi',
 			'addServer.responseNotJson' => 'Server javobi yaroqli JSON emas',

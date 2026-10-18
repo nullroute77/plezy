@@ -499,8 +499,6 @@ class _Translations$settings$az extends Translations$settings$en {
 	@override String get startupSection => 'Başlanğıc bölməsi';
 	@override String get showExploreTab => 'Kəşf et nişanını göstər';
 	@override String get showExploreTabDescription => 'Plex Discover və qoşulmuş izləmə xidmətlərindəki məzmunla Kəşf et nişanını göstər';
-	@override String get liveTvDefaultFavorites => 'Canlı TV-də sevimli kanalları defolt et';
-	@override String get liveTvDefaultFavoritesDescription => 'Canlı TV açıldıqda yalnız sevimli kanalları göstər';
 	@override String get general => 'Ümumi';
 	@override String get generalDescription => 'Dil, başlanğıc və pəncərə davranışı';
 	@override String get languageAndRegion => 'Dil və Region';
@@ -510,7 +508,6 @@ class _Translations$settings$az extends Translations$settings$en {
 	@override String get homeScreen => 'Ana ekran';
 	@override String get navigation => 'Naviqasiya';
 	@override String get window => 'Pəncərə';
-	@override String get liveTv => 'Canlı TV';
 	@override String get player => 'Oynadıcı';
 	@override String get videoAndDisplay => 'Video və Ekran';
 	@override String get audio => 'Səs';
@@ -1526,9 +1523,6 @@ class _Translations$liveTv$az extends Translations$liveTv$en {
 	@override String get watchChannel => 'Kanala bax';
 	@override String get favorites => 'Sevimlilər';
 	@override String get reorderFavorites => 'Sevimliləri yenidən sırala';
-	@override String get noFavoriteChannels => 'Sevimli kanal yoxdur';
-	@override String get noFavoriteChannelsHint => 'Bütün kanalları göstərin, sonra kanalı sevimlilərə əlavə etmək üçün üzərinə uzun basın.';
-	@override String get showAllChannels => 'Bütün kanalları göstər';
 	@override String get favoritesLoadFailed => 'Sevimlilər yüklənə bilmədi. Bağlantınızı yoxlayın və yenidən cəhd edin.';
 	@override String get favoritesUpdateFailed => 'Sevimlilər yenilənə bilmədi.';
 	@override String get joinSession => 'Davam edən seansa qoşul';
@@ -3417,8 +3411,6 @@ extension on TranslationsAz {
 			'settings.startupSection' => 'Başlanğıc bölməsi',
 			'settings.showExploreTab' => 'Kəşf et nişanını göstər',
 			'settings.showExploreTabDescription' => 'Plex Discover və qoşulmuş izləmə xidmətlərindəki məzmunla Kəşf et nişanını göstər',
-			'settings.liveTvDefaultFavorites' => 'Canlı TV-də sevimli kanalları defolt et',
-			'settings.liveTvDefaultFavoritesDescription' => 'Canlı TV açıldıqda yalnız sevimli kanalları göstər',
 			'settings.general' => 'Ümumi',
 			'settings.generalDescription' => 'Dil, başlanğıc və pəncərə davranışı',
 			'settings.languageAndRegion' => 'Dil və Region',
@@ -3428,7 +3420,6 @@ extension on TranslationsAz {
 			'settings.homeScreen' => 'Ana ekran',
 			'settings.navigation' => 'Naviqasiya',
 			'settings.window' => 'Pəncərə',
-			'settings.liveTv' => 'Canlı TV',
 			'settings.player' => 'Oynadıcı',
 			'settings.videoAndDisplay' => 'Video və Ekran',
 			'settings.audio' => 'Səs',
@@ -3551,11 +3542,11 @@ extension on TranslationsAz {
 			'fileInfo.streamIdentifier' => 'Axın identifikatoru',
 			'fileInfo.streamIndex' => 'Axın indeksi',
 			'fileInfo.streamId' => 'Axın ID-si',
-			_ => null,
-		} ?? switch (path) {
 			'fileInfo.language' => 'Dil',
 			'fileInfo.languageCode' => 'Dil kodu',
 			'fileInfo.streamTitle' => 'Trek başlığı',
+			_ => null,
+		} ?? switch (path) {
 			'fileInfo.channels' => 'Kanallar',
 			'fileInfo.sampleRate' => 'Diskretləşdirmə tezliyi',
 			'fileInfo.spatialAudio' => 'Məkan səsi',
@@ -4065,11 +4056,11 @@ extension on TranslationsAz {
 			'libraries.analyze' => 'Analiz et',
 			'libraries.analyzeLibrary' => 'Kitabxananı analiz et',
 			'libraries.refreshMetadata' => 'Meta-məlumatları yenilə',
-			_ => null,
-		} ?? switch (path) {
 			'libraries.emptyTrash' => 'Zibil qutusunu təmizlə',
 			'libraries.emptyingTrash' => ({required Object title}) => '"${title}" üçün zibil qutusu təmizlənir...',
 			'libraries.trashEmptied' => ({required Object title}) => '"${title}" üçün zibil qutusu təmizləndi',
+			_ => null,
+		} ?? switch (path) {
 			'libraries.failedToEmptyTrash' => ({required Object error}) => 'Zibil qutusu təmizlənə bilmədi: ${error}',
 			'libraries.analyzing' => ({required Object title}) => '"${title}" analiz edilir...',
 			'libraries.analysisStarted' => ({required Object title}) => '"${title}" üçün analiz başladı',
@@ -4375,9 +4366,6 @@ extension on TranslationsAz {
 			'liveTv.watchChannel' => 'Kanala bax',
 			'liveTv.favorites' => 'Sevimlilər',
 			'liveTv.reorderFavorites' => 'Sevimliləri yenidən sırala',
-			'liveTv.noFavoriteChannels' => 'Sevimli kanal yoxdur',
-			'liveTv.noFavoriteChannelsHint' => 'Bütün kanalları göstərin, sonra kanalı sevimlilərə əlavə etmək üçün üzərinə uzun basın.',
-			'liveTv.showAllChannels' => 'Bütün kanalları göstər',
 			'liveTv.favoritesLoadFailed' => 'Sevimlilər yüklənə bilmədi. Bağlantınızı yoxlayın və yenidən cəhd edin.',
 			'liveTv.favoritesUpdateFailed' => 'Sevimlilər yenilənə bilmədi.',
 			'liveTv.joinSession' => 'Davam edən seansa qoşul',
@@ -4579,14 +4567,14 @@ extension on TranslationsAz {
 			'watchTogether.waitingForName' => ({required Object name}) => '${name} gözlənilir...',
 			'watchTogether.recentRooms' => 'Son otaqlar',
 			'watchTogether.renameRoom' => 'Otağın adını dəyişdir',
-			_ => null,
-		} ?? switch (path) {
 			'watchTogether.removeRoom' => 'Sil',
 			'watchTogether.guestSwitchUnavailable' => 'Keçid etmək olmadı — eyniləşdirmə üçün server əlçatan deyil',
 			'watchTogether.guestSwitchFailed' => 'Keçid etmək olmadı — məzmun bu serverdə tapılmadı',
 			'watchTogether.defaultDisplayName' => 'İstifadəçi',
 			'watchTogether.errors.timedOut' => 'Rele serveri vaxtında cavab vermədi',
 			'watchTogether.errors.connectionLost' => 'Bağlantı seans hazır olmamış kəsildi',
+			_ => null,
+		} ?? switch (path) {
 			'watchTogether.errors.invalidRelayResponse' => 'Rele serveri gözlənilməz cavab göndərdi',
 			'watchTogether.errors.sessionEnded' => 'Təşkilatçı seansı bitirdi',
 			'watchTogether.errors.sessionUnavailable' => 'Bu seansı davam etdirmək olmur. Davam etmək üçün otağa qoşulun və ya otaq yaradın.',
@@ -5093,14 +5081,14 @@ extension on TranslationsAz {
 			'addServer.connectToMediaBrowserCardSubtitleScoped' => ({required Object product, required Object name}) => '${product} serverinizə daxil olun. ${name} ilə əlaqələndirilir.',
 			'addServer.borrowFromAnotherProfile' => 'Başqa profildən götür',
 			'addServer.borrowFromAnotherProfileSubtitle' => 'Başqa profilin qoşulmasını yenidən istifadə edin. PIN ilə qorunan profillər PIN tələb edir.',
-			_ => null,
-		} ?? switch (path) {
 			'addServer.invalidCredentials' => 'İstifadəçi adı və ya şifrə yanlışdır',
 			'addServer.authResponseNotJson' => 'Autentifikasiya cavabı etibarlı JSON deyildi',
 			'addServer.authResponseIncomplete' => 'Serverin giriş cavabı natamam idi',
 			'addServer.quickConnectRejected' => 'Quick Connect server tərəfindən rədd edildi',
 			'addServer.quickConnectNotJson' => 'Quick Connect cavabı etibarlı JSON deyildi',
 			'addServer.quickConnectMissingFields' => 'Quick Connect cavabında kod və ya məxfi açar yoxdur',
+			_ => null,
+		} ?? switch (path) {
 			'addServer.quickConnectPollRejected' => 'Quick Connect sorğulaması server tərəfindən rədd edildi',
 			'addServer.serverTimedOut' => 'Server vaxtında cavab vermədi',
 			'addServer.responseNotJson' => 'Server cavabı etibarlı JSON deyildi',

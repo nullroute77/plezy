@@ -499,8 +499,6 @@ class _Translations$settings$sv extends Translations$settings$en {
 	@override String get startupSection => 'Startsida';
 	@override String get showExploreTab => 'Visa fliken Utforska';
 	@override String get showExploreTabDescription => 'Visa fliken Utforska med innehåll från Plex Discover och anslutna spårningstjänster';
-	@override String get liveTvDefaultFavorites => 'Öppna med favoriter';
-	@override String get liveTvDefaultFavoritesDescription => 'Visa endast favoritkanaler när Live-TV öppnas';
 	@override String get general => 'Allmänt';
 	@override String get generalDescription => 'Språk, start och fönsterbeteende';
 	@override String get languageAndRegion => 'Språk och region';
@@ -510,7 +508,6 @@ class _Translations$settings$sv extends Translations$settings$en {
 	@override String get homeScreen => 'Hemskärm';
 	@override String get navigation => 'Navigering';
 	@override String get window => 'Fönster';
-	@override String get liveTv => 'Live-TV';
 	@override String get player => 'Spelare';
 	@override String get videoAndDisplay => 'Video och skärm';
 	@override String get audio => 'Ljud';
@@ -1526,9 +1523,6 @@ class _Translations$liveTv$sv extends Translations$liveTv$en {
 	@override String get watchChannel => 'Titta på kanal';
 	@override String get favorites => 'Favoriter';
 	@override String get reorderFavorites => 'Ordna om favoriter';
-	@override String get noFavoriteChannels => 'Inga favoritkanaler';
-	@override String get noFavoriteChannelsHint => 'Visa alla kanaler och tryck sedan länge på en kanal för att lägga till den som favorit.';
-	@override String get showAllChannels => 'Visa alla kanaler';
 	@override String get favoritesLoadFailed => 'Det gick inte att läsa in favoriter. Kontrollera anslutningen och försök igen.';
 	@override String get favoritesUpdateFailed => 'Det gick inte att uppdatera favoriterna. Kontrollera anslutningen och försök igen.';
 	@override String get joinSession => 'Gå med i pågående session';
@@ -3417,8 +3411,6 @@ extension on TranslationsSv {
 			'settings.startupSection' => 'Startsida',
 			'settings.showExploreTab' => 'Visa fliken Utforska',
 			'settings.showExploreTabDescription' => 'Visa fliken Utforska med innehåll från Plex Discover och anslutna spårningstjänster',
-			'settings.liveTvDefaultFavorites' => 'Öppna med favoriter',
-			'settings.liveTvDefaultFavoritesDescription' => 'Visa endast favoritkanaler när Live-TV öppnas',
 			'settings.general' => 'Allmänt',
 			'settings.generalDescription' => 'Språk, start och fönsterbeteende',
 			'settings.languageAndRegion' => 'Språk och region',
@@ -3428,7 +3420,6 @@ extension on TranslationsSv {
 			'settings.homeScreen' => 'Hemskärm',
 			'settings.navigation' => 'Navigering',
 			'settings.window' => 'Fönster',
-			'settings.liveTv' => 'Live-TV',
 			'settings.player' => 'Spelare',
 			'settings.videoAndDisplay' => 'Video och skärm',
 			'settings.audio' => 'Ljud',
@@ -3551,11 +3542,11 @@ extension on TranslationsSv {
 			'fileInfo.streamIdentifier' => 'Strömidentifierare',
 			'fileInfo.streamIndex' => 'Strömindex',
 			'fileInfo.streamId' => 'Ström-ID',
-			_ => null,
-		} ?? switch (path) {
 			'fileInfo.language' => 'Språk',
 			'fileInfo.languageCode' => 'Språkkod',
 			'fileInfo.streamTitle' => 'Spårnamn',
+			_ => null,
+		} ?? switch (path) {
 			'fileInfo.channels' => 'Kanaler',
 			'fileInfo.sampleRate' => 'Samplingsfrekvens',
 			'fileInfo.spatialAudio' => 'Rumsligt ljud',
@@ -4065,11 +4056,11 @@ extension on TranslationsSv {
 			'libraries.analyze' => 'Analysera',
 			'libraries.analyzeLibrary' => 'Analysera bibliotek',
 			'libraries.refreshMetadata' => 'Uppdatera metadata',
-			_ => null,
-		} ?? switch (path) {
 			'libraries.emptyTrash' => 'Töm papperskorg',
 			'libraries.emptyingTrash' => ({required Object title}) => 'Tömmer papperskorgen för "${title}"...',
 			'libraries.trashEmptied' => ({required Object title}) => 'Papperskorgen har tömts för "${title}"',
+			_ => null,
+		} ?? switch (path) {
 			'libraries.failedToEmptyTrash' => ({required Object error}) => 'Det gick inte att tömma papperskorgen: ${error}',
 			'libraries.analyzing' => ({required Object title}) => 'Analyserar "${title}"...',
 			'libraries.analysisStarted' => ({required Object title}) => 'Analysen har startat för "${title}"',
@@ -4375,9 +4366,6 @@ extension on TranslationsSv {
 			'liveTv.watchChannel' => 'Titta på kanal',
 			'liveTv.favorites' => 'Favoriter',
 			'liveTv.reorderFavorites' => 'Ordna om favoriter',
-			'liveTv.noFavoriteChannels' => 'Inga favoritkanaler',
-			'liveTv.noFavoriteChannelsHint' => 'Visa alla kanaler och tryck sedan länge på en kanal för att lägga till den som favorit.',
-			'liveTv.showAllChannels' => 'Visa alla kanaler',
 			'liveTv.favoritesLoadFailed' => 'Det gick inte att läsa in favoriter. Kontrollera anslutningen och försök igen.',
 			'liveTv.favoritesUpdateFailed' => 'Det gick inte att uppdatera favoriterna. Kontrollera anslutningen och försök igen.',
 			'liveTv.joinSession' => 'Gå med i pågående session',
@@ -4579,14 +4567,14 @@ extension on TranslationsSv {
 			'watchTogether.waitingForName' => ({required Object name}) => 'Väntar på ${name}...',
 			'watchTogether.recentRooms' => 'Senaste rummen',
 			'watchTogether.renameRoom' => 'Byt namn på rummet',
-			_ => null,
-		} ?? switch (path) {
 			'watchTogether.removeRoom' => 'Ta bort',
 			'watchTogether.guestSwitchUnavailable' => 'Kunde inte byta — server inte tillgänglig för synkronisering',
 			'watchTogether.guestSwitchFailed' => 'Kunde inte byta — innehåll hittades inte på denna server',
 			'watchTogether.defaultDisplayName' => 'Användare',
 			'watchTogether.errors.timedOut' => 'Reläservern svarade inte i tid',
 			'watchTogether.errors.connectionLost' => 'Anslutningen stängdes innan sessionen var klar',
+			_ => null,
+		} ?? switch (path) {
 			'watchTogether.errors.invalidRelayResponse' => 'Reläservern skickade ett oväntat svar',
 			'watchTogether.errors.sessionEnded' => 'Värden avslutade sessionen',
 			'watchTogether.errors.sessionUnavailable' => 'Det går inte att återuppta sessionen. Gå med i eller skapa ett rum för att fortsätta.',
@@ -5093,14 +5081,14 @@ extension on TranslationsSv {
 			'addServer.connectToMediaBrowserCardSubtitleScoped' => ({required Object product, required Object name}) => 'Logga in på din ${product}-server. Knyts till ${name}.',
 			'addServer.borrowFromAnotherProfile' => 'Låna från en annan profil',
 			'addServer.borrowFromAnotherProfileSubtitle' => 'Återanvänd en annan profils anslutning. PIN-skyddade profiler kräver en PIN.',
-			_ => null,
-		} ?? switch (path) {
 			'addServer.invalidCredentials' => 'Ogiltigt användarnamn eller lösenord',
 			'addServer.authResponseNotJson' => 'Autentiseringssvaret var inte ett giltigt JSON-svar',
 			'addServer.authResponseIncomplete' => 'Inloggningssvaret från servern var ofullständigt',
 			'addServer.quickConnectRejected' => 'Quick Connect avvisades av servern',
 			'addServer.quickConnectNotJson' => 'Quick Connect-svaret var inte ett giltigt JSON-svar',
 			'addServer.quickConnectMissingFields' => 'Quick Connect-svaret saknar en kod eller hemlig nyckel',
+			_ => null,
+		} ?? switch (path) {
 			'addServer.quickConnectPollRejected' => 'Servern avvisade avsökningen för Quick Connect',
 			'addServer.serverTimedOut' => 'Servern svarade inte i tid',
 			'addServer.responseNotJson' => 'Serversvaret var inte ett giltigt JSON-svar',

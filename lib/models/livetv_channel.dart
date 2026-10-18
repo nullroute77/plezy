@@ -31,14 +31,13 @@ String favoriteChannelKey(String source, String id) => '$source\u0000$id';
 String liveTvChannelScopeKey(LiveTvChannel channel) =>
     '${channel.serverId ?? ''}\u0000${channel.liveDvrKey ?? ''}\u0000${channel.key}';
 
-List<LiveTvChannel> filterLiveTvChannelsForFavorites({
+List<LiveTvChannel> favoriteLiveTvChannels({
   required List<LiveTvChannel> channels,
-  required bool favoritesOnly,
   required bool favoritesLoaded,
   required Iterable<FavoriteChannel> favorites,
   required String Function(LiveTvChannel channel) sourceForChannel,
 }) {
-  if (!favoritesOnly || !favoritesLoaded) return channels;
+  if (!favoritesLoaded) return const [];
   if (favorites.isEmpty) return const [];
   final channelMap = {
     for (final channel in channels) favoriteChannelKey(sourceForChannel(channel), channel.key): channel,
@@ -58,6 +57,7 @@ class LiveTvChannel {
   final String? title;
   final String? thumb;
   final String? art;
+  final String? contentRating;
   @JsonKey(readValue: _readChannelNumber)
   final String? number;
   @JsonKey(fromJson: flexibleBool)
@@ -87,6 +87,7 @@ class LiveTvChannel {
     this.title,
     this.thumb,
     this.art,
+    this.contentRating,
     this.number,
     this.hd = false,
     this.lineup,
@@ -117,6 +118,7 @@ class LiveTvChannel {
       title: title,
       thumb: thumb,
       art: art,
+      contentRating: contentRating,
       number: number,
       hd: hd,
       lineup: lineup,

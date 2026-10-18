@@ -499,8 +499,6 @@ class Translations$settings$zh extends Translations$settings$en {
 	@override String get startupSection => '启动页面';
 	@override String get showExploreTab => '显示“探索”标签页';
 	@override String get showExploreTabDescription => '显示“探索”标签页，其中包含来自 Plex Discover 和已连接追踪服务的内容';
-	@override String get liveTvDefaultFavorites => '默认显示收藏频道';
-	@override String get liveTvDefaultFavoritesDescription => '打开直播电视时仅显示收藏频道';
 	@override String get general => '通用';
 	@override String get generalDescription => '语言、启动和窗口行为';
 	@override String get languageAndRegion => '语言与地区';
@@ -510,7 +508,6 @@ class Translations$settings$zh extends Translations$settings$en {
 	@override String get homeScreen => '主屏幕';
 	@override String get navigation => '导航';
 	@override String get window => '窗口';
-	@override String get liveTv => '直播电视';
 	@override String get player => '播放器';
 	@override String get videoAndDisplay => '视频与显示';
 	@override String get audio => '音频';
@@ -1518,9 +1515,6 @@ class Translations$liveTv$zh extends Translations$liveTv$en {
 	@override String get watchChannel => '观看频道';
 	@override String get favorites => '收藏';
 	@override String get reorderFavorites => '重新排序收藏';
-	@override String get noFavoriteChannels => '没有收藏的频道';
-	@override String get noFavoriteChannelsHint => '显示所有频道，然后长按某个频道将其加入收藏。';
-	@override String get showAllChannels => '显示所有频道';
 	@override String get favoritesLoadFailed => '无法加载收藏。请检查网络连接后重试。';
 	@override String get favoritesUpdateFailed => '无法更新收藏。请检查网络连接后重试。';
 	@override String get joinSession => '加入正在进行的会话';
@@ -3406,8 +3400,6 @@ extension on TranslationsZh {
 			'settings.startupSection' => '启动页面',
 			'settings.showExploreTab' => '显示“探索”标签页',
 			'settings.showExploreTabDescription' => '显示“探索”标签页，其中包含来自 Plex Discover 和已连接追踪服务的内容',
-			'settings.liveTvDefaultFavorites' => '默认显示收藏频道',
-			'settings.liveTvDefaultFavoritesDescription' => '打开直播电视时仅显示收藏频道',
 			'settings.general' => '通用',
 			'settings.generalDescription' => '语言、启动和窗口行为',
 			'settings.languageAndRegion' => '语言与地区',
@@ -3417,7 +3409,6 @@ extension on TranslationsZh {
 			'settings.homeScreen' => '主屏幕',
 			'settings.navigation' => '导航',
 			'settings.window' => '窗口',
-			'settings.liveTv' => '直播电视',
 			'settings.player' => '播放器',
 			'settings.videoAndDisplay' => '视频与显示',
 			'settings.audio' => '音频',
@@ -3540,11 +3531,11 @@ extension on TranslationsZh {
 			'fileInfo.streamIdentifier' => '流标识符',
 			'fileInfo.streamIndex' => '流索引',
 			'fileInfo.streamId' => '流 ID',
-			_ => null,
-		} ?? switch (path) {
 			'fileInfo.language' => '语言',
 			'fileInfo.languageCode' => '语言代码',
 			'fileInfo.streamTitle' => '轨道标题',
+			_ => null,
+		} ?? switch (path) {
 			'fileInfo.channels' => '声道',
 			'fileInfo.sampleRate' => '采样率',
 			'fileInfo.spatialAudio' => '空间音频',
@@ -4054,11 +4045,11 @@ extension on TranslationsZh {
 			'libraries.analyze' => '分析',
 			'libraries.analyzeLibrary' => '分析媒体库',
 			'libraries.refreshMetadata' => '刷新元数据',
-			_ => null,
-		} ?? switch (path) {
 			'libraries.emptyTrash' => '清空回收站',
 			'libraries.emptyingTrash' => ({required Object title}) => '正在清空“${title}”的回收站…',
 			'libraries.trashEmptied' => ({required Object title}) => '已清空“${title}”的回收站',
+			_ => null,
+		} ?? switch (path) {
 			'libraries.failedToEmptyTrash' => ({required Object error}) => '无法清空回收站：${error}',
 			'libraries.analyzing' => ({required Object title}) => '正在分析“${title}”…',
 			'libraries.analysisStarted' => ({required Object title}) => '已开始分析“${title}”',
@@ -4364,9 +4355,6 @@ extension on TranslationsZh {
 			'liveTv.watchChannel' => '观看频道',
 			'liveTv.favorites' => '收藏',
 			'liveTv.reorderFavorites' => '重新排序收藏',
-			'liveTv.noFavoriteChannels' => '没有收藏的频道',
-			'liveTv.noFavoriteChannelsHint' => '显示所有频道，然后长按某个频道将其加入收藏。',
-			'liveTv.showAllChannels' => '显示所有频道',
 			'liveTv.favoritesLoadFailed' => '无法加载收藏。请检查网络连接后重试。',
 			'liveTv.favoritesUpdateFailed' => '无法更新收藏。请检查网络连接后重试。',
 			'liveTv.joinSession' => '加入正在进行的会话',
@@ -4568,14 +4556,14 @@ extension on TranslationsZh {
 			'watchTogether.waitingForName' => ({required Object name}) => '正在等待 ${name}…',
 			'watchTogether.recentRooms' => '最近的房间',
 			'watchTogether.renameRoom' => '重命名房间',
-			_ => null,
-		} ?? switch (path) {
 			'watchTogether.removeRoom' => '移除',
 			'watchTogether.guestSwitchUnavailable' => '无法切换 — 服务器不可用于同步',
 			'watchTogether.guestSwitchFailed' => '无法切换 — 在此服务器上未找到内容',
 			'watchTogether.defaultDisplayName' => '用户',
 			'watchTogether.errors.timedOut' => '中继服务器未及时响应',
 			'watchTogether.errors.connectionLost' => '会话准备就绪前连接已断开',
+			_ => null,
+		} ?? switch (path) {
 			'watchTogether.errors.invalidRelayResponse' => '中继服务器返回了意外的响应',
 			'watchTogether.errors.sessionEnded' => '主持人已结束会话',
 			'watchTogether.errors.sessionUnavailable' => '无法恢复此会话。请加入或创建房间以继续。',
@@ -5082,14 +5070,14 @@ extension on TranslationsZh {
 			'addServer.connectToMediaBrowserCardSubtitleScoped' => ({required Object product, required Object name}) => '登录你的 ${product} 服务器。将绑定到 ${name}。',
 			'addServer.borrowFromAnotherProfile' => '使用其他用户资料的连接',
 			'addServer.borrowFromAnotherProfileSubtitle' => '复用另一个用户资料的连接。受 PIN 保护的用户资料需要输入 PIN。',
-			_ => null,
-		} ?? switch (path) {
 			'addServer.invalidCredentials' => '用户名或密码无效',
 			'addServer.authResponseNotJson' => '身份验证响应不是有效的 JSON',
 			'addServer.authResponseIncomplete' => '服务器返回的登录响应不完整',
 			'addServer.quickConnectRejected' => '服务器拒绝了 Quick Connect',
 			'addServer.quickConnectNotJson' => 'Quick Connect 响应不是有效的 JSON',
 			'addServer.quickConnectMissingFields' => 'Quick Connect 响应中缺少代码或密钥',
+			_ => null,
+		} ?? switch (path) {
 			'addServer.quickConnectPollRejected' => '服务器拒绝了 Quick Connect 轮询',
 			'addServer.serverTimedOut' => '服务器未及时响应',
 			'addServer.responseNotJson' => '服务器响应不是有效的 JSON',

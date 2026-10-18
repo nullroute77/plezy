@@ -499,8 +499,6 @@ class _Translations$settings$ko extends Translations$settings$en {
 	@override String get startupSection => '시작 섹션';
 	@override String get showExploreTab => '둘러보기 탭 표시';
 	@override String get showExploreTabDescription => 'Plex Discover와 연결된 트래커의 콘텐츠가 포함된 둘러보기 탭을 표시합니다';
-	@override String get liveTvDefaultFavorites => '즐겨찾기 채널 기본 설정';
-	@override String get liveTvDefaultFavoritesDescription => '라이브 TV를 열 때 즐겨찾기 채널만 표시';
 	@override String get general => '일반';
 	@override String get generalDescription => '언어, 시작 및 창 동작';
 	@override String get languageAndRegion => '언어 및 지역';
@@ -510,7 +508,6 @@ class _Translations$settings$ko extends Translations$settings$en {
 	@override String get homeScreen => '홈 화면';
 	@override String get navigation => '탐색';
 	@override String get window => '창';
-	@override String get liveTv => '라이브 TV';
 	@override String get player => '플레이어';
 	@override String get videoAndDisplay => '비디오 및 디스플레이';
 	@override String get audio => '오디오';
@@ -1518,9 +1515,6 @@ class _Translations$liveTv$ko extends Translations$liveTv$en {
 	@override String get watchChannel => '채널 시청';
 	@override String get favorites => '즐겨찾기';
 	@override String get reorderFavorites => '즐겨찾기 순서 변경';
-	@override String get noFavoriteChannels => '즐겨찾기 채널 없음';
-	@override String get noFavoriteChannelsHint => '모든 채널을 표시한 다음 채널을 길게 눌러 즐겨찾기에 추가하세요.';
-	@override String get showAllChannels => '모든 채널 표시';
 	@override String get favoritesLoadFailed => '즐겨찾기를 불러올 수 없습니다. 연결을 확인하고 다시 시도하세요.';
 	@override String get favoritesUpdateFailed => '즐겨찾기를 업데이트할 수 없습니다. 연결을 확인하고 다시 시도하세요.';
 	@override String get joinSession => '진행 중인 세션 참여';
@@ -3406,8 +3400,6 @@ extension on TranslationsKo {
 			'settings.startupSection' => '시작 섹션',
 			'settings.showExploreTab' => '둘러보기 탭 표시',
 			'settings.showExploreTabDescription' => 'Plex Discover와 연결된 트래커의 콘텐츠가 포함된 둘러보기 탭을 표시합니다',
-			'settings.liveTvDefaultFavorites' => '즐겨찾기 채널 기본 설정',
-			'settings.liveTvDefaultFavoritesDescription' => '라이브 TV를 열 때 즐겨찾기 채널만 표시',
 			'settings.general' => '일반',
 			'settings.generalDescription' => '언어, 시작 및 창 동작',
 			'settings.languageAndRegion' => '언어 및 지역',
@@ -3417,7 +3409,6 @@ extension on TranslationsKo {
 			'settings.homeScreen' => '홈 화면',
 			'settings.navigation' => '탐색',
 			'settings.window' => '창',
-			'settings.liveTv' => '라이브 TV',
 			'settings.player' => '플레이어',
 			'settings.videoAndDisplay' => '비디오 및 디스플레이',
 			'settings.audio' => '오디오',
@@ -3540,11 +3531,11 @@ extension on TranslationsKo {
 			'fileInfo.streamIdentifier' => '스트림 식별자',
 			'fileInfo.streamIndex' => '스트림 인덱스',
 			'fileInfo.streamId' => '스트림 ID',
-			_ => null,
-		} ?? switch (path) {
 			'fileInfo.language' => '언어',
 			'fileInfo.languageCode' => '언어 코드',
 			'fileInfo.streamTitle' => '트랙 제목',
+			_ => null,
+		} ?? switch (path) {
 			'fileInfo.channels' => '채널',
 			'fileInfo.sampleRate' => '샘플 레이트',
 			'fileInfo.spatialAudio' => '공간 오디오',
@@ -4054,11 +4045,11 @@ extension on TranslationsKo {
 			'libraries.analyze' => '분석',
 			'libraries.analyzeLibrary' => '미디어 라이브러리 분석',
 			'libraries.refreshMetadata' => '메타데이터 새로 고침',
-			_ => null,
-		} ?? switch (path) {
 			'libraries.emptyTrash' => '휴지통 비우기',
 			'libraries.emptyingTrash' => ({required Object title}) => '「${title}」의 휴지통을 비우고 있습니다...',
 			'libraries.trashEmptied' => ({required Object title}) => '「${title}」의 휴지통을 비웠습니다',
+			_ => null,
+		} ?? switch (path) {
 			'libraries.failedToEmptyTrash' => ({required Object error}) => '휴지통 비우기 실패: ${error}',
 			'libraries.analyzing' => ({required Object title}) => '"${title}" 분석 중...',
 			'libraries.analysisStarted' => ({required Object title}) => '"${title}" 분석 시작됨',
@@ -4364,9 +4355,6 @@ extension on TranslationsKo {
 			'liveTv.watchChannel' => '채널 시청',
 			'liveTv.favorites' => '즐겨찾기',
 			'liveTv.reorderFavorites' => '즐겨찾기 순서 변경',
-			'liveTv.noFavoriteChannels' => '즐겨찾기 채널 없음',
-			'liveTv.noFavoriteChannelsHint' => '모든 채널을 표시한 다음 채널을 길게 눌러 즐겨찾기에 추가하세요.',
-			'liveTv.showAllChannels' => '모든 채널 표시',
 			'liveTv.favoritesLoadFailed' => '즐겨찾기를 불러올 수 없습니다. 연결을 확인하고 다시 시도하세요.',
 			'liveTv.favoritesUpdateFailed' => '즐겨찾기를 업데이트할 수 없습니다. 연결을 확인하고 다시 시도하세요.',
 			'liveTv.joinSession' => '진행 중인 세션 참여',
@@ -4568,14 +4556,14 @@ extension on TranslationsKo {
 			'watchTogether.waitingForName' => ({required Object name}) => '${name}님을 기다리는 중...',
 			'watchTogether.recentRooms' => '최근 참여한 방',
 			'watchTogether.renameRoom' => '방 이름 변경',
-			_ => null,
-		} ?? switch (path) {
 			'watchTogether.removeRoom' => '제거',
 			'watchTogether.guestSwitchUnavailable' => '전환할 수 없음 — 동기화 서버를 사용할 수 없습니다',
 			'watchTogether.guestSwitchFailed' => '전환할 수 없음 — 이 서버에서 콘텐츠를 찾을 수 없습니다',
 			'watchTogether.defaultDisplayName' => '사용자',
 			'watchTogether.errors.timedOut' => '릴레이 서버가 제시간에 응답하지 않았습니다',
 			'watchTogether.errors.connectionLost' => '세션이 준비되기 전에 연결이 종료되었습니다',
+			_ => null,
+		} ?? switch (path) {
 			'watchTogether.errors.invalidRelayResponse' => '릴레이 서버가 예기치 않은 응답을 보냈습니다',
 			'watchTogether.errors.sessionEnded' => '호스트가 세션을 종료했습니다',
 			'watchTogether.errors.sessionUnavailable' => '이 세션을 재개할 수 없습니다. 방에 참여하거나 만들어 계속하세요.',
@@ -5082,14 +5070,14 @@ extension on TranslationsKo {
 			'addServer.connectToMediaBrowserCardSubtitleScoped' => ({required Object product, required Object name}) => '${product} 서버에 로그인하세요. ${name}에 연결됩니다.',
 			'addServer.borrowFromAnotherProfile' => '다른 프로필에서 빌리기',
 			'addServer.borrowFromAnotherProfileSubtitle' => '다른 프로필의 연결을 재사용합니다. PIN으로 보호된 프로필에는 PIN이 필요합니다.',
-			_ => null,
-		} ?? switch (path) {
 			'addServer.invalidCredentials' => '사용자 이름 또는 비밀번호가 올바르지 않습니다',
 			'addServer.authResponseNotJson' => '인증 응답이 유효한 JSON이 아닙니다',
 			'addServer.authResponseIncomplete' => '서버의 로그인 응답이 불완전합니다',
 			'addServer.quickConnectRejected' => '서버에서 Quick Connect를 거부했습니다',
 			'addServer.quickConnectNotJson' => 'Quick Connect 응답이 유효한 JSON이 아닙니다',
 			'addServer.quickConnectMissingFields' => 'Quick Connect 응답에 코드 또는 비밀 키가 없습니다',
+			_ => null,
+		} ?? switch (path) {
 			'addServer.quickConnectPollRejected' => '서버에서 Quick Connect 폴링을 거부했습니다',
 			'addServer.serverTimedOut' => '서버가 제시간에 응답하지 않았습니다',
 			'addServer.responseNotJson' => '서버 응답이 유효한 JSON이 아닙니다',
