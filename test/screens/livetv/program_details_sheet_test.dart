@@ -263,7 +263,13 @@ Future<void> _open(
   await tester.pumpWidget(
     InputModeTracker(
       child: MaterialApp(
-        theme: monoTheme(dark: dark, oled: oled),
+        theme: monoTheme(
+          oled
+              ? MonoPalette.oled
+              : dark
+              ? MonoPalette.dark
+              : MonoPalette.light,
+        ),
         builder: (context, child) => MediaQuery(
           data: MediaQuery.of(context).copyWith(textScaler: TextScaler.linear(textScale)),
           child: child!,

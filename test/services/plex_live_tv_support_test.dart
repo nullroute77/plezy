@@ -126,6 +126,42 @@ void main() {
     expect(client.config.baseUrl, 'https://plex.example.com');
   });
 
+  for (final accountToken in [null, '', 'account-token']) {
+    test(
+      'favorites use account credentials and leave server credentials unchanged (account: ${accountToken == null
+          ? 'missing'
+          : accountToken.isEmpty
+          ? 'empty'
+          : 'present'})',
+      () async {
+        final requests = <http.Request>[];
+        final client = makeClient((request) async {
+          requests.add(request);
+          final isCloud = request.url.host == 'epg.provider.plex.tv';
+          expect(
+            request.headers['X-Plex-Token'],
+            isCloud && accountToken != null && accountToken.isNotEmpty ? accountToken : 'server-token',
+          );
+          if (isCloud) expect(request.headers['X-Plex-Provider-Version'], '5.1');
+          return jsonResponse({'MediaContainer': <String, dynamic>{}});
+        }, token: 'server-token')..plexAccountToken = accountToken;
+        addTearDown(client.close);
+        expect(await client.liveTv.fetchFavoriteChannels(), isEmpty);
+        await client.liveTv.setFavoriteChannels([
+          FavoriteChannel(source: 'server://machine-1/provider-a', id: '2', title: 'Channel 2', vcn: '2'),
+        ]);
+        await client.liveTv.fetchSchedule(from: DateTime.utc(2026, 10, 18), to: DateTime.utc(2026, 10, 18, 6));
+        expect(requests.map((request) => request.method), ['GET', 'PUT', 'GET']);
+        expect(requests.map((request) => request.url.host), [
+          'epg.provider.plex.tv',
+          'epg.provider.plex.tv',
+          'plex.example.com',
+        ]);
+        expect(client.config.token, 'server-token');
+      },
+    );
+  }
+
   test('favorite read preserves a successful empty response', () async {
     final client = makeClient((request) async {
       expect(request.url.path, '/settings/favoriteChannels');

@@ -973,28 +973,9 @@ class GuideTabState extends State<GuideTab>
   }
 
   LiveTvChannel? _focusedChannelTarget() {
-    if (_focusZone != _GuideZone.grid || _gridColumn != 0) return null;
+    if (_focusZone != _GuideZone.grid || (_gridColumn != 0 && _focusedProgram != null)) return null;
     if (_gridChannelIndex < 0 || _gridChannelIndex >= widget.channels.length) return null;
     return widget.channels[_gridChannelIndex];
-  }
-
-  /// TV SELECT on a channel cell: a short press tunes and a hold toggles the
-  /// favorite, the same split as a tap and a long press on the cell.
-  KeyEventResult _handleFocusedChannelSelectKey(KeyEvent event) {
-    final onToggleFavorite = widget.onToggleFavorite;
-    final channel = _focusedChannelTarget();
-    if (onToggleFavorite == null || channel == null) return KeyEventResult.ignored;
-
-    final ownerChannelIndex = _gridChannelIndex;
-    return _gridSelectController.handleKeyEvent(
-      event,
-      isOwnerActive: () => mounted && _focusedChannelTarget() != null && _gridChannelIndex == ownerChannelIndex,
-      onShortPress: () => tuneChannel(channel),
-      onLongPress: () {
-        _gridSelectController.reset();
-        onToggleFavorite(channel);
-      },
-    );
   }
 
   /// The context-menu key (gamepad X, keyboard Menu) toggles the focused
@@ -1049,8 +1030,6 @@ class GuideTabState extends State<GuideTab>
     if (PlatformDetector.isTV()) {
       final selectResult = _handleFocusedGridSelectKey(event);
       if (selectResult != KeyEventResult.ignored) return selectResult;
-      final channelSelectResult = _handleFocusedChannelSelectKey(event);
-      if (channelSelectResult != KeyEventResult.ignored) return channelSelectResult;
     }
 
     final contextMenuResult = _handleFocusedProgramContextMenuKey(event);

@@ -254,21 +254,17 @@ class _LiveTvScreenState extends State<LiveTvScreen>
   }
 
   ({List<LiveTvTab> tabs, bool canProcessRules}) _tabStateFor(MultiServerProvider multiServer) {
-    var hasPlexServer = false;
     var hasDvr = false;
     var canProcessRules = false;
     for (final s in multiServer.liveTvServers) {
       final serverId = ServerId(s.serverId);
-      // What's On lists Plex's Live TV hubs; Jellyfin and Emby have none, so
-      // the tab would only ever be empty for them.
-      hasPlexServer = hasPlexServer || multiServer.getPlexClientForServer(serverId) != null;
       final dvr = multiServer.getClientForServer(serverId)?.liveTvDvr;
       if (dvr == null) continue;
       hasDvr = true;
       canProcessRules = canProcessRules || dvr.supportsRuleProcessing;
     }
     return (
-      tabs: [LiveTvTab.guide, if (hasPlexServer) LiveTvTab.whatsOn, if (hasDvr) LiveTvTab.recordings],
+      tabs: [LiveTvTab.guide, LiveTvTab.whatsOn, if (hasDvr) LiveTvTab.recordings],
       canProcessRules: canProcessRules,
     );
   }
@@ -588,6 +584,15 @@ class _LiveTvScreenState extends State<LiveTvScreen>
           .run(() async {
             if (pendingLoad != null) await pendingLoad;
             if (!mounted) return;
+            if (!_favoritesWritable) {
+              // A transient cloud failure must not leave favorites disabled
+              // until the whole guide is refreshed. Read before mutating so
+              // an unavailable list can never be replaced with an empty one.
+              final retry = _loadFavorites(context.read<MultiServerProvider>());
+              _favoritesLoadFuture = retry;
+              await retry;
+              if (!mounted) return;
+            }
             if (!_favoritesWritable) {
               showErrorSnackBar(context, t.liveTv.favoritesLoadFailed);
               return;

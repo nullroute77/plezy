@@ -18,6 +18,14 @@ mixin _PlexLiveTvClientMethods on _PlexClientInternals implements LiveTvSupport,
   PlexConfig get config;
 
   String? get plexAccountId;
+  String? get plexAccountToken;
+
+  // Favorites are an account-wide plex.tv list, so authenticate them like
+  // other cloud APIs rather than with a Home/shared server-access token.
+  Map<String, String> get _favoriteChannelHeaders => {
+    ..._providerVersionHeader,
+    if (plexAccountToken case final token? when token.isNotEmpty) 'X-Plex-Token': token,
+  };
 
   List<PlexEpgProvider> get _providerEpg;
 
@@ -858,7 +866,7 @@ mixin _PlexLiveTvClientMethods on _PlexClientInternals implements LiveTvSupport,
     // it must not walk (or exhaust) the server's failover list.
     final response = await _http.get(
       _favoriteChannelsUrl,
-      headers: _providerVersionHeader,
+      headers: _favoriteChannelHeaders,
       allowEndpointFailover: false,
     );
     _throwIfFailed(response);
@@ -883,7 +891,7 @@ mixin _PlexLiveTvClientMethods on _PlexClientInternals implements LiveTvSupport,
         () => _http.put(
           _favoriteChannelsUrl,
           body: channels.map((c) => c.toJson()).toList(),
-          headers: _providerVersionHeader,
+          headers: _favoriteChannelHeaders,
         ),
       );
     } catch (e, stackTrace) {

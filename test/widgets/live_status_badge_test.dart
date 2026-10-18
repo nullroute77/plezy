@@ -185,7 +185,7 @@ void main() {
 }
 
 Widget _shell(Widget child) {
-  final theme = monoTheme(dark: true);
+  final theme = monoTheme(MonoPalette.dark);
   return InputModeTracker(
     child: MaterialApp(
       theme: _screenshotDir.isEmpty

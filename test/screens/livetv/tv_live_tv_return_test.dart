@@ -55,14 +55,12 @@ void main() {
           ),
         );
         unawaited(
-          navigator.currentState!.push(
-            buildVideoPlayerRoute(
-              builder: (_) => VideoPlayerScreen(
-                metadata: testMediaItem(),
-                live: LiveTvSessionArgs(channel: channel, channels: [channel], currentChannelIndex: 0),
-              ),
+          VideoPlayerRoute(
+            builder: (_) => VideoPlayerScreen(
+              metadata: testMediaItem(),
+              live: LiveTvSessionArgs(channel: channel, channels: [channel], currentChannelIndex: 0),
             ),
-          ),
+          ).push(navigator.currentState!),
         );
         await pumpUntil(tester, () => calls.any((call) => call.method == 'initialize'));
         expect(find.text('Guide'), findsNothing);

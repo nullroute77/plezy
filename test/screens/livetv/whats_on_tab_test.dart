@@ -268,7 +268,7 @@ Future<void> _pump(WidgetTester tester, List<MediaServerClient> clients) async {
         child: ChangeNotifierProvider<MultiServerProvider>.value(
           value: fixture.provider,
           child: MaterialApp(
-            theme: monoTheme(dark: true),
+            theme: monoTheme(MonoPalette.dark),
             home: Scaffold(
               body: WhatsOnTab(
                 channels: [
