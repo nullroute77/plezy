@@ -10,8 +10,8 @@ on:
 
 env:
   TEST_CERTIFICATE_SHA256: ee0746b8fe9c1aab0102fe3a5beb4af27dbafa285ec2974abee83a45ebb7dac3
-  TEST_BASE_COMMIT: 37ea347d056614d1272c87ce777b1dabc26451d4
-  TEST_SOURCE_COMMIT: 203cd1449673872ef81b9df45450e6b85b03e8d4
+  TEST_BASE_COMMIT: d82ab481d625717a35fe7b86a24960a40e3aeef9
+  TEST_SOURCE_COMMIT: ff5713ab58b9ad506120cfa025303a7df9aad6da
 
 permissions:
   contents: read
@@ -178,7 +178,7 @@ jobs:
           pathlib.Path('test-artifacts/TEST-BUILD.txt').write_text(
               'Plezy Android ARMv7 release test build\n'
               f'Build commit: {os.environ["TEST_COMMIT"]}\n'
-              'Source commit: 203cd1449673872ef81b9df45450e6b85b03e8d4\n'
+              'Source commit: ff5713ab58b9ad506120cfa025303a7df9aad6da\n'
               'Source branch: merged-feature-test\n'
               f'Android versionCode: {os.environ["TEST_VERSION_CODE"]}\n'
               f'Persistent signing certificate SHA-256: {os.environ["TEST_CERTIFICATE_SHA256"]}\n'

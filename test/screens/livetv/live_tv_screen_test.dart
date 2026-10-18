@@ -86,6 +86,13 @@ void main() {
         harness.liveTv.favorites.complete([]);
         await tester.pumpAndSettle();
         final info = find.byType(TvGuideProgramInfo);
+        // The six-row grid must leave a readable information panel at 720p.
+        expect(tester.getSize(info).height, greaterThanOrEqualTo(230));
+        final title = find.descendant(of: info, matching: find.text('Flavortown Food Fight'));
+        final paragraph = tester.renderObject<RenderParagraph>(
+          find.descendant(of: title, matching: find.byType(RichText)),
+        );
+        expect(paragraph.getTransformTo(null).getMaxScaleOnAxis(), closeTo(1, 0.001));
         final appBar = find.byType(AppBar);
         for (final label in [t.liveTv.guide, t.liveTv.whatsOn, t.liveTv.recordings]) {
           final tab = find.descendant(of: appBar, matching: find.text(label));
