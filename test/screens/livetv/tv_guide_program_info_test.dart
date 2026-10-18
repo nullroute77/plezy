@@ -36,7 +36,7 @@ void main() {
           Clock.fixed(now),
           () => tester.pumpWidget(
             MaterialApp(
-              theme: monoTheme(dark: dark),
+              theme: monoTheme(dark ? MonoPalette.dark : MonoPalette.light),
               home: MediaQuery(
                 data: MediaQueryData(alwaysUse24HourFormat: is24Hour, textScaler: TextScaler.linear(1.5)),
                 child: Scaffold(

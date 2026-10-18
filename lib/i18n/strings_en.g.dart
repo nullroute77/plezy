@@ -3900,6 +3900,9 @@ class Translations$liveTv$en {
 	/// en: 'LIVE'
 	String get live => 'LIVE';
 
+	/// en: 'NEW'
+	String get newProgram => 'NEW';
+
 	/// en: 'Reload Guide'
 	String get reloadGuide => 'Reload Guide';
 
@@ -8280,11 +8283,11 @@ extension on Translations {
 			'themeEditor.slots.textMuted' => 'Secondary text',
 			'themeEditor.slots.accent' => 'Accent',
 			'themeEditor.opacity' => 'Opacity',
-			_ => null,
-		} ?? switch (path) {
 			'themeEditor.hexHint' => '#RRGGBB or #AARRGGBB',
 			'themeEditor.fromOtherThemes' => 'From other themes',
 			'themeEditor.swatchLabel' => ({required Object theme, required Object color}) => '${theme} ${color}',
+			_ => null,
+		} ?? switch (path) {
 			'themeEditor.contrast.textOnBg' => 'Text on background',
 			'themeEditor.contrast.textOnSurface' => 'Text on surface',
 			'themeEditor.contrast.textMutedOnBg' => 'Secondary text on background',
@@ -8417,8 +8420,6 @@ extension on Translations {
 			'fileInfo.totalSize' => 'Total Size',
 			'fileInfo.container' => 'Container',
 			'fileInfo.duration' => 'Duration',
-			_ => null,
-		} ?? switch (path) {
 			'fileInfo.previewThumbnails' => 'Preview Thumbnails',
 			'fileInfo.previewIndex' => 'Preview Index',
 			'fileInfo.packetLength' => 'Packet Length',
@@ -8796,11 +8797,11 @@ extension on Translations {
 			'connections.addConnection' => 'Add connection',
 			'connections.addConnectionSubtitleNoProfile' => 'Sign in with Plex or connect a Jellyfin or Emby server',
 			'connections.addConnectionSubtitleScoped' => ({required Object displayName}) => 'Add to ${displayName}: Plex, Jellyfin, Emby, or another profile connection',
-			_ => null,
-		} ?? switch (path) {
 			'connections.sessionExpiredOne' => ({required Object name}) => 'Session expired for ${name}',
 			'connections.sessionExpiredMany' => ({required Object count}) => 'Session expired for ${count} servers',
 			'connections.accessDeniedOne' => ({required Object name}) => '${name} refused access for this account',
+			_ => null,
+		} ?? switch (path) {
 			'connections.accessDeniedMany' => ({required Object count}) => '${count} servers refused access for this account',
 			'connections.signInAgain' => 'Sign in again',
 			'connections.editMediaBrowserTitle' => ({required Object product}) => 'Edit ${product} connection',
@@ -8954,8 +8955,6 @@ extension on Translations {
 			'libraries.folders' => 'folders',
 			'libraries.tabs.recommended' => 'Recommended',
 			'libraries.tabs.browse' => 'Browse',
-			_ => null,
-		} ?? switch (path) {
 			'libraries.tabs.collections' => 'Collections',
 			'libraries.tabs.playlists' => 'Playlists',
 			'libraries.groupings.title' => 'Grouping',
@@ -9237,6 +9236,7 @@ extension on Translations {
 			'liveTv.channelNumber' => ({required Object number}) => 'Channel ${number}',
 			'liveTv.unknownChannel' => 'Unknown channel',
 			'liveTv.live' => 'LIVE',
+			'liveTv.newProgram' => 'NEW',
 			'liveTv.reloadGuide' => 'Reload Guide',
 			'liveTv.searchGuide' => 'Search Guide',
 			'liveTv.searchHint' => 'Search channels & programs',
@@ -9309,13 +9309,13 @@ extension on Translations {
 			'liveTv.dayAtTime' => ({required Object day, required Object time}) => '${day} at ${time}',
 			'liveTv.invalidPlaybackData' => ({required Object product}) => '${product} returned invalid Live TV playback data',
 			'liveTv.failedToStartChannel' => 'Could not start the live channel',
-			_ => null,
-		} ?? switch (path) {
 			'liveTv.failedToBuildStreamUrl' => 'Could not build the stream URL',
 			'liveTv.playbackStartFailed' => ({required Object reason}) => 'Couldn\'t start the channel: ${reason}',
 			'liveTv.channelSwitchFailed' => ({required Object reason}) => 'Couldn\'t switch channel: ${reason}',
 			'collections.title' => 'Collections',
 			'collections.collection' => 'Collection',
+			_ => null,
+		} ?? switch (path) {
 			'collections.empty' => 'Collection is empty',
 			'collections.deleteCollection' => 'Delete Collection',
 			'collections.deleteConfirm' => ({required Object title}) => 'Delete "${title}"? This can\'t be undone.',
@@ -9510,8 +9510,6 @@ extension on Translations {
 			'downloads.retryAll' => 'Retry all',
 			'downloads.retryFailed' => 'Retry failed downloads',
 			'downloads.deleteAll' => 'Delete all',
-			_ => null,
-		} ?? switch (path) {
 			'downloads.selectVersion' => 'Select Version',
 			'downloads.allEpisodes' => 'All episodes',
 			'downloads.unwatchedOnly' => 'Unwatched only',
@@ -9825,13 +9823,13 @@ extension on Translations {
 			'metadataEdit.show' => 'Show',
 			'metadataEdit.hide' => 'Hide',
 			'metadataEdit.episodeOrdering' => 'Episode Ordering',
-			_ => null,
-		} ?? switch (path) {
 			'metadataEdit.tmdbAiring' => 'The Movie Database (Aired)',
 			'metadataEdit.tvdbAiring' => 'TheTVDB (Aired)',
 			'metadataEdit.tvdbAbsolute' => 'TheTVDB (Absolute)',
 			'metadataEdit.metadataLanguage' => 'Metadata Language',
 			'metadataEdit.useOriginalTitle' => 'Use Original Title',
+			_ => null,
+		} ?? switch (path) {
 			'metadataEdit.preferredAudioLanguage' => 'Preferred Audio Language',
 			'metadataEdit.preferredSubtitleLanguage' => 'Preferred Subtitle Language',
 			'metadataEdit.subtitleMode' => 'Auto-Select Subtitle Mode',

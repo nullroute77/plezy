@@ -499,8 +499,6 @@ class _Translations$settings$hu extends Translations$settings$en {
 	@override String get startupSection => 'Indítási oldal';
 	@override String get showExploreTab => 'Felfedezés lap megjelenítése';
 	@override String get showExploreTabDescription => 'A Plex Discover és a csatlakoztatott követők tartalmait megjelenítő Felfedezés lap megjelenítése';
-	@override String get liveTvDefaultFavorites => 'Kedvenc csatornák alapértelmezés szerint';
-	@override String get liveTvDefaultFavoritesDescription => 'Csak a kedvenc csatornák megjelenítése az Élő TV megnyitásakor';
 	@override String get general => 'Általános';
 	@override String get generalDescription => 'Nyelv, indítás és ablakviselkedés';
 	@override String get languageAndRegion => 'Nyelv és régió';
@@ -510,7 +508,6 @@ class _Translations$settings$hu extends Translations$settings$en {
 	@override String get homeScreen => 'Kezdőképernyő';
 	@override String get navigation => 'Navigáció';
 	@override String get window => 'Ablak';
-	@override String get liveTv => 'Élő TV';
 	@override String get player => 'Lejátszó';
 	@override String get videoAndDisplay => 'Videó és kijelző';
 	@override String get audio => 'Hang';
@@ -1526,9 +1523,6 @@ class _Translations$liveTv$hu extends Translations$liveTv$en {
 	@override String get watchChannel => 'Csatorna nézése';
 	@override String get favorites => 'Kedvencek';
 	@override String get reorderFavorites => 'Kedvencek rendezése';
-	@override String get noFavoriteChannels => 'Nincsenek kedvenc csatornák';
-	@override String get noFavoriteChannelsHint => 'Jelenítsd meg az összes csatornát, majd hosszan nyomj meg egy csatornát, hogy hozzáadd a kedvenceidhez.';
-	@override String get showAllChannels => 'Összes csatorna megjelenítése';
 	@override String get favoritesLoadFailed => 'Nem sikerült a kedvencek betöltése. Ellenőrizd a kapcsolatot és próbáld újra.';
 	@override String get favoritesUpdateFailed => 'Nem sikerült frissíteni a kedvenceket. Ellenőrizd a kapcsolatot, majd próbáld újra.';
 	@override String get joinSession => 'Csatlakozás a folyamatban lévő adáshoz';
@@ -3417,8 +3411,6 @@ extension on TranslationsHu {
 			'settings.startupSection' => 'Indítási oldal',
 			'settings.showExploreTab' => 'Felfedezés lap megjelenítése',
 			'settings.showExploreTabDescription' => 'A Plex Discover és a csatlakoztatott követők tartalmait megjelenítő Felfedezés lap megjelenítése',
-			'settings.liveTvDefaultFavorites' => 'Kedvenc csatornák alapértelmezés szerint',
-			'settings.liveTvDefaultFavoritesDescription' => 'Csak a kedvenc csatornák megjelenítése az Élő TV megnyitásakor',
 			'settings.general' => 'Általános',
 			'settings.generalDescription' => 'Nyelv, indítás és ablakviselkedés',
 			'settings.languageAndRegion' => 'Nyelv és régió',
@@ -3428,7 +3420,6 @@ extension on TranslationsHu {
 			'settings.homeScreen' => 'Kezdőképernyő',
 			'settings.navigation' => 'Navigáció',
 			'settings.window' => 'Ablak',
-			'settings.liveTv' => 'Élő TV',
 			'settings.player' => 'Lejátszó',
 			'settings.videoAndDisplay' => 'Videó és kijelző',
 			'settings.audio' => 'Hang',
@@ -3551,11 +3542,11 @@ extension on TranslationsHu {
 			'fileInfo.streamIdentifier' => 'Adatfolyam-azonosító',
 			'fileInfo.streamIndex' => 'Adatfolyam-index',
 			'fileInfo.streamId' => 'Adatfolyam azonosítója',
-			_ => null,
-		} ?? switch (path) {
 			'fileInfo.language' => 'Nyelv',
 			'fileInfo.languageCode' => 'Nyelvkód',
 			'fileInfo.streamTitle' => 'Sáv címe',
+			_ => null,
+		} ?? switch (path) {
 			'fileInfo.channels' => 'Csatornák',
 			'fileInfo.sampleRate' => 'Mintavételi frekvencia',
 			'fileInfo.spatialAudio' => 'Térbeli hang',
@@ -4065,11 +4056,11 @@ extension on TranslationsHu {
 			'libraries.analyze' => 'Elemzés',
 			'libraries.analyzeLibrary' => 'Könyvtár elemzése',
 			'libraries.refreshMetadata' => 'Metaadatok frissítése',
-			_ => null,
-		} ?? switch (path) {
 			'libraries.emptyTrash' => 'Lomtár ürítése',
 			'libraries.emptyingTrash' => ({required Object title}) => 'Lomtár ürítése a következőhöz: "${title}"...',
 			'libraries.trashEmptied' => ({required Object title}) => 'Lomtár kiürítve a következőhöz: "${title}"',
+			_ => null,
+		} ?? switch (path) {
 			'libraries.failedToEmptyTrash' => ({required Object error}) => 'Nem sikerült a lomtár ürítése: ${error}',
 			'libraries.analyzing' => ({required Object title}) => '"${title}" elemzése...',
 			'libraries.analysisStarted' => ({required Object title}) => 'Elemzés elindítva a következőhöz: "${title}"',
@@ -4375,9 +4366,6 @@ extension on TranslationsHu {
 			'liveTv.watchChannel' => 'Csatorna nézése',
 			'liveTv.favorites' => 'Kedvencek',
 			'liveTv.reorderFavorites' => 'Kedvencek rendezése',
-			'liveTv.noFavoriteChannels' => 'Nincsenek kedvenc csatornák',
-			'liveTv.noFavoriteChannelsHint' => 'Jelenítsd meg az összes csatornát, majd hosszan nyomj meg egy csatornát, hogy hozzáadd a kedvenceidhez.',
-			'liveTv.showAllChannels' => 'Összes csatorna megjelenítése',
 			'liveTv.favoritesLoadFailed' => 'Nem sikerült a kedvencek betöltése. Ellenőrizd a kapcsolatot és próbáld újra.',
 			'liveTv.favoritesUpdateFailed' => 'Nem sikerült frissíteni a kedvenceket. Ellenőrizd a kapcsolatot, majd próbáld újra.',
 			'liveTv.joinSession' => 'Csatlakozás a folyamatban lévő adáshoz',
@@ -4579,14 +4567,14 @@ extension on TranslationsHu {
 			'watchTogether.waitingForName' => ({required Object name}) => 'Várakozás: ${name}...',
 			'watchTogether.recentRooms' => 'Legutóbbi szobák',
 			'watchTogether.renameRoom' => 'Szoba átnevezése',
-			_ => null,
-		} ?? switch (path) {
 			'watchTogether.removeRoom' => 'Eltávolítás',
 			'watchTogether.guestSwitchUnavailable' => 'Nem sikerült a váltás — a szerver nem érhető el szinkronizáláshoz',
 			'watchTogether.guestSwitchFailed' => 'Nem sikerült a váltás — a tartalom nem található ezen a szerveren',
 			'watchTogether.defaultDisplayName' => 'Felhasználó',
 			'watchTogether.errors.timedOut' => 'A relészerver nem válaszolt időben',
 			'watchTogether.errors.connectionLost' => 'A kapcsolat lezárult, mielőtt a munkamenet elkészült volna',
+			_ => null,
+		} ?? switch (path) {
 			'watchTogether.errors.invalidRelayResponse' => 'A relészerver váratlan választ küldött',
 			'watchTogether.errors.sessionEnded' => 'A házigazda befejezte a munkamenetet',
 			'watchTogether.errors.sessionUnavailable' => 'Ez a munkamenet nem folytatható. A folytatáshoz csatlakozz egy szobához vagy hozz létre egyet.',
@@ -5093,14 +5081,14 @@ extension on TranslationsHu {
 			'addServer.connectToMediaBrowserCardSubtitleScoped' => ({required Object product, required Object name}) => 'Jelentkezzen be a(z) ${product} szerverére. A(z) ${name} szolgáltatáshoz kötődik.',
 			'addServer.borrowFromAnotherProfile' => 'Kapcsolat használata másik profilból',
 			'addServer.borrowFromAnotherProfileSubtitle' => 'Egy másik profil kapcsolatának használata. A PIN-kóddal védett profilokhoz PIN-kód szükséges.',
-			_ => null,
-		} ?? switch (path) {
 			'addServer.invalidCredentials' => 'Érvénytelen felhasználónév vagy jelszó',
 			'addServer.authResponseNotJson' => 'A hitelesítési válasz nem érvényes JSON',
 			'addServer.authResponseIncomplete' => 'A szerver bejelentkezési válasza hiányos volt',
 			'addServer.quickConnectRejected' => 'A szerver elutasította a Quick Connect-kérést',
 			'addServer.quickConnectNotJson' => 'A Quick Connect válasza nem érvényes JSON',
 			'addServer.quickConnectMissingFields' => 'A Quick Connect válaszából hiányzik a kód vagy a titkos kulcs',
+			_ => null,
+		} ?? switch (path) {
 			'addServer.quickConnectPollRejected' => 'A szerver elutasította a Quick Connect lekérdezését',
 			'addServer.serverTimedOut' => 'A szerver nem válaszolt időben',
 			'addServer.responseNotJson' => 'A szerver válasza nem érvényes JSON',

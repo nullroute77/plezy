@@ -499,8 +499,6 @@ class _Translations$settings$nb extends Translations$settings$en {
 	@override String get startupSection => 'Startseksjon';
 	@override String get showExploreTab => 'Vis Oppdag-fanen';
 	@override String get showExploreTabDescription => 'Vis Oppdag-fanen med innhold fra Plex Discover og tilkoblede sporingstjenester';
-	@override String get liveTvDefaultFavorites => 'Vis favorittkanaler som standard';
-	@override String get liveTvDefaultFavoritesDescription => 'Vis bare favorittkanaler når du åpner Direkte-TV';
 	@override String get general => 'Generelt';
 	@override String get generalDescription => 'Språk, oppstart og vindusatferd';
 	@override String get languageAndRegion => 'Språk og region';
@@ -510,7 +508,6 @@ class _Translations$settings$nb extends Translations$settings$en {
 	@override String get homeScreen => 'Hjemmeskjerm';
 	@override String get navigation => 'Navigering';
 	@override String get window => 'Vindu';
-	@override String get liveTv => 'Direkte-TV';
 	@override String get player => 'Spiller';
 	@override String get videoAndDisplay => 'Video og skjerm';
 	@override String get audio => 'Lyd';
@@ -1526,9 +1523,6 @@ class _Translations$liveTv$nb extends Translations$liveTv$en {
 	@override String get watchChannel => 'Se kanal';
 	@override String get favorites => 'Favoritter';
 	@override String get reorderFavorites => 'Endre rekkefølge på favoritter';
-	@override String get noFavoriteChannels => 'Ingen favorittkanaler';
-	@override String get noFavoriteChannelsHint => 'Vis alle kanaler, og trykk deretter lenge på en kanal for å legge den til i favorittene dine.';
-	@override String get showAllChannels => 'Vis alle kanaler';
 	@override String get favoritesLoadFailed => 'Kunne ikke laste inn favoritter. Kontroller tilkoblingen og prøv på nytt.';
 	@override String get favoritesUpdateFailed => 'Kunne ikke oppdatere favorittene. Kontroller tilkoblingen og prøv på nytt.';
 	@override String get joinSession => 'Bli med i pågående økt';
@@ -3417,8 +3411,6 @@ extension on TranslationsNb {
 			'settings.startupSection' => 'Startseksjon',
 			'settings.showExploreTab' => 'Vis Oppdag-fanen',
 			'settings.showExploreTabDescription' => 'Vis Oppdag-fanen med innhold fra Plex Discover og tilkoblede sporingstjenester',
-			'settings.liveTvDefaultFavorites' => 'Vis favorittkanaler som standard',
-			'settings.liveTvDefaultFavoritesDescription' => 'Vis bare favorittkanaler når du åpner Direkte-TV',
 			'settings.general' => 'Generelt',
 			'settings.generalDescription' => 'Språk, oppstart og vindusatferd',
 			'settings.languageAndRegion' => 'Språk og region',
@@ -3428,7 +3420,6 @@ extension on TranslationsNb {
 			'settings.homeScreen' => 'Hjemmeskjerm',
 			'settings.navigation' => 'Navigering',
 			'settings.window' => 'Vindu',
-			'settings.liveTv' => 'Direkte-TV',
 			'settings.player' => 'Spiller',
 			'settings.videoAndDisplay' => 'Video og skjerm',
 			'settings.audio' => 'Lyd',
@@ -3551,11 +3542,11 @@ extension on TranslationsNb {
 			'fileInfo.streamIdentifier' => 'Strømidentifikator',
 			'fileInfo.streamIndex' => 'Strømindeks',
 			'fileInfo.streamId' => 'Strøm-ID',
-			_ => null,
-		} ?? switch (path) {
 			'fileInfo.language' => 'Språk',
 			'fileInfo.languageCode' => 'Språkkode',
 			'fileInfo.streamTitle' => 'Spor-tittel',
+			_ => null,
+		} ?? switch (path) {
 			'fileInfo.channels' => 'Kanaler',
 			'fileInfo.sampleRate' => 'Samplingsfrekvens',
 			'fileInfo.spatialAudio' => 'Romlig lyd',
@@ -4065,11 +4056,11 @@ extension on TranslationsNb {
 			'libraries.analyze' => 'Analyser',
 			'libraries.analyzeLibrary' => 'Analyser bibliotek',
 			'libraries.refreshMetadata' => 'Oppdater metadata',
-			_ => null,
-		} ?? switch (path) {
 			'libraries.emptyTrash' => 'Tøm papirkurv',
 			'libraries.emptyingTrash' => ({required Object title}) => 'Tømmer papirkurv for "${title}"...',
 			'libraries.trashEmptied' => ({required Object title}) => 'Papirkurv tømt for "${title}"',
+			_ => null,
+		} ?? switch (path) {
 			'libraries.failedToEmptyTrash' => ({required Object error}) => 'Kunne ikke tømme papirkurv: ${error}',
 			'libraries.analyzing' => ({required Object title}) => 'Analyserer "${title}"...',
 			'libraries.analysisStarted' => ({required Object title}) => 'Analyse startet for "${title}"',
@@ -4375,9 +4366,6 @@ extension on TranslationsNb {
 			'liveTv.watchChannel' => 'Se kanal',
 			'liveTv.favorites' => 'Favoritter',
 			'liveTv.reorderFavorites' => 'Endre rekkefølge på favoritter',
-			'liveTv.noFavoriteChannels' => 'Ingen favorittkanaler',
-			'liveTv.noFavoriteChannelsHint' => 'Vis alle kanaler, og trykk deretter lenge på en kanal for å legge den til i favorittene dine.',
-			'liveTv.showAllChannels' => 'Vis alle kanaler',
 			'liveTv.favoritesLoadFailed' => 'Kunne ikke laste inn favoritter. Kontroller tilkoblingen og prøv på nytt.',
 			'liveTv.favoritesUpdateFailed' => 'Kunne ikke oppdatere favorittene. Kontroller tilkoblingen og prøv på nytt.',
 			'liveTv.joinSession' => 'Bli med i pågående økt',
@@ -4579,14 +4567,14 @@ extension on TranslationsNb {
 			'watchTogether.waitingForName' => ({required Object name}) => 'Venter på ${name}...',
 			'watchTogether.recentRooms' => 'Nylige rom',
 			'watchTogether.renameRoom' => 'Gi nytt navn til rom',
-			_ => null,
-		} ?? switch (path) {
 			'watchTogether.removeRoom' => 'Fjern',
 			'watchTogether.guestSwitchUnavailable' => 'Kunne ikke bytte — server ikke tilgjengelig for synkronisering',
 			'watchTogether.guestSwitchFailed' => 'Kunne ikke bytte — innhold ble ikke funnet på denne serveren',
 			'watchTogether.defaultDisplayName' => 'Bruker',
 			'watchTogether.errors.timedOut' => 'Reléserveren svarte ikke i tide',
 			'watchTogether.errors.connectionLost' => 'Tilkoblingen ble lukket før økten var klar',
+			_ => null,
+		} ?? switch (path) {
 			'watchTogether.errors.invalidRelayResponse' => 'Reléserveren sendte et uventet svar',
 			'watchTogether.errors.sessionEnded' => 'Verten avsluttet økten',
 			'watchTogether.errors.sessionUnavailable' => 'Kan ikke gjenoppta denne økten. Bli med i eller opprett et rom for å fortsette.',
@@ -5093,14 +5081,14 @@ extension on TranslationsNb {
 			'addServer.connectToMediaBrowserCardSubtitleScoped' => ({required Object product, required Object name}) => 'Logg på ${product}-serveren din. Knyttes til ${name}.',
 			'addServer.borrowFromAnotherProfile' => 'Lån fra en annen profil',
 			'addServer.borrowFromAnotherProfileSubtitle' => 'Gjenbruk en annen profils tilkobling. PIN-beskyttede profiler krever PIN.',
-			_ => null,
-		} ?? switch (path) {
 			'addServer.invalidCredentials' => 'Ugyldig brukernavn eller passord',
 			'addServer.authResponseNotJson' => 'Autentiseringssvaret var ikke gyldig JSON',
 			'addServer.authResponseIncomplete' => 'Påloggingssvaret fra serveren var ufullstendig',
 			'addServer.quickConnectRejected' => 'Quick Connect ble avvist av serveren',
 			'addServer.quickConnectNotJson' => 'Quick Connect-svaret var ikke gyldig JSON',
 			'addServer.quickConnectMissingFields' => 'Quick Connect-svaret mangler en kode eller hemmelighet',
+			_ => null,
+		} ?? switch (path) {
 			'addServer.quickConnectPollRejected' => 'Quick Connect-spørringen ble avvist av serveren',
 			'addServer.serverTimedOut' => 'Serveren svarte ikke i tide',
 			'addServer.responseNotJson' => 'Serversvaret var ikke gyldig JSON',

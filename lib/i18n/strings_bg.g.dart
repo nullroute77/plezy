@@ -499,8 +499,6 @@ class _Translations$settings$bg extends Translations$settings$en {
 	@override String get startupSection => 'Начален раздел';
 	@override String get showExploreTab => 'Показване на раздела „Открий“';
 	@override String get showExploreTabDescription => 'Показва раздела „Открий“ със съдържание от Plex Discover и свързаните тракери';
-	@override String get liveTvDefaultFavorites => 'По подразбиране към любими канали';
-	@override String get liveTvDefaultFavoritesDescription => 'Показвай само любими канали при отваряне на телевизия на живо';
 	@override String get general => 'Общи';
 	@override String get generalDescription => 'Език, стартиране и поведение на прозореца';
 	@override String get languageAndRegion => 'Език и регион';
@@ -510,7 +508,6 @@ class _Translations$settings$bg extends Translations$settings$en {
 	@override String get homeScreen => 'Начален екран';
 	@override String get navigation => 'Навигация';
 	@override String get window => 'Прозорец';
-	@override String get liveTv => 'Телевизия на живо';
 	@override String get player => 'Плейър';
 	@override String get videoAndDisplay => 'Видео и дисплей';
 	@override String get audio => 'Аудио';
@@ -1526,9 +1523,6 @@ class _Translations$liveTv$bg extends Translations$liveTv$en {
 	@override String get watchChannel => 'Гледай канал';
 	@override String get favorites => 'Любими';
 	@override String get reorderFavorites => 'Пренареди любимите';
-	@override String get noFavoriteChannels => 'Няма любими канали';
-	@override String get noFavoriteChannelsHint => 'Покажете всички канали, след което натиснете и задръжте канал, за да го добавите към любимите си.';
-	@override String get showAllChannels => 'Покажи всички канали';
 	@override String get favoritesLoadFailed => 'Любимите не можаха да се заредят. Проверете връзката си и опитайте отново.';
 	@override String get favoritesUpdateFailed => 'Любимите не можаха да бъдат обновени. Проверете връзката си и опитайте отново.';
 	@override String get joinSession => 'Присъедини се към текуща сесия';
@@ -3417,8 +3411,6 @@ extension on TranslationsBg {
 			'settings.startupSection' => 'Начален раздел',
 			'settings.showExploreTab' => 'Показване на раздела „Открий“',
 			'settings.showExploreTabDescription' => 'Показва раздела „Открий“ със съдържание от Plex Discover и свързаните тракери',
-			'settings.liveTvDefaultFavorites' => 'По подразбиране към любими канали',
-			'settings.liveTvDefaultFavoritesDescription' => 'Показвай само любими канали при отваряне на телевизия на живо',
 			'settings.general' => 'Общи',
 			'settings.generalDescription' => 'Език, стартиране и поведение на прозореца',
 			'settings.languageAndRegion' => 'Език и регион',
@@ -3428,7 +3420,6 @@ extension on TranslationsBg {
 			'settings.homeScreen' => 'Начален екран',
 			'settings.navigation' => 'Навигация',
 			'settings.window' => 'Прозорец',
-			'settings.liveTv' => 'Телевизия на живо',
 			'settings.player' => 'Плейър',
 			'settings.videoAndDisplay' => 'Видео и дисплей',
 			'settings.audio' => 'Аудио',
@@ -3551,11 +3542,11 @@ extension on TranslationsBg {
 			'fileInfo.streamIdentifier' => 'Идентификатор на потока',
 			'fileInfo.streamIndex' => 'Индекс на потока',
 			'fileInfo.streamId' => 'ID на потока',
-			_ => null,
-		} ?? switch (path) {
 			'fileInfo.language' => 'Език',
 			'fileInfo.languageCode' => 'Код на езика',
 			'fileInfo.streamTitle' => 'Заглавие на пистата',
+			_ => null,
+		} ?? switch (path) {
 			'fileInfo.channels' => 'Канали',
 			'fileInfo.sampleRate' => 'Честота на дискретизация',
 			'fileInfo.spatialAudio' => 'Пространствено аудио',
@@ -4065,11 +4056,11 @@ extension on TranslationsBg {
 			'libraries.analyze' => 'Анализирай',
 			'libraries.analyzeLibrary' => 'Анализирай библиотеката',
 			'libraries.refreshMetadata' => 'Опресни метаданни',
-			_ => null,
-		} ?? switch (path) {
 			'libraries.emptyTrash' => 'Изпразни кошчето',
 			'libraries.emptyingTrash' => ({required Object title}) => 'Изпразване на кошчето за "${title}"...',
 			'libraries.trashEmptied' => ({required Object title}) => 'Кошчето е изпразнено за "${title}"',
+			_ => null,
+		} ?? switch (path) {
 			'libraries.failedToEmptyTrash' => ({required Object error}) => 'Неуспешно изпразване на кошчето: ${error}',
 			'libraries.analyzing' => ({required Object title}) => 'Анализиране на "${title}"...',
 			'libraries.analysisStarted' => ({required Object title}) => 'Анализът е стартиран за "${title}"',
@@ -4375,9 +4366,6 @@ extension on TranslationsBg {
 			'liveTv.watchChannel' => 'Гледай канал',
 			'liveTv.favorites' => 'Любими',
 			'liveTv.reorderFavorites' => 'Пренареди любимите',
-			'liveTv.noFavoriteChannels' => 'Няма любими канали',
-			'liveTv.noFavoriteChannelsHint' => 'Покажете всички канали, след което натиснете и задръжте канал, за да го добавите към любимите си.',
-			'liveTv.showAllChannels' => 'Покажи всички канали',
 			'liveTv.favoritesLoadFailed' => 'Любимите не можаха да се заредят. Проверете връзката си и опитайте отново.',
 			'liveTv.favoritesUpdateFailed' => 'Любимите не можаха да бъдат обновени. Проверете връзката си и опитайте отново.',
 			'liveTv.joinSession' => 'Присъедини се към текуща сесия',
@@ -4579,14 +4567,14 @@ extension on TranslationsBg {
 			'watchTogether.waitingForName' => ({required Object name}) => 'Изчакване на ${name}...',
 			'watchTogether.recentRooms' => 'Скорошни стаи',
 			'watchTogether.renameRoom' => 'Преименувай стая',
-			_ => null,
-		} ?? switch (path) {
 			'watchTogether.removeRoom' => 'Премахни',
 			'watchTogether.guestSwitchUnavailable' => 'Превключването не е възможно — сървърът е недостъпен за синхронизация',
 			'watchTogether.guestSwitchFailed' => 'Превключването не е възможно — съдържанието не е намерено на този сървър',
 			'watchTogether.defaultDisplayName' => 'Потребител',
 			'watchTogether.errors.timedOut' => 'Релейният сървър не отговори навреме',
 			'watchTogether.errors.connectionLost' => 'Връзката се затвори, преди сесията да е готова',
+			_ => null,
+		} ?? switch (path) {
 			'watchTogether.errors.invalidRelayResponse' => 'Релейният сървър изпрати неочакван отговор',
 			'watchTogether.errors.sessionEnded' => 'Организаторът прекрати сесията',
 			'watchTogether.errors.sessionUnavailable' => 'Тази сесия не може да бъде възобновена. Присъединете се към стая или създайте нова, за да продължите.',
@@ -5093,14 +5081,14 @@ extension on TranslationsBg {
 			'addServer.connectToMediaBrowserCardSubtitleScoped' => ({required Object product, required Object name}) => 'Впишете се в своя ${product} сървър. Обвързва се с ${name}.',
 			'addServer.borrowFromAnotherProfile' => 'Използвай от друг профил',
 			'addServer.borrowFromAnotherProfileSubtitle' => 'Използвай връзка от друг профил. PIN-защитените профили изискват PIN.',
-			_ => null,
-		} ?? switch (path) {
 			'addServer.invalidCredentials' => 'Невалидно потребителско име или парола',
 			'addServer.authResponseNotJson' => 'Отговорът при удостоверяване не беше валиден JSON',
 			'addServer.authResponseIncomplete' => 'Отговорът за вход от сървъра беше непълен',
 			'addServer.quickConnectRejected' => 'Quick Connect беше отхвърлен от сървъра',
 			'addServer.quickConnectNotJson' => 'Отговорът на Quick Connect не беше валиден JSON',
 			'addServer.quickConnectMissingFields' => 'В отговора на Quick Connect липсва код или таен ключ',
+			_ => null,
+		} ?? switch (path) {
 			'addServer.quickConnectPollRejected' => 'Запитването на Quick Connect беше отхвърлено от сървъра',
 			'addServer.serverTimedOut' => 'Сървърът не отговори навреме',
 			'addServer.responseNotJson' => 'Отговорът на сървъра не беше валиден JSON',

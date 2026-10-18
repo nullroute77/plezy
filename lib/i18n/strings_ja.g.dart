@@ -499,8 +499,6 @@ class _Translations$settings$ja extends Translations$settings$en {
 	@override String get startupSection => '起動時のセクション';
 	@override String get showExploreTab => '「探す」タブを表示';
 	@override String get showExploreTabDescription => 'Plex Discoverと接続済みのトラッカーのコンテンツを「探す」タブに表示します';
-	@override String get liveTvDefaultFavorites => 'お気に入りチャンネルをデフォルトに';
-	@override String get liveTvDefaultFavoritesDescription => 'ライブTVを開いたときにお気に入りチャンネルのみ表示';
 	@override String get general => '一般';
 	@override String get generalDescription => '言語、起動、ウィンドウの動作';
 	@override String get languageAndRegion => '言語と地域';
@@ -510,7 +508,6 @@ class _Translations$settings$ja extends Translations$settings$en {
 	@override String get homeScreen => 'ホーム画面';
 	@override String get navigation => 'ナビゲーション';
 	@override String get window => 'ウィンドウ';
-	@override String get liveTv => 'ライブTV';
 	@override String get player => 'プレーヤー';
 	@override String get videoAndDisplay => '映像とディスプレイ';
 	@override String get audio => '音声';
@@ -1518,9 +1515,6 @@ class _Translations$liveTv$ja extends Translations$liveTv$en {
 	@override String get watchChannel => 'チャンネルを視聴';
 	@override String get favorites => 'お気に入り';
 	@override String get reorderFavorites => 'お気に入りを並べ替え';
-	@override String get noFavoriteChannels => 'お気に入りのチャンネルがありません';
-	@override String get noFavoriteChannelsHint => 'すべてのチャンネルを表示し、チャンネルを長押ししてお気に入りに追加してください。';
-	@override String get showAllChannels => 'すべてのチャンネルを表示';
 	@override String get favoritesLoadFailed => 'お気に入りを読み込めませんでした。接続を確認してもう一度お試しください。';
 	@override String get favoritesUpdateFailed => 'お気に入りを更新できませんでした。接続を確認してもう一度お試しください。';
 	@override String get joinSession => '進行中のセッションに参加';
@@ -3406,8 +3400,6 @@ extension on TranslationsJa {
 			'settings.startupSection' => '起動時のセクション',
 			'settings.showExploreTab' => '「探す」タブを表示',
 			'settings.showExploreTabDescription' => 'Plex Discoverと接続済みのトラッカーのコンテンツを「探す」タブに表示します',
-			'settings.liveTvDefaultFavorites' => 'お気に入りチャンネルをデフォルトに',
-			'settings.liveTvDefaultFavoritesDescription' => 'ライブTVを開いたときにお気に入りチャンネルのみ表示',
 			'settings.general' => '一般',
 			'settings.generalDescription' => '言語、起動、ウィンドウの動作',
 			'settings.languageAndRegion' => '言語と地域',
@@ -3417,7 +3409,6 @@ extension on TranslationsJa {
 			'settings.homeScreen' => 'ホーム画面',
 			'settings.navigation' => 'ナビゲーション',
 			'settings.window' => 'ウィンドウ',
-			'settings.liveTv' => 'ライブTV',
 			'settings.player' => 'プレーヤー',
 			'settings.videoAndDisplay' => '映像とディスプレイ',
 			'settings.audio' => '音声',
@@ -3540,11 +3531,11 @@ extension on TranslationsJa {
 			'fileInfo.streamIdentifier' => 'ストリーム識別子',
 			'fileInfo.streamIndex' => 'ストリームインデックス',
 			'fileInfo.streamId' => 'ストリーム ID',
-			_ => null,
-		} ?? switch (path) {
 			'fileInfo.language' => '言語',
 			'fileInfo.languageCode' => '言語コード',
 			'fileInfo.streamTitle' => 'トラックタイトル',
+			_ => null,
+		} ?? switch (path) {
 			'fileInfo.channels' => 'チャンネル',
 			'fileInfo.sampleRate' => 'サンプルレート',
 			'fileInfo.spatialAudio' => '空間オーディオ',
@@ -4054,11 +4045,11 @@ extension on TranslationsJa {
 			'libraries.analyze' => '解析',
 			'libraries.analyzeLibrary' => 'ライブラリを解析',
 			'libraries.refreshMetadata' => 'メタデータを更新',
-			_ => null,
-		} ?? switch (path) {
 			'libraries.emptyTrash' => 'ゴミ箱を空にする',
 			'libraries.emptyingTrash' => ({required Object title}) => '「${title}」のゴミ箱を空にしています…',
 			'libraries.trashEmptied' => ({required Object title}) => '「${title}」のゴミ箱を空にしました',
+			_ => null,
+		} ?? switch (path) {
 			'libraries.failedToEmptyTrash' => ({required Object error}) => 'ゴミ箱を空にできませんでした: ${error}',
 			'libraries.analyzing' => ({required Object title}) => '「${title}」を解析中…',
 			'libraries.analysisStarted' => ({required Object title}) => '「${title}」の解析を開始しました',
@@ -4364,9 +4355,6 @@ extension on TranslationsJa {
 			'liveTv.watchChannel' => 'チャンネルを視聴',
 			'liveTv.favorites' => 'お気に入り',
 			'liveTv.reorderFavorites' => 'お気に入りを並べ替え',
-			'liveTv.noFavoriteChannels' => 'お気に入りのチャンネルがありません',
-			'liveTv.noFavoriteChannelsHint' => 'すべてのチャンネルを表示し、チャンネルを長押ししてお気に入りに追加してください。',
-			'liveTv.showAllChannels' => 'すべてのチャンネルを表示',
 			'liveTv.favoritesLoadFailed' => 'お気に入りを読み込めませんでした。接続を確認してもう一度お試しください。',
 			'liveTv.favoritesUpdateFailed' => 'お気に入りを更新できませんでした。接続を確認してもう一度お試しください。',
 			'liveTv.joinSession' => '進行中のセッションに参加',
@@ -4568,14 +4556,14 @@ extension on TranslationsJa {
 			'watchTogether.waitingForName' => ({required Object name}) => '${name}を待っています…',
 			'watchTogether.recentRooms' => '最近のルーム',
 			'watchTogether.renameRoom' => 'ルーム名を変更',
-			_ => null,
-		} ?? switch (path) {
 			'watchTogether.removeRoom' => '削除',
 			'watchTogether.guestSwitchUnavailable' => '切り替えられません — 同期に必要なサーバーを利用できません',
 			'watchTogether.guestSwitchFailed' => '切り替えられません — このサーバーにコンテンツが見つかりません',
 			'watchTogether.defaultDisplayName' => 'ユーザー',
 			'watchTogether.errors.timedOut' => 'リレーサーバーが時間内に応答しませんでした',
 			'watchTogether.errors.connectionLost' => 'セッションの準備が整う前に接続が閉じられました',
+			_ => null,
+		} ?? switch (path) {
 			'watchTogether.errors.invalidRelayResponse' => 'リレーサーバーから予期しない応答が返されました',
 			'watchTogether.errors.sessionEnded' => 'ホストがセッションを終了しました',
 			'watchTogether.errors.sessionUnavailable' => 'このセッションを再開できません。ルームに参加するか作成して続行してください。',
@@ -5082,14 +5070,14 @@ extension on TranslationsJa {
 			'addServer.connectToMediaBrowserCardSubtitleScoped' => ({required Object product, required Object name}) => '${product}サーバーにサインインします。「${name}」に紐付けられます。',
 			'addServer.borrowFromAnotherProfile' => '別のプロフィールの接続を利用',
 			'addServer.borrowFromAnotherProfileSubtitle' => '別のプロフィールの接続を再利用します。PINで保護されたプロフィールにはPINが必要です。',
-			_ => null,
-		} ?? switch (path) {
 			'addServer.invalidCredentials' => 'ユーザー名またはパスワードが正しくありません',
 			'addServer.authResponseNotJson' => '認証レスポンスが有効なJSONではありません',
 			'addServer.authResponseIncomplete' => 'サーバーからのサインイン応答が不完全です',
 			'addServer.quickConnectRejected' => 'Quick Connectがサーバーに拒否されました',
 			'addServer.quickConnectNotJson' => 'Quick Connectのレスポンスが有効なJSONではありません',
 			'addServer.quickConnectMissingFields' => 'Quick Connectのレスポンスにコードまたはシークレットがありません',
+			_ => null,
+		} ?? switch (path) {
 			'addServer.quickConnectPollRejected' => 'Quick Connectのポーリングがサーバーに拒否されました',
 			'addServer.serverTimedOut' => 'サーバーが時間内に応答しませんでした',
 			'addServer.responseNotJson' => 'サーバーのレスポンスが有効なJSONではありません',

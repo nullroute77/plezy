@@ -499,8 +499,6 @@ class _Translations$settings$tr extends Translations$settings$en {
 	@override String get startupSection => 'Başlangıç Bölümü';
 	@override String get showExploreTab => 'Keşfet sekmesini göster';
 	@override String get showExploreTabDescription => 'Plex Keşfet ve bağlı takip hizmetlerinden gelen içeriklerle Keşfet sekmesini göster';
-	@override String get liveTvDefaultFavorites => 'Canlı TV\'de Favorileri Varsayılan Yap';
-	@override String get liveTvDefaultFavoritesDescription => 'Canlı TV açıldığında yalnızca favori kanalları göster';
 	@override String get general => 'Genel';
 	@override String get generalDescription => 'Dil, başlangıç ve pencere davranışı';
 	@override String get languageAndRegion => 'Dil ve Bölge';
@@ -510,7 +508,6 @@ class _Translations$settings$tr extends Translations$settings$en {
 	@override String get homeScreen => 'Ana Ekran';
 	@override String get navigation => 'Gezinme';
 	@override String get window => 'Pencere';
-	@override String get liveTv => 'Canlı TV';
 	@override String get player => 'Oynatıcı';
 	@override String get videoAndDisplay => 'Video ve Ekran';
 	@override String get audio => 'Ses';
@@ -1526,9 +1523,6 @@ class _Translations$liveTv$tr extends Translations$liveTv$en {
 	@override String get watchChannel => 'Kanalı İzle';
 	@override String get favorites => 'Favoriler';
 	@override String get reorderFavorites => 'Favorileri Yeniden Sırala';
-	@override String get noFavoriteChannels => 'Favori kanal yok';
-	@override String get noFavoriteChannelsHint => 'Tüm kanalları gösterin, ardından favorilerinize eklemek için bir kanalı basılı tutun.';
-	@override String get showAllChannels => 'Tüm kanalları göster';
 	@override String get favoritesLoadFailed => 'Favoriler yüklenemedi. Bağlantınızı kontrol edip tekrar deneyin.';
 	@override String get favoritesUpdateFailed => 'Favoriler güncellenemedi. Bağlantınızı kontrol edip tekrar deneyin.';
 	@override String get joinSession => 'Devam Eden Oturuma Katıl';
@@ -3417,8 +3411,6 @@ extension on TranslationsTr {
 			'settings.startupSection' => 'Başlangıç Bölümü',
 			'settings.showExploreTab' => 'Keşfet sekmesini göster',
 			'settings.showExploreTabDescription' => 'Plex Keşfet ve bağlı takip hizmetlerinden gelen içeriklerle Keşfet sekmesini göster',
-			'settings.liveTvDefaultFavorites' => 'Canlı TV\'de Favorileri Varsayılan Yap',
-			'settings.liveTvDefaultFavoritesDescription' => 'Canlı TV açıldığında yalnızca favori kanalları göster',
 			'settings.general' => 'Genel',
 			'settings.generalDescription' => 'Dil, başlangıç ve pencere davranışı',
 			'settings.languageAndRegion' => 'Dil ve Bölge',
@@ -3428,7 +3420,6 @@ extension on TranslationsTr {
 			'settings.homeScreen' => 'Ana Ekran',
 			'settings.navigation' => 'Gezinme',
 			'settings.window' => 'Pencere',
-			'settings.liveTv' => 'Canlı TV',
 			'settings.player' => 'Oynatıcı',
 			'settings.videoAndDisplay' => 'Video ve Ekran',
 			'settings.audio' => 'Ses',
@@ -3551,11 +3542,11 @@ extension on TranslationsTr {
 			'fileInfo.streamIdentifier' => 'Akış Tanımlayıcısı',
 			'fileInfo.streamIndex' => 'Akış Dizini',
 			'fileInfo.streamId' => 'Akış Kimliği',
-			_ => null,
-		} ?? switch (path) {
 			'fileInfo.language' => 'Dil',
 			'fileInfo.languageCode' => 'Dil Kodu',
 			'fileInfo.streamTitle' => 'Parça Başlığı',
+			_ => null,
+		} ?? switch (path) {
 			'fileInfo.channels' => 'Kanallar',
 			'fileInfo.sampleRate' => 'Örnekleme Hızı',
 			'fileInfo.spatialAudio' => 'Uzamsal Ses',
@@ -4065,11 +4056,11 @@ extension on TranslationsTr {
 			'libraries.analyze' => 'Analiz Et',
 			'libraries.analyzeLibrary' => 'Kitaplığı Analiz Et',
 			'libraries.refreshMetadata' => 'Meta Verileri Yenile',
-			_ => null,
-		} ?? switch (path) {
 			'libraries.emptyTrash' => 'Çöpü Boşalt',
 			'libraries.emptyingTrash' => ({required Object title}) => '"${title}" için çöp boşaltılıyor...',
 			'libraries.trashEmptied' => ({required Object title}) => '"${title}" için çöp boşaltıldı',
+			_ => null,
+		} ?? switch (path) {
 			'libraries.failedToEmptyTrash' => ({required Object error}) => 'Çöp boşaltılamadı: ${error}',
 			'libraries.analyzing' => ({required Object title}) => '"${title}" analiz ediliyor...',
 			'libraries.analysisStarted' => ({required Object title}) => '"${title}" için analiz başladı',
@@ -4375,9 +4366,6 @@ extension on TranslationsTr {
 			'liveTv.watchChannel' => 'Kanalı İzle',
 			'liveTv.favorites' => 'Favoriler',
 			'liveTv.reorderFavorites' => 'Favorileri Yeniden Sırala',
-			'liveTv.noFavoriteChannels' => 'Favori kanal yok',
-			'liveTv.noFavoriteChannelsHint' => 'Tüm kanalları gösterin, ardından favorilerinize eklemek için bir kanalı basılı tutun.',
-			'liveTv.showAllChannels' => 'Tüm kanalları göster',
 			'liveTv.favoritesLoadFailed' => 'Favoriler yüklenemedi. Bağlantınızı kontrol edip tekrar deneyin.',
 			'liveTv.favoritesUpdateFailed' => 'Favoriler güncellenemedi. Bağlantınızı kontrol edip tekrar deneyin.',
 			'liveTv.joinSession' => 'Devam Eden Oturuma Katıl',
@@ -4579,14 +4567,14 @@ extension on TranslationsTr {
 			'watchTogether.waitingForName' => ({required Object name}) => '${name} bekleniyor...',
 			'watchTogether.recentRooms' => 'Son Odalar',
 			'watchTogether.renameRoom' => 'Odayı Yeniden Adlandır',
-			_ => null,
-		} ?? switch (path) {
 			'watchTogether.removeRoom' => 'Kaldır',
 			'watchTogether.guestSwitchUnavailable' => 'Geçiş yapılamadı — eşitleme için sunucu mevcut değil',
 			'watchTogether.guestSwitchFailed' => 'Geçiş yapılamadı — içerik bu sunucuda bulunamadı',
 			'watchTogether.defaultDisplayName' => 'Kullanıcı',
 			'watchTogether.errors.timedOut' => 'Aktarıcı sunucusu zamanında yanıt vermedi',
 			'watchTogether.errors.connectionLost' => 'Oturum hazır olmadan bağlantı kapandı',
+			_ => null,
+		} ?? switch (path) {
 			'watchTogether.errors.invalidRelayResponse' => 'Aktarıcı sunucusu beklenmeyen bir yanıt gönderdi',
 			'watchTogether.errors.sessionEnded' => 'Kurucu oturumu sonlandırdı',
 			'watchTogether.errors.sessionUnavailable' => 'Bu oturum sürdürülemiyor. Devam etmek için bir odaya katılın veya oda oluşturun.',
@@ -5093,14 +5081,14 @@ extension on TranslationsTr {
 			'addServer.connectToMediaBrowserCardSubtitleScoped' => ({required Object product, required Object name}) => '${product} sunucunuza giriş yapın. ${name} profiline bağlanır.',
 			'addServer.borrowFromAnotherProfile' => 'Başka bir profilden ödünç al',
 			'addServer.borrowFromAnotherProfileSubtitle' => 'Başka bir profilin bağlantısını yeniden kullanın. PIN korumalı profiller bir PIN gerektirir.',
-			_ => null,
-		} ?? switch (path) {
 			'addServer.invalidCredentials' => 'Geçersiz kullanıcı adı veya şifre',
 			'addServer.authResponseNotJson' => 'Kimlik doğrulama yanıtı geçerli bir JSON değildi',
 			'addServer.authResponseIncomplete' => 'Sunucudan gelen oturum açma yanıtı eksikti',
 			'addServer.quickConnectRejected' => 'Quick Connect sunucu tarafından reddedildi',
 			'addServer.quickConnectNotJson' => 'Quick Connect yanıtı geçerli bir JSON değildi',
 			'addServer.quickConnectMissingFields' => 'Quick Connect yanıtında kod veya gizli anahtar eksik',
+			_ => null,
+		} ?? switch (path) {
 			'addServer.quickConnectPollRejected' => 'Quick Connect yoklaması sunucu tarafından reddedildi',
 			'addServer.serverTimedOut' => 'Sunucu zamanında yanıt vermedi',
 			'addServer.responseNotJson' => 'Sunucu yanıtı geçerli bir JSON değildi',

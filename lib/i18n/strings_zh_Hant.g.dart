@@ -500,8 +500,6 @@ class _Translations$settings$zh_Hant extends Translations$settings$zh {
 	@override String get startupSection => '啟動頁面';
 	@override String get showExploreTab => '顯示探索分頁';
 	@override String get showExploreTabDescription => '顯示探索分頁，其中包含來自 Plex Discover 和已連結追蹤服務的內容';
-	@override String get liveTvDefaultFavorites => '預設顯示最愛頻道';
-	@override String get liveTvDefaultFavoritesDescription => '開啟直播電視時僅顯示最愛頻道';
 	@override String get general => '一般';
 	@override String get generalDescription => '語言、啟動與視窗行為';
 	@override String get languageAndRegion => '語言與地區';
@@ -511,7 +509,6 @@ class _Translations$settings$zh_Hant extends Translations$settings$zh {
 	@override String get homeScreen => '主畫面';
 	@override String get navigation => '導覽';
 	@override String get window => '視窗';
-	@override String get liveTv => '直播電視';
 	@override String get player => '播放器';
 	@override String get videoAndDisplay => '影片與顯示器';
 	@override String get audio => '音訊';
@@ -1519,9 +1516,6 @@ class _Translations$liveTv$zh_Hant extends Translations$liveTv$zh {
 	@override String get watchChannel => '觀看頻道';
 	@override String get favorites => '最愛';
 	@override String get reorderFavorites => '重新排序最愛頻道';
-	@override String get noFavoriteChannels => '沒有最愛頻道';
-	@override String get noFavoriteChannelsHint => '顯示所有頻道，然後長按頻道即可將其加入最愛。';
-	@override String get showAllChannels => '顯示所有頻道';
 	@override String get favoritesLoadFailed => '無法載入最愛頻道。請檢查網路連線後重試。';
 	@override String get favoritesUpdateFailed => '無法更新最愛頻道。請檢查網路連線後重試。';
 	@override String get joinSession => '加入進行中的「一起看」';
@@ -3407,8 +3401,6 @@ extension on TranslationsZhHant {
 			'settings.startupSection' => '啟動頁面',
 			'settings.showExploreTab' => '顯示探索分頁',
 			'settings.showExploreTabDescription' => '顯示探索分頁，其中包含來自 Plex Discover 和已連結追蹤服務的內容',
-			'settings.liveTvDefaultFavorites' => '預設顯示最愛頻道',
-			'settings.liveTvDefaultFavoritesDescription' => '開啟直播電視時僅顯示最愛頻道',
 			'settings.general' => '一般',
 			'settings.generalDescription' => '語言、啟動與視窗行為',
 			'settings.languageAndRegion' => '語言與地區',
@@ -3418,7 +3410,6 @@ extension on TranslationsZhHant {
 			'settings.homeScreen' => '主畫面',
 			'settings.navigation' => '導覽',
 			'settings.window' => '視窗',
-			'settings.liveTv' => '直播電視',
 			'settings.player' => '播放器',
 			'settings.videoAndDisplay' => '影片與顯示器',
 			'settings.audio' => '音訊',
@@ -3541,11 +3532,11 @@ extension on TranslationsZhHant {
 			'fileInfo.streamIdentifier' => '串流識別碼',
 			'fileInfo.streamIndex' => '串流索引',
 			'fileInfo.streamId' => '串流 ID',
-			_ => null,
-		} ?? switch (path) {
 			'fileInfo.language' => '語言',
 			'fileInfo.languageCode' => '語言代碼',
 			'fileInfo.streamTitle' => '軌道名稱',
+			_ => null,
+		} ?? switch (path) {
 			'fileInfo.channels' => '聲道數',
 			'fileInfo.sampleRate' => '取樣率',
 			'fileInfo.spatialAudio' => '空間音訊',
@@ -4055,11 +4046,11 @@ extension on TranslationsZhHant {
 			'libraries.analyze' => '分析',
 			'libraries.analyzeLibrary' => '分析媒體庫',
 			'libraries.refreshMetadata' => '重新整理中繼資料',
-			_ => null,
-		} ?? switch (path) {
 			'libraries.emptyTrash' => '清空垃圾桶',
 			'libraries.emptyingTrash' => ({required Object title}) => '正在清空「${title}」的垃圾桶…',
 			'libraries.trashEmptied' => ({required Object title}) => '已清空「${title}」的垃圾桶',
+			_ => null,
+		} ?? switch (path) {
 			'libraries.failedToEmptyTrash' => ({required Object error}) => '無法清空垃圾桶：${error}',
 			'libraries.analyzing' => ({required Object title}) => '正在分析「${title}」…',
 			'libraries.analysisStarted' => ({required Object title}) => '已開始分析「${title}」',
@@ -4365,9 +4356,6 @@ extension on TranslationsZhHant {
 			'liveTv.watchChannel' => '觀看頻道',
 			'liveTv.favorites' => '最愛',
 			'liveTv.reorderFavorites' => '重新排序最愛頻道',
-			'liveTv.noFavoriteChannels' => '沒有最愛頻道',
-			'liveTv.noFavoriteChannelsHint' => '顯示所有頻道，然後長按頻道即可將其加入最愛。',
-			'liveTv.showAllChannels' => '顯示所有頻道',
 			'liveTv.favoritesLoadFailed' => '無法載入最愛頻道。請檢查網路連線後重試。',
 			'liveTv.favoritesUpdateFailed' => '無法更新最愛頻道。請檢查網路連線後重試。',
 			'liveTv.joinSession' => '加入進行中的「一起看」',
@@ -4569,14 +4557,14 @@ extension on TranslationsZhHant {
 			'watchTogether.waitingForName' => ({required Object name}) => '正在等待 ${name}…',
 			'watchTogether.recentRooms' => '最近的房間',
 			'watchTogether.renameRoom' => '重新命名房間',
-			_ => null,
-		} ?? switch (path) {
 			'watchTogether.removeRoom' => '移除',
 			'watchTogether.guestSwitchUnavailable' => '無法切換 — 伺服器無法進行同步',
 			'watchTogether.guestSwitchFailed' => '無法切換 — 在此伺服器上找不到內容',
 			'watchTogether.defaultDisplayName' => '使用者',
 			'watchTogether.errors.timedOut' => '中繼伺服器未及時回應',
 			'watchTogether.errors.connectionLost' => '工作階段就緒前連線已中斷',
+			_ => null,
+		} ?? switch (path) {
 			'watchTogether.errors.invalidRelayResponse' => '中繼伺服器傳回了非預期的回應',
 			'watchTogether.errors.sessionEnded' => '主持人已結束工作階段',
 			'watchTogether.errors.sessionUnavailable' => '無法恢復此工作階段。請加入或建立房間以繼續。',
@@ -5083,14 +5071,14 @@ extension on TranslationsZhHant {
 			'addServer.connectToMediaBrowserCardSubtitleScoped' => ({required Object product, required Object name}) => '登入您的 ${product} 伺服器。將綁定至 ${name}。',
 			'addServer.borrowFromAnotherProfile' => '從另一個使用者設定檔共用',
 			'addServer.borrowFromAnotherProfileSubtitle' => '重複使用另一個使用者設定檔的連線資訊。受 PIN 碼保護的使用者設定檔需輸入 PIN 碼。',
-			_ => null,
-		} ?? switch (path) {
 			'addServer.invalidCredentials' => '使用者名稱或密碼無效',
 			'addServer.authResponseNotJson' => '驗證回應不是有效的 JSON',
 			'addServer.authResponseIncomplete' => '伺服器傳回的登入回應不完整',
 			'addServer.quickConnectRejected' => 'Quick Connect 遭到伺服器拒絕',
 			'addServer.quickConnectNotJson' => 'Quick Connect 回應不是有效的 JSON',
 			'addServer.quickConnectMissingFields' => 'Quick Connect 回應缺少代碼或密鑰',
+			_ => null,
+		} ?? switch (path) {
 			'addServer.quickConnectPollRejected' => 'Quick Connect 輪詢遭到伺服器拒絕',
 			'addServer.serverTimedOut' => '伺服器未及時回應',
 			'addServer.responseNotJson' => '伺服器回應不是有效的 JSON',

@@ -71,7 +71,13 @@ void main() {
           channelKeys: List.generate(8, (i) => 'channel-$i'),
           withDvr: true,
           withPrograms: true,
-          theme: monoTheme(dark: appearance.dark, oled: appearance.oled),
+          theme: monoTheme(
+            appearance.oled
+                ? MonoPalette.oled
+                : appearance.dark
+                ? MonoPalette.dark
+                : MonoPalette.light,
+          ),
         );
         addTearDown(() async {
           await tester.pumpWidget(const SizedBox.shrink());
@@ -259,6 +265,39 @@ void main() {
     expect(guide.favoriteChannels.map((channel) => channel.serverId), ['server-b']);
   });
 
+  for (final recovers in [true, false]) {
+    testWidgets('favorite mutation retries a failed read before writing (recovers: $recovers)', (tester) async {
+      final harness = await _pumpLiveTvScreen(tester);
+      addTearDown(() async {
+        await tester.pumpWidget(const SizedBox.shrink());
+        harness.dispose();
+      });
+      harness.liveTv.favorites.completeError(StateError('temporary cloud failure'));
+      await tester.pumpAndSettle();
+      await tester.longPress(find.text('Unique Channel A'));
+      await tester.pump();
+      expect(harness.liveTv.writes, isEmpty);
+      if (recovers) {
+        harness.liveTv.favorites.complete([
+          FavoriteChannel(id: 'unlisted-channel', source: 'server://server-a/provider-a'),
+        ]);
+      } else {
+        harness.liveTv.favorites.completeError(StateError('cloud still unavailable'));
+      }
+      await tester.pumpAndSettle();
+      expect(harness.liveTv._servedFavoriteRequests, 2);
+      if (recovers) {
+        expect(harness.liveTv.writes.single.map((favorite) => favorite.id), ['unlisted-channel', 'channel-a']);
+        expect(tester.widget<GuideTab>(find.byType(GuideTab)).favoriteChannels.single.key, 'channel-a');
+        expect(find.text(t.liveTv.favoritesLoadFailed), findsNothing);
+      } else {
+        expect(harness.liveTv.writes, isEmpty);
+        expect(tester.widget<GuideTab>(find.byType(GuideTab)).favoriteChannels, isEmpty);
+        expect(find.text(t.liveTv.favoritesLoadFailed), findsOneWidget);
+      }
+    });
+  }
+
   testWidgets('favorite write failure keeps optimistic state, shows feedback, and leaves the queue usable', (
     tester,
   ) async {
@@ -293,7 +332,7 @@ void main() {
     ]);
   });
 
-  testWidgets('What\'s On is hidden when no Live TV server is Plex', (tester) async {
+  testWidgets('What\'s On remains available for MediaBrowser schedules', (tester) async {
     final harness = await _pumpLiveTvScreen(tester);
     addTearDown(() async {
       await tester.pumpWidget(const SizedBox.shrink());
@@ -303,7 +342,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text(t.liveTv.guide), findsWidgets);
-    expect(find.text(t.liveTv.whatsOn), findsNothing);
+    expect(find.text(t.liveTv.whatsOn), findsOneWidget);
   });
 
   testWidgets('a refresh that fails on every server keeps the loaded channels', (tester) async {
@@ -313,8 +352,6 @@ void main() {
       harness.dispose();
     });
     harness.liveTv.favorites.complete(const []);
-    await tester.pumpAndSettle();
-    await tester.tap(find.text(t.liveTv.showAllChannels));
     await tester.pumpAndSettle();
     expect(_guideChannels(tester).map((channel) => channel.key), ['channel-a', 'channel-b']);
 
@@ -409,10 +446,10 @@ Future<_LiveTvHarness> _pumpLiveTvScreen(
         child: ChangeNotifierProvider<MultiServerProvider>.value(
           value: provider,
           child: MaterialApp(
-            theme: (theme ?? monoTheme(dark: true)).copyWith(
+            theme: (theme ?? monoTheme(MonoPalette.dark)).copyWith(
               textTheme: const String.fromEnvironment('GUIDE_SCREENSHOT_DIR').isEmpty
                   ? null
-                  : (theme ?? monoTheme(dark: true)).textTheme.apply(fontFamily: 'GuidePreview'),
+                  : (theme ?? monoTheme(MonoPalette.dark)).textTheme.apply(fontFamily: 'GuidePreview'),
             ),
             home: const RepaintBoundary(key: ValueKey('live-tv-capture'), child: LiveTvScreen()),
           ),

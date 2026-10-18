@@ -499,8 +499,6 @@ class _Translations$settings$kk extends Translations$settings$en {
 	@override String get startupSection => 'Бастапқы бөлім';
 	@override String get showExploreTab => '«Шолу» қойындысын көрсету';
 	@override String get showExploreTabDescription => 'Plex шолуынан және қосылған трекерлерден алынған контенті бар «Шолу» қойындысын көрсету';
-	@override String get liveTvDefaultFavorites => 'Тікелей TV-де таңдаулы арналарды әдепкі ету';
-	@override String get liveTvDefaultFavoritesDescription => 'Тікелей TV ашылғанда тек таңдаулы арналарды көрсету';
 	@override String get general => 'Жалпы';
 	@override String get generalDescription => 'Тіл, іске қосу және терезе мінез-құлқы';
 	@override String get languageAndRegion => 'Тіл және аймақ';
@@ -510,7 +508,6 @@ class _Translations$settings$kk extends Translations$settings$en {
 	@override String get homeScreen => 'Басты экран';
 	@override String get navigation => 'Навигация';
 	@override String get window => 'Терезе';
-	@override String get liveTv => 'Тікелей TV';
 	@override String get player => 'Ойнатқыш';
 	@override String get videoAndDisplay => 'Видео және дисплей';
 	@override String get audio => 'Аудио';
@@ -1526,9 +1523,6 @@ class _Translations$liveTv$kk extends Translations$liveTv$en {
 	@override String get watchChannel => 'Арнаны көру';
 	@override String get favorites => 'Таңдаулылар';
 	@override String get reorderFavorites => 'Таңдаулыларды қайта реттеу';
-	@override String get noFavoriteChannels => 'Таңдаулы арналар жоқ';
-	@override String get noFavoriteChannelsHint => 'Барлық арнаны көрсетіп, таңдаулыларға қосу үшін арнаны ұзақ басып тұрыңыз.';
-	@override String get showAllChannels => 'Барлық арнаны көрсету';
 	@override String get favoritesLoadFailed => 'Таңдаулыларды жүктеу мүмкін болмады. Байланысты тексеріп, қайталап көріңіз.';
 	@override String get favoritesUpdateFailed => 'Таңдаулыларды жаңарту мүмкін болмады.';
 	@override String get joinSession => 'Сеансқа қосылу';
@@ -3417,8 +3411,6 @@ extension on TranslationsKk {
 			'settings.startupSection' => 'Бастапқы бөлім',
 			'settings.showExploreTab' => '«Шолу» қойындысын көрсету',
 			'settings.showExploreTabDescription' => 'Plex шолуынан және қосылған трекерлерден алынған контенті бар «Шолу» қойындысын көрсету',
-			'settings.liveTvDefaultFavorites' => 'Тікелей TV-де таңдаулы арналарды әдепкі ету',
-			'settings.liveTvDefaultFavoritesDescription' => 'Тікелей TV ашылғанда тек таңдаулы арналарды көрсету',
 			'settings.general' => 'Жалпы',
 			'settings.generalDescription' => 'Тіл, іске қосу және терезе мінез-құлқы',
 			'settings.languageAndRegion' => 'Тіл және аймақ',
@@ -3428,7 +3420,6 @@ extension on TranslationsKk {
 			'settings.homeScreen' => 'Басты экран',
 			'settings.navigation' => 'Навигация',
 			'settings.window' => 'Терезе',
-			'settings.liveTv' => 'Тікелей TV',
 			'settings.player' => 'Ойнатқыш',
 			'settings.videoAndDisplay' => 'Видео және дисплей',
 			'settings.audio' => 'Аудио',
@@ -3551,11 +3542,11 @@ extension on TranslationsKk {
 			'fileInfo.streamIdentifier' => 'Ағын идентификаторы',
 			'fileInfo.streamIndex' => 'Ағын индексі',
 			'fileInfo.streamId' => 'Ағын ID',
-			_ => null,
-		} ?? switch (path) {
 			'fileInfo.language' => 'Тіл',
 			'fileInfo.languageCode' => 'Тіл коды',
 			'fileInfo.streamTitle' => 'Трек атауы',
+			_ => null,
+		} ?? switch (path) {
 			'fileInfo.channels' => 'Арналар',
 			'fileInfo.sampleRate' => 'Дискретизация жиілігі',
 			'fileInfo.spatialAudio' => 'Кеңістіктік аудио',
@@ -4065,11 +4056,11 @@ extension on TranslationsKk {
 			'libraries.analyze' => 'Талдау жасау',
 			'libraries.analyzeLibrary' => 'Кітапханаға талдау жасау',
 			'libraries.refreshMetadata' => 'Метадеректерді жаңарту',
-			_ => null,
-		} ?? switch (path) {
 			'libraries.emptyTrash' => 'Себетті тазалау',
 			'libraries.emptyingTrash' => ({required Object title}) => '"${title}" себеті тазалануда...',
 			'libraries.trashEmptied' => ({required Object title}) => '"${title}" себеті тазаланды',
+			_ => null,
+		} ?? switch (path) {
 			'libraries.failedToEmptyTrash' => ({required Object error}) => 'Себетті тазалау мүмкін болмады: ${error}',
 			'libraries.analyzing' => ({required Object title}) => '"${title}" талдануда...',
 			'libraries.analysisStarted' => ({required Object title}) => '"${title}" үшін талдау басталды',
@@ -4375,9 +4366,6 @@ extension on TranslationsKk {
 			'liveTv.watchChannel' => 'Арнаны көру',
 			'liveTv.favorites' => 'Таңдаулылар',
 			'liveTv.reorderFavorites' => 'Таңдаулыларды қайта реттеу',
-			'liveTv.noFavoriteChannels' => 'Таңдаулы арналар жоқ',
-			'liveTv.noFavoriteChannelsHint' => 'Барлық арнаны көрсетіп, таңдаулыларға қосу үшін арнаны ұзақ басып тұрыңыз.',
-			'liveTv.showAllChannels' => 'Барлық арнаны көрсету',
 			'liveTv.favoritesLoadFailed' => 'Таңдаулыларды жүктеу мүмкін болмады. Байланысты тексеріп, қайталап көріңіз.',
 			'liveTv.favoritesUpdateFailed' => 'Таңдаулыларды жаңарту мүмкін болмады.',
 			'liveTv.joinSession' => 'Сеансқа қосылу',
@@ -4579,14 +4567,14 @@ extension on TranslationsKk {
 			'watchTogether.waitingForName' => ({required Object name}) => '${name} күтілуде...',
 			'watchTogether.recentRooms' => 'Соңғы бөлмелер',
 			'watchTogether.renameRoom' => 'Бөлме атын өзгерткіңіз келе ме?',
-			_ => null,
-		} ?? switch (path) {
 			'watchTogether.removeRoom' => 'Өшіру',
 			'watchTogether.guestSwitchUnavailable' => 'Ауысу мүмкін болмады — сервер синхрондау үшін қолжетімсіз',
 			'watchTogether.guestSwitchFailed' => 'Ауысу мүмкін болмады — мазмұн табылмады',
 			'watchTogether.defaultDisplayName' => 'Пайдаланушы',
 			'watchTogether.errors.timedOut' => 'Реле сервері уақытында жауап бермеді',
 			'watchTogether.errors.connectionLost' => 'Сеанс дайын болмай тұрып байланыс үзілді',
+			_ => null,
+		} ?? switch (path) {
 			'watchTogether.errors.invalidRelayResponse' => 'Реле сервері күтпеген жауап жіберді',
 			'watchTogether.errors.sessionEnded' => 'Ұйымдастырушы сеансты аяқтады',
 			'watchTogether.errors.sessionUnavailable' => 'Бұл сеансты жалғастыру мүмкін емес. Жалғастыру үшін бөлмеге қосылыңыз немесе бөлме жасаңыз.',
@@ -5093,14 +5081,14 @@ extension on TranslationsKk {
 			'addServer.connectToMediaBrowserCardSubtitleScoped' => ({required Object product, required Object name}) => '${product} серверіне кіріңіз. ${name} тіркелгісіне байланыстырылады.',
 			'addServer.borrowFromAnotherProfile' => 'Басқа профильден алу',
 			'addServer.borrowFromAnotherProfileSubtitle' => 'Басқа профильдің қосылымын қайта пайдалану. PIN кодпен қорғалған профильдер PIN кодты талап етеді.',
-			_ => null,
-		} ?? switch (path) {
 			'addServer.invalidCredentials' => 'Пайдаланушы аты немесе құпия сөз қате',
 			'addServer.authResponseNotJson' => 'Аутентификация жауабы жарамды JSON болмады',
 			'addServer.authResponseIncomplete' => 'Сервердің кіру жауабы толық емес',
 			'addServer.quickConnectRejected' => 'Сервер Quick Connect сұрауын қабылдамады',
 			'addServer.quickConnectNotJson' => 'Quick Connect жауабы жарамды JSON болмады',
 			'addServer.quickConnectMissingFields' => 'Quick Connect жауабында код немесе құпия кілт жоқ',
+			_ => null,
+		} ?? switch (path) {
 			'addServer.quickConnectPollRejected' => 'Сервер Quick Connect сұрауын тексеруді қабылдамады',
 			'addServer.serverTimedOut' => 'Сервер уақытында жауап бермеді',
 			'addServer.responseNotJson' => 'Сервер жауабы жарамды JSON болмады',

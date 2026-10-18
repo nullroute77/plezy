@@ -499,8 +499,6 @@ class _Translations$settings$it extends Translations$settings$en {
 	@override String get startupSection => 'Sezione di avvio';
 	@override String get showExploreTab => 'Mostra la scheda Esplora';
 	@override String get showExploreTabDescription => 'Visualizza la scheda Esplora con contenuti di Esplora di Plex e dei tracker collegati';
-	@override String get liveTvDefaultFavorites => 'Apri sui canali preferiti';
-	@override String get liveTvDefaultFavoritesDescription => 'Mostra solo i canali preferiti quando apri la TV in diretta';
 	@override String get general => 'Generali';
 	@override String get generalDescription => 'Lingua, avvio e comportamento della finestra';
 	@override String get languageAndRegion => 'Lingua e regione';
@@ -510,7 +508,6 @@ class _Translations$settings$it extends Translations$settings$en {
 	@override String get homeScreen => 'Schermata iniziale';
 	@override String get navigation => 'Navigazione';
 	@override String get window => 'Finestra';
-	@override String get liveTv => 'TV in diretta';
 	@override String get player => 'Lettore';
 	@override String get videoAndDisplay => 'Video e schermo';
 	@override String get audio => 'Audio';
@@ -1526,9 +1523,6 @@ class _Translations$liveTv$it extends Translations$liveTv$en {
 	@override String get watchChannel => 'Guarda il canale';
 	@override String get favorites => 'Preferiti';
 	@override String get reorderFavorites => 'Riordina i preferiti';
-	@override String get noFavoriteChannels => 'Nessun canale preferito';
-	@override String get noFavoriteChannelsHint => 'Mostra tutti i canali, quindi tieni premuto un canale per aggiungerlo ai preferiti.';
-	@override String get showAllChannels => 'Mostra tutti i canali';
 	@override String get favoritesLoadFailed => 'Impossibile caricare i preferiti. Controlla la connessione e riprova.';
 	@override String get favoritesUpdateFailed => 'Impossibile aggiornare i preferiti. Controlla la connessione e riprova.';
 	@override String get joinSession => 'Partecipa alla sessione in corso';
@@ -3417,8 +3411,6 @@ extension on TranslationsIt {
 			'settings.startupSection' => 'Sezione di avvio',
 			'settings.showExploreTab' => 'Mostra la scheda Esplora',
 			'settings.showExploreTabDescription' => 'Visualizza la scheda Esplora con contenuti di Esplora di Plex e dei tracker collegati',
-			'settings.liveTvDefaultFavorites' => 'Apri sui canali preferiti',
-			'settings.liveTvDefaultFavoritesDescription' => 'Mostra solo i canali preferiti quando apri la TV in diretta',
 			'settings.general' => 'Generali',
 			'settings.generalDescription' => 'Lingua, avvio e comportamento della finestra',
 			'settings.languageAndRegion' => 'Lingua e regione',
@@ -3428,7 +3420,6 @@ extension on TranslationsIt {
 			'settings.homeScreen' => 'Schermata iniziale',
 			'settings.navigation' => 'Navigazione',
 			'settings.window' => 'Finestra',
-			'settings.liveTv' => 'TV in diretta',
 			'settings.player' => 'Lettore',
 			'settings.videoAndDisplay' => 'Video e schermo',
 			'settings.audio' => 'Audio',
@@ -3551,11 +3542,11 @@ extension on TranslationsIt {
 			'fileInfo.streamIdentifier' => 'Identificatore flusso',
 			'fileInfo.streamIndex' => 'Indice flusso',
 			'fileInfo.streamId' => 'ID flusso',
-			_ => null,
-		} ?? switch (path) {
 			'fileInfo.language' => 'Lingua',
 			'fileInfo.languageCode' => 'Codice lingua',
 			'fileInfo.streamTitle' => 'Titolo traccia',
+			_ => null,
+		} ?? switch (path) {
 			'fileInfo.channels' => 'Canali',
 			'fileInfo.sampleRate' => 'Frequenza di campionamento',
 			'fileInfo.spatialAudio' => 'Audio spaziale',
@@ -4065,11 +4056,11 @@ extension on TranslationsIt {
 			'libraries.analyze' => 'Analizza',
 			'libraries.analyzeLibrary' => 'Analizza libreria',
 			'libraries.refreshMetadata' => 'Aggiorna metadati',
-			_ => null,
-		} ?? switch (path) {
 			'libraries.emptyTrash' => 'Svuota cestino',
 			'libraries.emptyingTrash' => ({required Object title}) => 'Svuotamento del cestino di "${title}"...',
 			'libraries.trashEmptied' => ({required Object title}) => 'Cestino di "${title}" svuotato',
+			_ => null,
+		} ?? switch (path) {
 			'libraries.failedToEmptyTrash' => ({required Object error}) => 'Impossibile svuotare il cestino: ${error}',
 			'libraries.analyzing' => ({required Object title}) => 'Analisi di "${title}"...',
 			'libraries.analysisStarted' => ({required Object title}) => 'Analisi avviata per "${title}"',
@@ -4375,9 +4366,6 @@ extension on TranslationsIt {
 			'liveTv.watchChannel' => 'Guarda il canale',
 			'liveTv.favorites' => 'Preferiti',
 			'liveTv.reorderFavorites' => 'Riordina i preferiti',
-			'liveTv.noFavoriteChannels' => 'Nessun canale preferito',
-			'liveTv.noFavoriteChannelsHint' => 'Mostra tutti i canali, quindi tieni premuto un canale per aggiungerlo ai preferiti.',
-			'liveTv.showAllChannels' => 'Mostra tutti i canali',
 			'liveTv.favoritesLoadFailed' => 'Impossibile caricare i preferiti. Controlla la connessione e riprova.',
 			'liveTv.favoritesUpdateFailed' => 'Impossibile aggiornare i preferiti. Controlla la connessione e riprova.',
 			'liveTv.joinSession' => 'Partecipa alla sessione in corso',
@@ -4579,14 +4567,14 @@ extension on TranslationsIt {
 			'watchTogether.waitingForName' => ({required Object name}) => 'In attesa di ${name}...',
 			'watchTogether.recentRooms' => 'Stanze usate di recente',
 			'watchTogether.renameRoom' => 'Rinomina stanza',
-			_ => null,
-		} ?? switch (path) {
 			'watchTogether.removeRoom' => 'Rimuovi',
 			'watchTogether.guestSwitchUnavailable' => 'Impossibile cambiare — server non disponibile per la sincronizzazione',
 			'watchTogether.guestSwitchFailed' => 'Impossibile cambiare — contenuto non trovato su questo server',
 			'watchTogether.defaultDisplayName' => 'Utente',
 			'watchTogether.errors.timedOut' => 'Il server relay non ha risposto in tempo',
 			'watchTogether.errors.connectionLost' => 'La connessione si è chiusa prima che la sessione fosse pronta',
+			_ => null,
+		} ?? switch (path) {
 			'watchTogether.errors.invalidRelayResponse' => 'Il server relay ha inviato una risposta imprevista',
 			'watchTogether.errors.sessionEnded' => 'L’host ha terminato la sessione',
 			'watchTogether.errors.sessionUnavailable' => 'Impossibile riprendere questa sessione. Partecipa a una stanza o creane una per continuare.',
@@ -5093,14 +5081,14 @@ extension on TranslationsIt {
 			'addServer.connectToMediaBrowserCardSubtitleScoped' => ({required Object product, required Object name}) => 'Accedi al tuo server ${product}. Associato a ${name}.',
 			'addServer.borrowFromAnotherProfile' => 'Prendi in prestito da un altro profilo',
 			'addServer.borrowFromAnotherProfileSubtitle' => 'Riutilizza la connessione di un altro profilo. I profili protetti da PIN richiedono un PIN.',
-			_ => null,
-		} ?? switch (path) {
 			'addServer.invalidCredentials' => 'Nome utente o password non validi',
 			'addServer.authResponseNotJson' => 'La risposta di autenticazione non era un JSON valido',
 			'addServer.authResponseIncomplete' => 'La risposta di accesso del server era incompleta',
 			'addServer.quickConnectRejected' => 'Quick Connect è stato rifiutato dal server',
 			'addServer.quickConnectNotJson' => 'La risposta di Quick Connect non era un JSON valido',
 			'addServer.quickConnectMissingFields' => 'Nella risposta di Quick Connect manca un codice o un segreto',
+			_ => null,
+		} ?? switch (path) {
 			'addServer.quickConnectPollRejected' => 'Il polling di Quick Connect è stato rifiutato dal server',
 			'addServer.serverTimedOut' => 'Il server non ha risposto in tempo',
 			'addServer.responseNotJson' => 'La risposta del server non era un JSON valido',

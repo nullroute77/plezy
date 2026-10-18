@@ -276,7 +276,7 @@ void main() {
       await tester.sendKeyEvent(LogicalKeyboardKey.arrowRight);
       await tester.pumpAndSettle();
       final navigator = tester.state<NavigatorState>(find.byType(Navigator));
-      unawaited(navigator.push(buildVideoPlayerRoute(builder: (_) => const Scaffold(body: Text('Player')))));
+      unawaited(VideoPlayerRoute(builder: (_) => const Scaffold(body: Text('Player'))).push(navigator));
       await tester.pumpAndSettle();
       now = DateTime(2026, 9, 10, 22, 51);
       state.onRefreshTick();
@@ -1647,23 +1647,22 @@ void main() {
     _expectFocusedChannel(tester, 'A');
     await tester.sendKeyEvent(LogicalKeyboardKey.arrowRight);
     await tester.pumpAndSettle();
-    // The window opens an hour before the current half-hour, so what airs
-    // now is always the third slot.
-    expect(find.ancestor(of: find.text('Slot 3'), matching: _focusedCellFinder(tester)), findsOneWidget);
+    // Half-hour entry puts the currently airing program in the first slot.
+    expect(find.ancestor(of: find.text('Slot 1'), matching: _focusedCellFinder(tester)), findsOneWidget);
     for (var i = 0; i < 5; i++) {
       await tester.sendKeyEvent(LogicalKeyboardKey.arrowRight);
       await tester.pumpAndSettle();
     }
-    expect(find.ancestor(of: find.text('Slot 8'), matching: _focusedCellFinder(tester)), findsOneWidget);
+    expect(find.ancestor(of: find.text('Slot 6'), matching: _focusedCellFinder(tester)), findsOneWidget);
 
     await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
     await tester.pumpAndSettle();
 
-    final focusedSlot8 = find.ancestor(of: find.text('Slot 8'), matching: _focusedCellFinder(tester));
-    expect(focusedSlot8, findsOneWidget);
+    final focusedSlot6 = find.ancestor(of: find.text('Slot 6'), matching: _focusedCellFinder(tester));
+    expect(focusedSlot6, findsOneWidget);
     // It is channel B's block, and it was scrolled into view.
-    expect(tester.getCenter(focusedSlot8).dy, closeTo(tester.getCenter(find.text('B')).dy, 20));
-    expect(tester.getRect(focusedSlot8).overlaps(tester.getRect(find.byType(GuideTab))), isTrue);
+    expect(tester.getCenter(focusedSlot6).dy, closeTo(tester.getCenter(find.text('B')).dy, 20));
+    expect(tester.getRect(focusedSlot6).overlaps(tester.getRect(find.byType(GuideTab))), isTrue);
   });
 
   testWidgets('moving into a row with no programs focuses its channel cell', (tester) async {
@@ -1678,7 +1677,7 @@ void main() {
     await _focusGrid(tester);
     await tester.sendKeyEvent(LogicalKeyboardKey.arrowRight);
     await tester.pumpAndSettle();
-    expect(find.ancestor(of: find.text('Slot 3'), matching: _focusedCellFinder(tester)), findsOneWidget);
+    expect(find.ancestor(of: find.text('Slot 1'), matching: _focusedCellFinder(tester)), findsOneWidget);
 
     await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
     await tester.pumpAndSettle();
@@ -1905,10 +1904,28 @@ final class _GuideHarness {
             value: provider,
             child: MaterialApp(
               theme: const String.fromEnvironment('GUIDE_SCREENSHOT_DIR').isEmpty
-                  ? monoTheme(dark: dark, oled: oled).copyWith(platform: platform)
-                  : monoTheme(dark: dark, oled: oled).copyWith(
+                  ? monoTheme(
+                      oled
+                          ? MonoPalette.oled
+                          : dark
+                          ? MonoPalette.dark
+                          : MonoPalette.light,
+                    ).copyWith(platform: platform)
+                  : monoTheme(
+                      oled
+                          ? MonoPalette.oled
+                          : dark
+                          ? MonoPalette.dark
+                          : MonoPalette.light,
+                    ).copyWith(
                       platform: platform,
-                      textTheme: monoTheme(dark: dark, oled: oled).textTheme.apply(fontFamily: 'GuidePreview'),
+                      textTheme: monoTheme(
+                        oled
+                            ? MonoPalette.oled
+                            : dark
+                            ? MonoPalette.dark
+                            : MonoPalette.light,
+                      ).textTheme.apply(fontFamily: 'GuidePreview'),
                     ),
               builder: (context, child) => MediaQuery(
                 data: MediaQuery.of(context).copyWith(alwaysUse24HourFormat: is24Hour),
