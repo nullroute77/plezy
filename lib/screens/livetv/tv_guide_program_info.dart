@@ -10,6 +10,7 @@ import '../../providers/multi_server_provider.dart';
 import '../../theme/mono_tokens.dart';
 import '../../utils/content_utils.dart';
 import '../../utils/formatters.dart';
+import '../../utils/text_measure_cache.dart';
 import '../../widgets/optimized_media_image.dart';
 
 /// The highlighted airing's details, independent of the channel being played.
@@ -54,7 +55,7 @@ class TvGuideProgramInfo extends StatelessWidget {
         padding: const EdgeInsets.fromLTRB(16, 12, 24, 12),
         child: LayoutBuilder(
           builder: (context, constraints) {
-            final posterHeight = constraints.maxHeight.clamp(0.0, 220.0);
+            final posterHeight = constraints.maxHeight.clamp(0.0, 220.0).clamp(0.0, constraints.maxWidth / 3);
             return Row(
               crossAxisAlignment: CrossAxisAlignment.center,
               children: [
@@ -74,51 +75,73 @@ class TvGuideProgramInfo extends StatelessWidget {
                 Expanded(
                   child: Align(
                     alignment: Alignment.centerLeft,
-                    child: FittedBox(
-                      fit: BoxFit.scaleDown,
-                      alignment: Alignment.centerLeft,
-                      child: SizedBox(
-                        width: (constraints.maxWidth * 0.7).clamp(280.0, 900.0),
-                        child: Column(
+                    child: LayoutBuilder(
+                      builder: (context, textConstraints) {
+                        final title = airing?.guideTitle ?? channel?.displayName ?? t.liveTv.guide;
+                        final summary = airing?.summary?.trim().isNotEmpty == true
+                            ? airing!.summary!
+                            : (airing == null ? t.liveTv.noPrograms : '');
+                        final titleStyle = theme.textTheme.headlineMedium!.copyWith(fontWeight: FontWeight.w600);
+                        final subtitleStyle = theme.textTheme.titleLarge!;
+                        final metadataStyle = theme.textTheme.titleMedium!;
+                        final summaryStyle = theme.textTheme.bodyLarge!;
+                        Size measure(String text, TextStyle style) => cachedSingleLineTextSize(
+                          text,
+                          style: style,
+                          textScaler: MediaQuery.textScalerOf(context),
+                          textDirection: Directionality.of(context),
+                        );
+
+                        // Keep theme font sizes, spending the available height on the
+                        // title and metadata before the description. Never scale the
+                        // whole panel to fit a long description or a narrow column.
+                        var remaining = textConstraints.maxHeight - measure(title, titleStyle).height;
+                        final subtitleHeight = measure(subtitle, subtitleStyle).height;
+                        final showSubtitle = subtitle.isNotEmpty && remaining >= subtitleHeight + 8;
+                        if (showSubtitle) remaining -= subtitleHeight + 8;
+                        final metadataSize = measure(metadata, metadataStyle);
+                        final showMetadata = metadata.isNotEmpty && remaining >= metadataSize.height + 10;
+                        final metadataLines =
+                            metadataSize.width > textConstraints.maxWidth && remaining >= metadataSize.height * 2 + 10
+                            ? 2
+                            : 1;
+                        if (showMetadata) remaining -= metadataSize.height * metadataLines + 10;
+                        final summaryHeight = measure(summary, summaryStyle).height;
+                        final summaryLines = summary.isEmpty || summaryHeight == 0
+                            ? 0
+                            : ((remaining - 12) / summaryHeight).floor().clamp(0, 3);
+                        return Column(
                           mainAxisSize: MainAxisSize.min,
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Text(
-                              airing?.guideTitle ?? channel?.displayName ?? t.liveTv.guide,
-                              style: theme.textTheme.headlineMedium?.copyWith(fontWeight: FontWeight.w600),
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
+                            Flexible(
+                              child: Text(title, style: titleStyle, maxLines: 1, overflow: TextOverflow.ellipsis),
                             ),
-                            if (subtitle.isNotEmpty) ...[
+                            if (showSubtitle) ...[
                               const SizedBox(height: 8),
-                              Text(
-                                subtitle,
-                                style: theme.textTheme.titleLarge,
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                              ),
+                              Text(subtitle, style: subtitleStyle, maxLines: 1, overflow: TextOverflow.ellipsis),
                             ],
-                            if (metadata.isNotEmpty) ...[
+                            if (showMetadata) ...[
                               const SizedBox(height: 10),
                               Text(
                                 metadata,
-                                style: theme.textTheme.titleMedium,
-                                maxLines: 2,
+                                style: metadataStyle,
+                                maxLines: metadataLines,
                                 overflow: TextOverflow.ellipsis,
                               ),
                             ],
-                            const SizedBox(height: 12),
-                            Text(
-                              airing?.summary?.trim().isNotEmpty == true
-                                  ? airing!.summary!
-                                  : (airing == null ? t.liveTv.noPrograms : ''),
-                              style: theme.textTheme.bodyLarge,
-                              maxLines: 3,
-                              overflow: TextOverflow.ellipsis,
-                            ),
+                            if (summaryLines > 0) ...[
+                              const SizedBox(height: 12),
+                              Text(
+                                summary,
+                                style: summaryStyle,
+                                maxLines: summaryLines,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ],
                           ],
-                        ),
-                      ),
+                        );
+                      },
                     ),
                   ),
                 ),
