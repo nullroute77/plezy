@@ -65,6 +65,22 @@ void main() {
     expect(find.text('Evening News · 1h'), findsOneWidget);
   });
 
+  testWidgets('live header uses explicit Jellyfin and Emby program and episode labels', (tester) async {
+    await _pumpHeader(
+      tester,
+      metadata: _mappedItem({'Id': 'channel', 'Type': 'TvChannel', 'Name': 'Test Channel'}),
+      style: VideoHeaderStyle.multiLine,
+      liveProgram: LiveTvProgram(
+        title: 'Backend fallback',
+        programTitle: '  Test Series  ',
+        episodeTitle: '  The Arrival  ',
+        beginsAt: 1000,
+        endsAt: 4600,
+      ),
+    );
+    expect(find.text('Test Series · The Arrival · 1h'), findsOneWidget);
+  });
+
   testWidgets('title-less mapped movie builds with localized fallback in both layouts', (tester) async {
     final item = _mappedItem({'Id': 'movie-without-name', 'Type': 'Movie'});
 

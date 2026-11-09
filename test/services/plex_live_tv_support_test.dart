@@ -17,6 +17,7 @@ import 'package:plezy/exceptions/media_server_exceptions.dart';
 import 'package:plezy/media/media_server_client.dart';
 import 'package:plezy/models/media_subscription.dart';
 import 'package:plezy/models/livetv_channel.dart';
+import 'package:plezy/models/livetv_program.dart';
 import 'package:plezy/models/plex/plex_config.dart';
 import 'package:plezy/services/plex_api_cache.dart';
 import 'package:plezy/services/plex_client.dart';
@@ -374,6 +375,42 @@ void main() {
     expect(requests.map((u) => u.host), ['epg.provider.plex.tv']);
     expect(client.config.baseUrl, 'https://plex.example.com');
   });
+
+  for (final accountToken in [null, '', 'account-token']) {
+    test(
+      'favorites use account credentials and leave server credentials unchanged (account: ${accountToken == null
+          ? 'missing'
+          : accountToken.isEmpty
+          ? 'empty'
+          : 'present'})',
+      () async {
+        final requests = <http.Request>[];
+        final client = makeClient((request) async {
+          requests.add(request);
+          final isCloud = request.url.host == 'epg.provider.plex.tv';
+          expect(
+            request.headers['X-Plex-Token'],
+            isCloud && accountToken != null && accountToken.isNotEmpty ? accountToken : 'server-token',
+          );
+          if (isCloud) expect(request.headers['X-Plex-Provider-Version'], '5.1');
+          return jsonResponse({'MediaContainer': <String, dynamic>{}});
+        }, token: 'server-token')..plexAccountToken = accountToken;
+        addTearDown(client.close);
+        expect(await client.liveTv.fetchFavoriteChannels(), isEmpty);
+        await client.liveTv.setFavoriteChannels([
+          FavoriteChannel(source: 'server://machine-1/provider-a', id: '2', title: 'Channel 2', vcn: '2'),
+        ]);
+        await client.liveTv.fetchSchedule(from: DateTime.utc(2026, 10, 18), to: DateTime.utc(2026, 10, 18, 6));
+        expect(requests.map((request) => request.method), ['GET', 'PUT', 'GET']);
+        expect(requests.map((request) => request.url.host), [
+          'epg.provider.plex.tv',
+          'epg.provider.plex.tv',
+          'plex.example.com',
+        ]);
+        expect(client.config.token, 'server-token');
+      },
+    );
+  }
 
   test('favorite read preserves a successful empty response', () async {
     final client = makeClient((request) async {
@@ -760,6 +797,38 @@ void main() {
 
     expect(operations.single.program?.ratingKey, 'plex%3A%2F%2Fepisode%2F6a5860d74ec32227cf90b41d');
     expect(operations.single.program?.guid, 'plex://episode/6a5860d74ec32227cf90b41d');
+  });
+
+  test('EPG expands airing-specific badges and preserves normalized episode titles', () async {
+    final client = makeClient(
+      (request) async => jsonResponse({
+        'MediaContainer': {
+          'Metadata': [
+            {
+              'title': 'The 100',
+              'grandparentTitle': 'Science',
+              'type': 'episode',
+              'parentIndex': 2,
+              'index': 4,
+              'premiere': true,
+              'Media': [
+                {'beginsAt': 1000, 'endsAt': 2800, 'channelIdentifier': '004', 'live': 1, 'new': 1},
+                {'beginsAt': 2800, 'endsAt': 4600, 'channelIdentifier': '004', 'live': 0, 'premiere': 0, 'repeat': 1},
+                {'beginsAt': 4600, 'endsAt': 6400, 'channelIdentifier': '004', 'live': 0, 'premiere': 1},
+              ],
+            },
+          ],
+        },
+      }),
+    );
+    addTearDown(client.close);
+    final programs = await client.liveTv.fetchSchedule();
+    expect(programs.map((p) => p.guideBadge), [GuideProgramBadge.live, null, GuideProgramBadge.newProgram]);
+    expect(programs.map((p) => p.guideTitle), everyElement('Science'));
+    expect(programs.map((p) => p.guideSubtitle), everyElement('The 100'));
+    expect(programs.map((p) => p.beginsAt), [1000, 2800, 4600]);
+    expect(programs.map((p) => p.durationMinutes), everyElement(30));
+    expect(programs.map((p) => p.providerIdentifier), everyElement('provider-a'));
   });
 
   test('EPG grid airings keep their subscription attributes', () async {
