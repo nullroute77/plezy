@@ -495,12 +495,12 @@ void main() {
       await tester.pumpAndSettle();
       final newCard = find.ancestor(of: find.text('New series'), matching: find.byType(InkWell)).first;
       expect(
-        find.descendant(of: newCard, matching: find.text(t.liveTv.newProgram)),
+        find.descendant(of: newCard, matching: find.text(t.liveTv.premiereBadge)),
         dialect == MediaBrowserDialect.jellyfin ? findsOneWidget : findsNothing,
       );
       final liveCard = find.ancestor(of: find.text('Live series'), matching: find.byType(InkWell)).first;
       expect(find.descendant(of: liveCard, matching: find.text(t.liveTv.live)), findsOneWidget);
-      expect(find.descendant(of: liveCard, matching: find.text(t.liveTv.newProgram)), findsNothing);
+      expect(find.descendant(of: liveCard, matching: find.text(t.liveTv.premiereBadge)), findsNothing);
       final unknownCard = find.ancestor(of: find.text('Unknown program'), matching: find.byType(InkWell)).first;
       expect(find.descendant(of: unknownCard, matching: find.byType(StatusPill)), findsNothing);
       await _focusGrid(tester);
@@ -659,7 +659,7 @@ void main() {
           expect(tester.takeException(), isNull);
           expect(_gridText(t.liveTv.live), findsOneWidget);
           final newCard = find.ancestor(of: find.text('New series'), matching: find.byType(InkWell)).first;
-          expect(find.descendant(of: newCard, matching: find.text(t.liveTv.newProgram)), findsOneWidget);
+          expect(find.descendant(of: newCard, matching: find.text(t.liveTv.premiereBadge)), findsOneWidget);
           final unfocusedPill = tester.widget<StatusPill>(
             find.descendant(of: newCard, matching: find.byType(StatusPill)),
           );
@@ -699,7 +699,7 @@ void main() {
           }
           expect(find.ancestor(of: find.text('New series'), matching: _focusedCellFinder(tester)), findsOneWidget);
           final focusedBadge = tester.widget<Text>(
-            find.descendant(of: newCard, matching: find.text(t.liveTv.newProgram)),
+            find.descendant(of: newCard, matching: find.text(t.liveTv.premiereBadge)),
           );
           final theme = Theme.of(tester.element(newCard));
           expect(focusedBadge.style?.color, theme.colorScheme.onPrimary);

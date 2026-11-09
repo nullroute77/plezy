@@ -18,6 +18,7 @@ import '../../widgets/focused_scroll_scaffold.dart';
 import '../../widgets/loading_indicator_box.dart';
 import '../../widgets/overlay_sheet.dart';
 import '../../widgets/settings_section.dart';
+import '../../widgets/status_pill.dart';
 import 'live_tv_actions_mixin.dart';
 import 'livetv_recording_actions.dart';
 import 'livetv_styles.dart';

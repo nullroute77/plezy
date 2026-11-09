@@ -24,7 +24,7 @@ class StatusPill extends StatelessWidget {
   factory StatusPill.newProgram({Key? key, required Color foregroundColor, required Color backgroundColor}) =>
       StatusPill.compact(
         key: key,
-        label: t.liveTv.newProgram,
+        label: t.liveTv.premiereBadge,
         color: Color.alphaBlend(foregroundColor.withValues(alpha: 0.2), backgroundColor),
         foregroundColor: foregroundColor.withValues(alpha: 1),
       );

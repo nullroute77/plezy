@@ -74,7 +74,7 @@ void main() {
           findsOneWidget,
         );
         expect(find.text(t.liveTv.live), findsNothing);
-        expect(find.text(t.liveTv.newProgram), findsNothing);
+        expect(find.text(t.liveTv.premiereBadge), findsNothing);
         expect(find.byType(StatusPill), findsNothing);
         expect(tester.takeException(), isNull);
       });
@@ -159,7 +159,7 @@ void main() {
       LiveTvProgram(title: 'Show', programTitle: 'Show', episodeTitle: 'Episode 2000: A New Beginning', isNew: true),
     );
     expect(find.text('Episode 2000: A New Beginning'), findsOneWidget);
-    expect(find.text(t.liveTv.newProgram), findsNothing);
+    expect(find.text(t.liveTv.premiereBadge), findsNothing);
     expect(tester.takeException(), isNull);
   });
 }

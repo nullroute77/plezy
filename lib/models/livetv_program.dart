@@ -104,11 +104,8 @@ class LiveTvProgram {
       return hasOverride ? (fromMedia ?? fromJson) : (fromJson ?? fromMedia);
     }
 
-    bool? pickBool(String key) {
-      final fromMedia = flexibleBoolNullable(media?[key]);
-      final fromJson = flexibleBoolNullable(json[key]);
-      return hasOverride ? (fromMedia ?? fromJson) : (fromJson ?? fromMedia);
-    }
+    // Broadcast flags describe the selected airing, including explicit false.
+    bool? pickBool(String key) => flexibleBoolNullable(media?[key]) ?? flexibleBoolNullable(json[key]);
 
     final seriesTitle = (json['grandparentTitle'] as String?)?.trim();
     final hasSeriesTitle = seriesTitle != null && seriesTitle.isNotEmpty;

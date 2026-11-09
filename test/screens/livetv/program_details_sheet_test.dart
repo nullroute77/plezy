@@ -47,7 +47,10 @@ void main() {
       await _open(tester, program);
       expect(find.text('Flavortown Food Fight'), findsOneWidget);
       expect(find.text('S1E9 Heat Day'), findsOneWidget);
-      expect(find.text(t.liveTv.newProgram), dialect == MediaBrowserDialect.jellyfin ? findsOneWidget : findsNothing);
+      expect(
+        find.text(t.liveTv.premiereBadge),
+        dialect == MediaBrowserDialect.jellyfin ? findsOneWidget : findsNothing,
+      );
       expect(
         tester.widget<CollapsibleText>(find.byType(CollapsibleText)).text,
         'The latest headlines and local weather.',
@@ -222,7 +225,7 @@ void main() {
     expect(_metadata(tester), isNot(contains(formatDurationTextual(30 * 60_000))));
     expect(find.text('S1E9 Heat Day'), findsOneWidget);
     expect(find.text(t.liveTv.live), findsOneWidget);
-    expect(find.text(t.liveTv.newProgram), findsNothing);
+    expect(find.text(t.liveTv.premiereBadge), findsNothing);
     final description = tester.widget<CollapsibleText>(find.byType(CollapsibleText));
     description.focusNode!.requestFocus();
     await tester.pump();

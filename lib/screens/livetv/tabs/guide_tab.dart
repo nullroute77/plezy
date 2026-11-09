@@ -2174,7 +2174,7 @@ class _GuideProgramText extends StatelessWidget {
     final theme = Theme.of(context);
     final badge = switch (program.guideBadge) {
       GuideProgramBadge.live => t.liveTv.live,
-      GuideProgramBadge.newProgram => t.liveTv.newProgram,
+      GuideProgramBadge.newProgram => t.liveTv.premiereBadge,
       null => null,
     };
     final subtitle = program.guideSubtitle;
