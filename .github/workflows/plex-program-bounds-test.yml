@@ -1,0 +1,133 @@
+name: Plex program bounds Windows test build
+run-name: Plex program bounds testing — ${{ github.sha }}
+
+on:
+  # A new workflow cannot be manually dispatched until registered on the
+  # default branch. Push starts this fork-only build without changing main.
+  push:
+    branches: [codex/plex-program-bounds-build]
+  workflow_dispatch:
+
+env:
+  TEST_BASE_COMMIT: 847842c3d075b56d686409850e12fa1cca0b19d9
+  TEST_SOURCE_COMMIT: a1f689c1891fb4761ba69e8b6afa3a936daa8761
+
+permissions:
+  contents: read
+
+concurrency:
+  group: plex-program-bounds-test-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  portable:
+    name: Windows x64 portable
+    if: github.repository == 'nullroute77/plezy' && github.ref == 'refs/heads/codex/plex-program-bounds-build'
+    runs-on: windows-latest
+    timeout-minutes: 90
+    defaults:
+      run:
+        shell: pwsh
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+
+      - name: Verify exact feature source
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD^)" = "$TEST_SOURCE_COMMIT"
+          git merge-base --is-ancestor "$TEST_BASE_COMMIT" "$TEST_SOURCE_COMMIT"
+          git diff --exit-code "$TEST_BASE_COMMIT" "$TEST_SOURCE_COMMIT" -- android ios macos linux windows packages mpv-build.lock.json pubspec.yaml pubspec.lock
+          git diff --exit-code "$TEST_SOURCE_COMMIT" HEAD -- . ':!.github/workflows/plex-program-bounds-test.yml'
+
+      # Reuse the repository's immutable Flutter pin, avoiding archive lookup.
+      - name: Set up pinned Flutter SDK
+        uses: ./.github/actions/setup-flutter-git
+
+      - name: Install dependencies
+        run: flutter pub get --enforce-lockfile --no-example
+
+      - name: Install patched Windows engine
+        run: |
+          flutter precache --windows
+          if ($LASTEXITCODE -ne 0) { throw "Flutter precache failed" }
+          .\windows\tool\install-patched-engine.ps1
+
+      - name: Build Windows x64 portable bundle
+        run: >-
+          flutter build windows --release
+          --dart-define=ENABLE_UPDATE_CHECK=false
+          --dart-define=ENABLE_SENTRY=false
+          --dart-define=GIT_COMMIT=${{ env.TEST_SOURCE_COMMIT }}
+
+      - name: Verify bundle and record build identity
+        env:
+          TEST_COMMIT: ${{ github.sha }}
+          TEST_REF: ${{ github.ref_name }}
+        run: |
+          $bundle = "build/windows/x64/runner/Release"
+          $required = @(
+            "plezy.exe", "flutter_windows.dll", "sqlite3.dll", "libmpv-2.dll",
+            "msvcp140.dll", "vcruntime140.dll", "vulkan-1.dll", "VulkanRT-License.txt",
+            "data/app.so", "data/icudtl.dat",
+            "data/flutter_assets/NativeAssetsManifest.json"
+          )
+          foreach ($file in $required) {
+            if (-not (Test-Path -LiteralPath (Join-Path $bundle $file) -PathType Leaf) -or (Get-Item -LiteralPath (Join-Path $bundle $file)).Length -eq 0) {
+              throw "Required portable file is missing: $file"
+            }
+          }
+          foreach ($file in @("plezy.lib", "plezy.exp", "simdutf.lib")) {
+            if (Test-Path -LiteralPath (Join-Path $bundle $file)) {
+              throw "Unexpected link by-product in portable bundle: $file"
+            }
+          }
+          if (Get-ChildItem -LiteralPath $bundle -Recurse -Filter '*.pdb') {
+            throw "Debug symbols must not ship in the portable bundle"
+          }
+          $sdkRoot = Split-Path -Parent (Split-Path -Parent (Get-Command flutter).Source)
+          $expectedEngine = Join-Path $sdkRoot "bin/cache/artifacts/engine/windows-x64-release/flutter_windows.dll"
+          if ((Get-FileHash $expectedEngine).Hash -ne (Get-FileHash (Join-Path $bundle "flutter_windows.dll")).Hash) {
+            throw "Packaged engine differs from the installed patched release engine"
+          }
+          python -c "import os,pathlib; assert os.environ['TEST_SOURCE_COMMIT'].encode() in pathlib.Path('build/windows/x64/runner/Release/data/app.so').read_bytes()"
+          if ($LASTEXITCODE -ne 0) { throw "Compiled Windows source identity mismatch" }
+          @(
+            "Plezy Windows x64 test build",
+            "Commit: $env:TEST_COMMIT",
+            "Branch: $env:TEST_REF",
+            "Source commit: a1f689c1891fb4761ba69e8b6afa3a936daa8761",
+            "Source branch: codex/plex-program-bounds",
+            "Extract the complete ZIP and run plezy.exe.",
+            "Automatic update checks and Sentry are disabled for this test build.",
+            "Tuned program boundary markers on the existing capture-buffer timeline. Real Plex playback validation pending."
+          ) | Set-Content -LiteralPath (Join-Path $bundle "TEST-BUILD.txt") -Encoding utf8
+
+      - name: Record runtime file checksums
+        run: |
+          $bundle = (Resolve-Path "build/windows/x64/runner/Release").Path
+          $files = Get-ChildItem -LiteralPath $bundle -File -Recurse | ForEach-Object {
+            [ordered]@{
+              path = $_.FullName.Substring($bundle.Length + 1).Replace('\', '/')
+              bytes = $_.Length
+              sha256 = (Get-FileHash -LiteralPath $_.FullName -Algorithm SHA256).Hash.ToLower()
+            }
+          }
+          [ordered]@{
+            source_commit = $env:TEST_SOURCE_COMMIT
+            build_commit = '${{ github.sha }}'
+            files = @($files)
+          } | ConvertTo-Json -Depth 5 | Set-Content -LiteralPath (Join-Path $bundle 'BUILD-MANIFEST.json') -Encoding utf8
+
+      # GitHub packages the complete folder as a downloadable ZIP artifact.
+      - name: Upload portable ZIP artifact
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: plezy-windows-x64-program-bounds-${{ github.sha }}
+          path: build/windows/x64/runner/Release/
+          if-no-files-found: error
+          retention-days: 14
+
