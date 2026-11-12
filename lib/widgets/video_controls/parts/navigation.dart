@@ -41,6 +41,7 @@ extension _PlexVideoControlsNavigationMethods on _PlexVideoControlsState {
         thumbnailDataBuilder: widget.thumbnailDataBuilder,
         liveChannelName: widget.liveChannelName,
         captureBuffer: widget.captureBuffer,
+        liveProgram: widget.liveProgram,
         isAtLiveEdge: widget.isAtLiveEdge,
         liveEpochForPosition: widget.liveEpochForPosition,
         onLiveSeek: _liveSeekAbandoningBurst(widget.onLiveSeek),

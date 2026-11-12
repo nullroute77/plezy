@@ -6,6 +6,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:intl/date_symbol_data_local.dart';
 import 'package:plezy/i18n/strings.g.dart';
 import 'package:plezy/models/livetv_capture_buffer.dart';
+import 'package:plezy/media/live_tv_support.dart';
 import 'package:plezy/utils/formatters.dart';
 import 'package:plezy/widgets/video_controls/widgets/live_timeline_bar.dart';
 
@@ -17,6 +18,116 @@ void main() {
   setUpAll(() async {
     LocaleSettings.setLocaleSync(AppLocale.en);
     await initializeDateFormatting('en');
+  });
+
+  group('LiveTimelineBar program boundaries', () {
+    testWidgets('draws both bounds at their buffer fractions in either layout', (tester) async {
+      for (final horizontalLayout in [true, false]) {
+        await _pumpTimeline(
+          tester,
+          seeks: [],
+          currentOffset: 60,
+          horizontalLayout: horizontalLayout,
+          programForStart: (start) => LiveProgramInfo(beginsAt: start + 30, durationMs: 60000),
+        );
+        _expectBoundaries(tester, [0.25, 0.75]);
+      }
+    });
+
+    testWidgets('omits each off-screen bound without clamping to the buffer edge', (tester) async {
+      for (final scenario in <({int start, int durationMs, List<double> fractions})>[
+        (start: 40, durationMs: 10800000, fractions: [1 / 3]),
+        (start: -30, durationMs: 120000, fractions: [0.75]),
+        (start: -180, durationMs: 60000, fractions: []),
+        (start: 180, durationMs: 60000, fractions: []),
+        (start: -30, durationMs: 180000, fractions: []),
+        (start: 0, durationMs: 120000, fractions: [0, 1]),
+        (start: 119, durationMs: 1500, fractions: [119 / 120]),
+      ]) {
+        await _pumpTimeline(
+          tester,
+          seeks: [],
+          currentOffset: 60,
+          programForStart: (start) =>
+              LiveProgramInfo(beginsAt: start + scenario.start, durationMs: scenario.durationMs),
+        );
+        _expectBoundaries(tester, scenario.fractions);
+      }
+    });
+
+    testWidgets('uses the seekable window when the capture buffer advances', (tester) async {
+      for (final startOffset in [30, 60]) {
+        await _pumpTimeline(
+          tester,
+          seeks: [],
+          currentOffset: 75,
+          rangeStartOffset: startOffset,
+          programForStart: (start) => LiveProgramInfo(beginsAt: start + 30, durationMs: 60000),
+        );
+        _expectBoundaries(tester, startOffset == 30 ? [0, 2 / 3] : [0.5]);
+      }
+    });
+
+    testWidgets('leaves the timeline unmarked for missing or invalid timing and empty buffers', (tester) async {
+      for (final program in [
+        LiveProgramInfo.none,
+        const LiveProgramInfo(durationMs: 60000),
+        const LiveProgramInfo(beginsAt: 0, durationMs: 60000),
+        const LiveProgramInfo(beginsAt: -1, durationMs: 60000),
+        const LiveProgramInfo(beginsAt: 1),
+        const LiveProgramInfo(beginsAt: 1, durationMs: 0),
+        const LiveProgramInfo(beginsAt: 1, durationMs: -1),
+      ]) {
+        await _pumpTimeline(tester, seeks: [], currentOffset: 60, programForStart: (_) => program);
+        _expectBoundaries(tester, []);
+      }
+      for (final durationMs in <int?>[null, 0, -1]) {
+        await _pumpTimeline(
+          tester,
+          seeks: [],
+          currentOffset: 60,
+          programForStart: (start) => LiveProgramInfo(beginsAt: start + 30, durationMs: durationMs),
+        );
+        _expectBoundaries(tester, []);
+      }
+      await _pumpTimeline(
+        tester,
+        seeks: [],
+        currentOffset: 0,
+        rangeEndOffset: 0,
+        programForStart: (start) => LiveProgramInfo(beginsAt: start, durationMs: 60000),
+      );
+      _expectBoundaries(tester, []);
+    });
+
+    testWidgets('replaces and clears markers when the tuned channel metadata changes', (tester) async {
+      await _pumpTimeline(
+        tester,
+        seeks: [],
+        currentOffset: 60,
+        programForStart: (start) => LiveProgramInfo(id: 'channel-a', beginsAt: start + 30, durationMs: 60000),
+      );
+      final originalState = tester.state(find.byType(LiveTimelineBar));
+      var painter = tester.widget<CustomPaint>(_timelinePaint).painter!;
+      _expectBoundaries(tester, [0.25, 0.75]);
+
+      await _pumpTimeline(
+        tester,
+        seeks: [],
+        currentOffset: 60,
+        programForStart: (start) => LiveProgramInfo(id: 'channel-b', beginsAt: start + 60, durationMs: 120000),
+      );
+      expect(tester.state(find.byType(LiveTimelineBar)), same(originalState));
+      var nextPainter = tester.widget<CustomPaint>(_timelinePaint).painter!;
+      expect(nextPainter.shouldRepaint(painter), isTrue);
+      _expectBoundaries(tester, [0.5]);
+      painter = nextPainter;
+
+      await _pumpTimeline(tester, seeks: [], currentOffset: 60);
+      nextPainter = tester.widget<CustomPaint>(_timelinePaint).painter!;
+      expect(nextPainter.shouldRepaint(painter), isTrue);
+      _expectBoundaries(tester, []);
+    });
   });
 
   group('LiveTimelineBar semantics', () {
@@ -175,6 +286,7 @@ void main() {
       seeks: seeks,
       currentOffset: 60,
       focusNode: focusNode,
+      programForStart: (start) => LiveProgramInfo(beginsAt: start + 30, durationMs: 60000),
       onKeyEvent: (_, event) {
         if (event is KeyDownEvent && event.logicalKey == LogicalKeyboardKey.arrowRight) {
           keyEvents++;
@@ -211,6 +323,8 @@ Future<({int startEpoch, FakeSyncPlayer player})> _pumpTimeline(
   required List<int> seeks,
   required int currentOffset,
   int rangeEndOffset = 120,
+  int rangeStartOffset = 0,
+  LiveProgramInfo Function(int startEpoch)? programForStart,
   bool isAtLiveEdge = false,
   bool enabled = true,
   bool provideSeekCallback = true,
@@ -235,9 +349,10 @@ Future<({int startEpoch, FakeSyncPlayer player})> _pumpTimeline(
                 width: 400,
                 child: LiveTimelineBar(
                   player: player,
+                  program: programForStart?.call(startEpoch) ?? LiveProgramInfo.none,
                   captureBuffer: CaptureBuffer(
                     startedAt: startEpoch.toDouble(),
-                    seekStartSeconds: 0,
+                    seekStartSeconds: rangeStartOffset.toDouble(),
                     seekEndSeconds: rangeEndOffset.toDouble(),
                   ),
                   epochForPosition: (position) =>
@@ -258,4 +373,22 @@ Future<({int startEpoch, FakeSyncPlayer player})> _pumpTimeline(
   );
 
   return (startEpoch: startEpoch, player: player);
+}
+
+Finder get _timelinePaint => find.descendant(of: find.byType(LiveTimelineBar), matching: find.byType(CustomPaint));
+
+void _expectBoundaries(WidgetTester tester, List<double> fractions) {
+  final size = tester.getSize(_timelinePaint);
+  final painter = tester.widget<CustomPaint>(_timelinePaint).painter!;
+  void paint(Canvas canvas) => painter.paint(canvas, size);
+  expect(paint, paintsExactlyCountTimes(#drawRect, fractions.length));
+  if (fractions.isEmpty) return;
+  final matcher = paints;
+  for (final fraction in fractions) {
+    matcher.rect(
+      rect: Rect.fromCenter(center: Offset(size.width * fraction, size.height / 2), width: 2, height: 12),
+      color: Colors.white70,
+    );
+  }
+  expect(paint, matcher);
 }

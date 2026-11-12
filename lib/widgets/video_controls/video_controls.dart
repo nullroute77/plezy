@@ -38,6 +38,7 @@ import '../../media/media_backend.dart';
 import '../../media/media_item.dart';
 import '../../media/stepped_seek.dart';
 import '../../models/livetv_capture_buffer.dart';
+import '../../media/live_tv_support.dart';
 import '../../providers/multi_server_provider.dart';
 import '../../media/media_source_info.dart';
 import '../../models/transcode_quality_preset.dart';
@@ -657,6 +658,7 @@ class PlexVideoControls extends StatefulWidget {
 
   /// Capture buffer for live TV time-shift (null = no time-shift support)
   final CaptureBuffer? captureBuffer;
+  final LiveProgramInfo liveProgram;
 
   /// Whether playback is at the live edge
   final bool isAtLiveEdge;
@@ -752,6 +754,7 @@ class PlexVideoControls extends StatefulWidget {
     this.isLive = false,
     this.liveChannelName,
     this.captureBuffer,
+    this.liveProgram = LiveProgramInfo.none,
     this.isAtLiveEdge = true,
     this.liveEpochForPosition,
     this.onLiveSeek,
@@ -1355,6 +1358,7 @@ class _PlexVideoControlsState extends State<PlexVideoControls>
                                                       isLive: widget.isLive,
                                                       liveChannelName: widget.liveChannelName,
                                                       captureBuffer: widget.captureBuffer,
+                                                      liveProgram: widget.liveProgram,
                                                       isAtLiveEdge: widget.isAtLiveEdge,
                                                       liveEpochForPosition: widget.liveEpochForPosition,
                                                       onLiveSeek: _liveSeekAbandoningBurst(widget.onLiveSeek),
