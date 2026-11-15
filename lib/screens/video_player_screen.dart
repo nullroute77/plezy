@@ -90,6 +90,7 @@ import '../utils/iphone_duo.dart';
 import '../utils/log_redaction_manager.dart';
 import '../utils/immersive_mode_guard.dart';
 import '../utils/live_tv_player_navigation.dart';
+import '../utils/live_tv_matching.dart';
 import '../utils/player_utils.dart';
 import '../utils/orientation_helper.dart';
 import '../utils/platform_detector.dart';

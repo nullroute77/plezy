@@ -1,8 +1,10 @@
+import 'dart:async';
 import 'package:fake_async/fake_async.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:plezy/media/live_tv_support.dart';
 import 'package:plezy/media/media_source_info.dart';
 import 'package:plezy/models/livetv_capture_buffer.dart';
+import 'package:plezy/models/livetv_program.dart';
 import 'package:plezy/mpv/player/player_streams.dart';
 import 'package:plezy/screens/video_player/live_tv_session_state.dart';
 import 'package:plezy/services/live_seek_accumulator.dart';
@@ -11,6 +13,66 @@ MediaSubtitleTrack _track({required int id, int? index, String? languageCode}) =
     MediaSubtitleTrack(id: id, index: index, languageCode: languageCode, selected: false, forced: false);
 
 void main() {
+  group('current program presentation', () {
+    test('looks up one airing and refreshes at its end, independently of rewinding', () async {
+      final state = LiveTvSessionState(null)..adoptSession(_FakeSession());
+      var calls = 0;
+      Future<LiveTvProgram?> fetch() async {
+        calls++;
+        return calls == 1
+            ? LiveTvProgram(title: 'Current', beginsAt: 100, endsAt: 110)
+            : LiveTvProgram(title: 'Next', beginsAt: 110, endsAt: 140);
+      }
+
+      expect(await state.refreshCurrentProgram(105, fetch), isTrue);
+      state.streamStartEpoch = 10; // Rewinding does not choose a previous program.
+      expect(await state.refreshCurrentProgram(109, fetch), isFalse);
+      expect(calls, 1);
+      expect(state.currentProgram!.title, 'Current');
+      expect(await state.refreshCurrentProgram(110, fetch), isTrue);
+      expect(calls, 2, reason: 'a short program rolls over even before the failure retry interval');
+      expect(state.currentProgram!.title, 'Next');
+    });
+
+    test('missing guide data backs off and expired titles are cleared', () async {
+      final state = LiveTvSessionState(null)..adoptSession(_FakeSession());
+      state.currentProgram = LiveTvProgram(title: 'Expired', beginsAt: 100, endsAt: 110);
+      var calls = 0;
+      Future<LiveTvProgram?> fetch() async {
+        calls++;
+        return null;
+      }
+
+      expect(await state.refreshCurrentProgram(110, fetch), isTrue);
+      expect(state.currentProgram, isNull);
+      await state.refreshCurrentProgram(169, fetch);
+      expect(calls, 1);
+      await state.refreshCurrentProgram(170, fetch);
+      expect(calls, 2);
+    });
+
+    test('a pending guide request cannot adopt the previous channel after a zap', () async {
+      final state = LiveTvSessionState(null)..adoptSession(_FakeSession());
+      final response = Completer<LiveTvProgram?>();
+      var duplicate = false;
+      final pending = state.refreshCurrentProgram(105, () => response.future);
+      await state.refreshCurrentProgram(105, () async {
+        duplicate = true;
+        return null;
+      });
+      state.adoptSession(_FakeSession());
+      response.complete(LiveTvProgram(title: 'Old channel', beginsAt: 100, endsAt: 200));
+      expect(await pending, isFalse);
+      expect(duplicate, isFalse);
+      expect(state.currentProgram, isNull);
+      await state.refreshCurrentProgram(
+        105,
+        () async => LiveTvProgram(title: 'New channel', beginsAt: 100, endsAt: 200),
+      );
+      expect(state.currentProgram!.title, 'New channel');
+    });
+  });
+
   group('LiveTvSessionState replacement failure deferral', () {
     test('a failure of the stream being replaced is not deferred', () {
       final state = LiveTvSessionState(null);

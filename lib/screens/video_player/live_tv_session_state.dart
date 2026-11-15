@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import '../../media/live_tv_support.dart';
+import '../../models/livetv_program.dart';
 import '../../media/media_source_info.dart';
 import '../../models/livetv_capture_buffer.dart';
 import '../../mpv/player/player_streams.dart';
@@ -48,6 +49,33 @@ class LiveTvSessionState {
   /// Backend-neutral protocol handle for the playing channel. Null until
   /// the first `startPlayback` lands.
   LiveTvPlaybackSession? session;
+
+  /// Only the currently airing guide entry; never selected from playback time.
+  LiveTvProgram? currentProgram;
+  bool _refreshingProgram = false;
+  int _retryProgramAt = 0;
+
+  /// [fetch] supplies the airing current when its request completes.
+  Future<bool> refreshCurrentProgram(int nowEpoch, Future<LiveTvProgram?> Function() fetch) async {
+    final owner = session;
+    if (owner == null || _refreshingProgram) return false;
+    final current = currentProgram;
+    if (current?.durationMs != null && current!.beginsAt! <= nowEpoch && nowEpoch < current.endsAt!) return false;
+    if (current == null && nowEpoch < _retryProgramAt) return false;
+    _refreshingProgram = true;
+    _retryProgramAt = nowEpoch + 60; // Back off only when guide data is missing.
+    currentProgram = null;
+    try {
+      final next = await fetch();
+      if (!identical(owner, session)) return false;
+      if (next?.durationMs != null) currentProgram = next;
+      return current != null || currentProgram != null;
+    } catch (_) {
+      return identical(owner, session) && current != null;
+    } finally {
+      _refreshingProgram = false;
+    }
+  }
 
   Timer? timelineTimer;
   int timelineGeneration = 0;
@@ -305,6 +333,8 @@ class LiveTvSessionState {
   void adoptSession(LiveTvPlaybackSession newSession) {
     if (!identical(session, newSession)) timelineReports = LiveTimelineReportQueue();
     session = newSession;
+    currentProgram = null;
+    _retryProgramAt = 0;
     captureBuffer = newSession.captureBuffer;
     selectedSubtitle = null;
   }

@@ -162,6 +162,10 @@ class LiveTvProgram {
 
   DateTime? get endTime => endsAt != null ? DateTime.fromMillisecondsSinceEpoch(endsAt! * 1000) : null;
 
+  /// Scheduled duration; absent when guide timing is missing or invalid.
+  int? get durationMs =>
+      beginsAt != null && endsAt != null && endsAt! > beginsAt! ? (endsAt! - beginsAt!) * 1000 : null;
+
   int get durationMinutes {
     if (beginsAt == null || endsAt == null) return 0;
     return ((endsAt! - beginsAt!) / 60).round();

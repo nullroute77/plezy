@@ -1,8 +1,11 @@
+import 'dart:math' as math;
+
 import 'package:flutter/gestures.dart' show DragStartBehavior;
 import 'package:flutter/material.dart';
 
 import '../../../i18n/strings.g.dart';
 import '../../../models/livetv_capture_buffer.dart';
+import '../../../models/livetv_program.dart';
 import '../../../mpv/mpv.dart';
 import '../../../focus/card_focus_scope.dart';
 import '../../../focus/focusable_wrapper.dart';
@@ -16,10 +19,12 @@ import 'player_focus_disc.dart';
 ///
 /// Listens to player position while delegating the player-clock-to-epoch
 /// mapping to [epochForPosition], the same mapping used by seek commands and
-/// timeline heartbeats. The slider range covers the capture buffer.
+/// timeline heartbeats. A current program supplies the displayed range;
+/// pointer seeks remain limited to its intersection with the capture buffer.
 class LiveTimelineBar extends StatefulWidget {
   final Player player;
   final CaptureBuffer captureBuffer;
+  final LiveTvProgram? program;
   final int Function(Duration position) epochForPosition;
   final bool isAtLiveEdge;
   final ValueChanged<int>? onSeekEnd;
@@ -33,6 +38,7 @@ class LiveTimelineBar extends StatefulWidget {
     super.key,
     required this.player,
     required this.captureBuffer,
+    this.program,
     required this.epochForPosition,
     this.isAtLiveEdge = true,
     this.onSeekEnd,
@@ -50,6 +56,7 @@ class LiveTimelineBar extends StatefulWidget {
 class _LiveTimelineBarState extends State<LiveTimelineBar> {
   bool _isDragging = false;
   int _dragPositionEpoch = 0;
+  int? _hoverEpoch;
 
   /// Position emits ~4x/sec but everything rendered is whole seconds, so
   /// rebuild only when the second changes (see ContentStrip's chapter index
@@ -66,38 +73,47 @@ class _LiveTimelineBarState extends State<LiveTimelineBar> {
   void didUpdateWidget(LiveTimelineBar oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (!identical(oldWidget.player, widget.player)) _bindPositionStream();
+    if (oldWidget.program?.beginsAt != widget.program?.beginsAt ||
+        oldWidget.program?.endsAt != widget.program?.endsAt ||
+        oldWidget.player != widget.player) {
+      _isDragging = false;
+      _hoverEpoch = null;
+    }
   }
 
   void _bindPositionStream() {
     _positionSecondsStream = widget.player.streams.position.map((position) => position.inSeconds).distinct();
   }
 
-  int get _rangeStart => widget.captureBuffer.seekableStartEpoch;
-  int get _rangeEnd => widget.captureBuffer.seekableEndEpoch;
+  bool get _hasProgram => widget.program?.durationMs != null;
+  int get _rangeStart => _hasProgram ? widget.program!.beginsAt! : widget.captureBuffer.seekableStartEpoch;
+  int get _rangeEnd => _hasProgram ? widget.program!.endsAt! : widget.captureBuffer.seekableEndEpoch;
+  int get _seekStart => math.max(_rangeStart, widget.captureBuffer.seekableStartEpoch);
+  int get _seekEnd => math.min(_rangeEnd, widget.captureBuffer.seekableEndEpoch);
 
   int _currentEpoch(int positionSeconds) => widget.epochForPosition(Duration(seconds: positionSeconds));
 
   int _displayPosition(int positionSeconds) => _isDragging ? _dragPositionEpoch : _currentEpoch(positionSeconds);
 
-  String _formatEpochTime(BuildContext context, int epochSeconds) {
+  String _formatEpochTime(BuildContext context, int epochSeconds, {bool includeSeconds = false}) {
     final dt = DateTime.fromMillisecondsSinceEpoch(epochSeconds * 1000);
-    return formatClockTime(dt, is24Hour: MediaQuery.alwaysUse24HourFormatOf(context));
+    return formatClockTime(dt, is24Hour: MediaQuery.alwaysUse24HourFormatOf(context), includeSeconds: includeSeconds);
   }
 
-  bool get _hasSeekableRange => _rangeEnd > _rangeStart;
+  bool get _hasSeekableRange => _seekEnd > _seekStart;
 
   int _normalizedEpoch(int epoch) {
     if (!_hasSeekableRange) return _rangeStart;
-    return epoch.clamp(_rangeStart, _rangeEnd);
+    return epoch.clamp(_seekStart, _seekEnd);
   }
 
   int _semanticTarget(int displayPos, int deltaSeconds) {
     final current = _normalizedEpoch(displayPos);
-    return (current + deltaSeconds).clamp(_rangeStart, _rangeEnd);
+    return (current + deltaSeconds).clamp(_seekStart, _seekEnd);
   }
 
   String _semanticEpochValue(int epoch, {bool isCurrent = false}) {
-    if ((isCurrent && widget.isAtLiveEdge) || (_hasSeekableRange && epoch >= _rangeEnd)) {
+    if ((isCurrent && widget.isAtLiveEdge) || (_hasSeekableRange && epoch >= widget.captureBuffer.seekableEndEpoch)) {
       return t.liveTv.live;
     }
     return _formatEpochTime(context, epoch);
@@ -144,35 +160,41 @@ class _LiveTimelineBarState extends State<LiveTimelineBar> {
       children: [
         ExcludeSemantics(
           child: Text(
-            _formatEpochTime(context, displayPos),
+            _formatEpochTime(context, _hasProgram ? _rangeStart : displayPos),
             style: const TextStyle(color: Colors.white70, fontSize: 13, fontFeatures: [FontFeature.tabularFigures()]),
           ),
         ),
         const SizedBox(width: 8),
         Expanded(child: _buildSlider(displayPos)),
+        if (_hasProgram) ...[
+          const SizedBox(width: 8),
+          ExcludeSemantics(
+            child: Text(
+              _formatEpochTime(context, _rangeEnd),
+              style: const TextStyle(color: Colors.white70, fontSize: 13, fontFeatures: [FontFeature.tabularFigures()]),
+            ),
+          ),
+        ],
       ],
     );
   }
 
   Widget _buildVerticalLayout(int displayPos) {
+    const style = TextStyle(color: Colors.white70, fontSize: 12, fontFeatures: [FontFeature.tabularFigures()]);
     return Padding(
       padding: const EdgeInsets.all(16),
       child: Column(
         children: [
           _buildSlider(displayPos),
           const SizedBox(height: 4),
-          Align(
-            alignment: .centerLeft,
-            child: ExcludeSemantics(
-              child: Text(
-                _formatEpochTime(context, displayPos),
-                style: const TextStyle(
-                  color: Colors.white70,
-                  fontSize: 12,
-                  fontFeatures: [FontFeature.tabularFigures()],
-                ),
+          Row(
+            mainAxisAlignment: .spaceBetween,
+            children: [
+              ExcludeSemantics(
+                child: Text(_formatEpochTime(context, _hasProgram ? _rangeStart : displayPos), style: style),
               ),
-            ),
+              if (_hasProgram) ExcludeSemantics(child: Text(_formatEpochTime(context, _rangeEnd), style: style)),
+            ],
           ),
         ],
       ),
@@ -183,8 +205,8 @@ class _LiveTimelineBarState extends State<LiveTimelineBar> {
     final positionFraction = _epochToFraction(displayPos);
     final normalizedDisplayPos = _normalizedEpoch(displayPos);
     final semanticsEnabled = widget.enabled && widget.onSeekEnd != null && _hasSeekableRange;
-    final canIncrease = semanticsEnabled && normalizedDisplayPos < _rangeEnd;
-    final canDecrease = semanticsEnabled && normalizedDisplayPos > _rangeStart;
+    final canIncrease = semanticsEnabled && normalizedDisplayPos < _seekEnd;
+    final canDecrease = semanticsEnabled && normalizedDisplayPos > _seekStart;
 
     return FocusableWrapper(
       focusNode: widget.focusNode,
@@ -196,8 +218,8 @@ class _LiveTimelineBarState extends State<LiveTimelineBar> {
       disableScale: true,
       child: Builder(
         builder: (context) {
-          return ClickableCursor(
-            enabled: widget.enabled,
+          final slider = ClickableCursor(
+            enabled: semanticsEnabled,
             // Eager claim: a touch that lands on the scrubber belongs to it
             // from pointer-down, so ancestor recognizers can't steal the drag
             // (#1302). A plain tap is onStart+onEnd, which seeks to the
@@ -214,7 +236,7 @@ class _LiveTimelineBarState extends State<LiveTimelineBar> {
               child: RawGestureDetector(
                 behavior: HitTestBehavior.opaque,
                 excludeFromSemantics: true,
-                gestures: widget.enabled
+                gestures: semanticsEnabled
                     ? <Type, GestureRecognizerFactory>{
                         EagerHorizontalDragGestureRecognizer:
                             GestureRecognizerFactoryWithHandlers<EagerHorizontalDragGestureRecognizer>(
@@ -237,12 +259,28 @@ class _LiveTimelineBarState extends State<LiveTimelineBar> {
                     child: CustomPaint(
                       painter: _LiveTimelinePainter(
                         positionFraction: positionFraction,
+                        bufferStartFraction: _hasProgram ? _epochToFraction(_seekStart) : null,
+                        bufferEndFraction: _hasProgram ? _epochToFraction(_seekEnd) : null,
                         showFocusKnob: CardFocusScope.maybeOf(context) ?? false,
                       ),
                     ),
                   ),
                 ),
               ),
+            ),
+          );
+          return MouseRegion(
+            onHover: (event) {
+              final width = renderBoxSizeOf(context).width;
+              if (width <= 0) return;
+              final epoch = _fractionToEpoch((event.localPosition.dx / width).clamp(0.0, 1.0));
+              if (_hoverEpoch != epoch) setState(() => _hoverEpoch = epoch);
+            },
+            onExit: (_) => setState(() => _hoverEpoch = null),
+            child: Tooltip(
+              message: _formatEpochTime(context, _hoverEpoch ?? displayPos, includeSeconds: true),
+              excludeFromSemantics: true,
+              child: slider,
             ),
           );
         },
@@ -267,26 +305,33 @@ class _LiveTimelineBarState extends State<LiveTimelineBar> {
     if (width <= 0) return;
     final fraction = (dx / width).clamp(0.0, 1.0);
     setState(() {
-      _dragPositionEpoch = _fractionToEpoch(fraction);
+      _dragPositionEpoch = _normalizedEpoch(_fractionToEpoch(fraction));
     });
   }
 
   /// Shared by onEnd and onCancel so an interrupted drag still finalizes.
   void _onDragEnd() {
     if (!_isDragging) return;
-    final target = _dragPositionEpoch;
+    final target = _normalizedEpoch(_dragPositionEpoch);
     setState(() => _isDragging = false);
-    widget.onSeekEnd?.call(target);
+    if (widget.enabled && _hasSeekableRange) widget.onSeekEnd?.call(target);
   }
 }
 
 class _LiveTimelinePainter extends CustomPainter {
   final double positionFraction;
+  final double? bufferStartFraction;
+  final double? bufferEndFraction;
 
   /// D-pad focus: draw the shared focus knob instead of the handle (#2383).
   final bool showFocusKnob;
 
-  _LiveTimelinePainter({required this.positionFraction, required this.showFocusKnob});
+  _LiveTimelinePainter({
+    required this.positionFraction,
+    required this.showFocusKnob,
+    this.bufferStartFraction,
+    this.bufferEndFraction,
+  });
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -304,10 +349,22 @@ class _LiveTimelinePainter extends CustomPainter {
       Paint()..color = Colors.white.withValues(alpha: 0.15),
     );
 
-    if (posX > 0) {
+    final bufferLeft = (bufferStartFraction ?? 0) * w;
+    final bufferRight = (bufferEndFraction ?? 1) * w;
+    if (bufferStartFraction != null && bufferRight > bufferLeft) {
       canvas.drawRRect(
         RRect.fromRectAndRadius(
-          Rect.fromLTRB(0, trackY - trackHeight / 2, posX, trackY + trackHeight / 2),
+          Rect.fromLTRB(bufferLeft, trackY - trackHeight / 2, bufferRight, trackY + trackHeight / 2),
+          trackRadius,
+        ),
+        Paint()..color = Colors.white.withValues(alpha: 0.5),
+      );
+    }
+    final progressRight = math.min(posX, bufferRight);
+    if (progressRight > bufferLeft) {
+      canvas.drawRRect(
+        RRect.fromRectAndRadius(
+          Rect.fromLTRB(bufferLeft, trackY - trackHeight / 2, progressRight, trackY + trackHeight / 2),
           trackRadius,
         ),
         Paint()..color = Colors.red,
@@ -333,5 +390,8 @@ class _LiveTimelinePainter extends CustomPainter {
 
   @override
   bool shouldRepaint(covariant _LiveTimelinePainter oldDelegate) =>
-      positionFraction != oldDelegate.positionFraction || showFocusKnob != oldDelegate.showFocusKnob;
+      positionFraction != oldDelegate.positionFraction ||
+      showFocusKnob != oldDelegate.showFocusKnob ||
+      bufferStartFraction != oldDelegate.bufferStartFraction ||
+      bufferEndFraction != oldDelegate.bufferEndFraction;
 }

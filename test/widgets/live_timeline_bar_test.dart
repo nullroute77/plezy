@@ -1,4 +1,5 @@
 import 'dart:ui' show SemanticsAction, Tristate;
+import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -6,6 +7,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:intl/date_symbol_data_local.dart';
 import 'package:plezy/i18n/strings.g.dart';
 import 'package:plezy/models/livetv_capture_buffer.dart';
+import 'package:plezy/models/livetv_program.dart';
 import 'package:plezy/utils/formatters.dart';
 import 'package:plezy/widgets/video_controls/widgets/live_timeline_bar.dart';
 
@@ -165,6 +167,120 @@ void main() {
     semantics.dispose();
   });
 
+  testWidgets('program scale shows scheduled bounds and seeks only within retained content', (tester) async {
+    final seeks = <int>[];
+    final start = DateTime(2026, 1, 1, 12).millisecondsSinceEpoch ~/ 1000;
+    final harness = await _pumpTimeline(
+      tester,
+      seeks: seeks,
+      currentOffset: 60,
+      rangeStartOffset: 30,
+      program: LiveTvProgram(title: 'News', beginsAt: start - 60, endsAt: start + 240),
+    );
+    expect(find.text(_clock(start - 60)), findsOneWidget);
+    expect(find.text(_clock(start + 240)), findsOneWidget);
+    final paint = find.descendant(of: find.byType(LiveTimelineBar), matching: find.byType(CustomPaint));
+    final left = tester.getTopLeft(paint);
+    final size = tester.getSize(paint);
+    for (final (fraction, target) in [(0.0, 30), (0.5, 90), (0.99, 120)]) {
+      await tester.tapAt(Offset(left.dx + size.width * fraction, left.dy + size.height / 2));
+      await tester.pump();
+      expect(seeks.last, start + target);
+    }
+    expect(
+      harness.player.currentPosition,
+      const Duration(seconds: 60),
+      reason: 'presentation never seeks the player directly',
+    );
+
+    final painter = tester.widget<CustomPaint>(paint).painter!;
+    await tester.runAsync(() async {
+      final recorder = ui.PictureRecorder();
+      painter.paint(Canvas(recorder), const Size(300, 24));
+      final picture = recorder.endRecording();
+      final image = await picture.toImage(300, 24);
+      final bytes = (await image.toByteData(format: ui.ImageByteFormat.rawRgba))!;
+      Color pixel(int x) {
+        final i = (12 * 300 + x) * 4;
+        return Color.fromARGB(bytes.getUint8(i + 3), bytes.getUint8(i), bytes.getUint8(i + 1), bytes.getUint8(i + 2));
+      }
+
+      expect(pixel(100).toARGB32(), Colors.red.toARGB32(), reason: 'retained history behind the playhead');
+      expect(pixel(150).r, pixel(150).g, reason: 'retained content ahead stays gray');
+      expect(pixel(150).g, pixel(150).b);
+      expect(pixel(150).a, greaterThan(pixel(30).a), reason: 'unavailable program time stays unfilled');
+      expect(pixel(250), pixel(30));
+      image.dispose();
+      picture.dispose();
+    });
+  });
+
+  testWidgets('out-of-program playback stays at the left and a program rollover cancels an old scrub', (tester) async {
+    final seeks = <int>[];
+    final start = DateTime(2026, 1, 1, 12).millisecondsSinceEpoch ~/ 1000;
+    final harness = await _pumpTimeline(
+      tester,
+      seeks: seeks,
+      currentOffset: 0,
+      program: LiveTvProgram(title: 'Current', beginsAt: start + 30, endsAt: start + 300),
+    );
+    final paint = find.descendant(of: find.byType(LiveTimelineBar), matching: find.byType(CustomPaint));
+    final painter = tester.widget<CustomPaint>(paint).painter!;
+    // Reuse the actual painter's geometry rather than replacing playback timing.
+    expect((painter as dynamic).positionFraction, 0);
+    final gesture = await tester.startGesture(tester.getCenter(paint));
+    await tester.pump();
+    await _pumpTimeline(
+      tester,
+      seeks: seeks,
+      currentOffset: 0,
+      existingPlayer: harness.player,
+      program: LiveTvProgram(title: 'Next', beginsAt: start + 300, endsAt: start + 600),
+    );
+    await gesture.up();
+    await tester.pump();
+    expect(seeks, isEmpty);
+    expect(find.text(_clock(start + 300)), findsOneWidget);
+    expect(find.text(_clock(start + 600)), findsOneWidget);
+  });
+
+  testWidgets('missing or invalid program timing keeps the upstream buffer timeline', (tester) async {
+    for (final program in [
+      LiveTvProgram(title: 'Unknown'),
+      LiveTvProgram(title: 'Invalid', beginsAt: 20, endsAt: 10),
+    ]) {
+      final seeks = <int>[];
+      final harness = await _pumpTimeline(tester, seeks: seeks, currentOffset: 60, program: program);
+      expect(find.text(_clock(harness.startEpoch + 60)), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    }
+  });
+
+  for (final is24Hour in [true, false]) {
+    testWidgets('hover reports seconds with is24Hour=$is24Hour', (tester) async {
+      final seeks = <int>[];
+      final harness = await _pumpTimeline(tester, seeks: seeks, currentOffset: 60, is24Hour: is24Hour);
+      final paint = find.descendant(of: find.byType(LiveTimelineBar), matching: find.byType(CustomPaint));
+      final mouse = await tester.createGesture(kind: ui.PointerDeviceKind.mouse);
+      await mouse.addPointer();
+      addTearDown(mouse.removePointer);
+      await mouse.moveTo(tester.getTopLeft(paint) + Offset(tester.getSize(paint).width * 0.375, 12));
+      await tester.pump();
+      final tooltip = tester.widget<Tooltip>(
+        find.descendant(of: find.byType(LiveTimelineBar), matching: find.byType(Tooltip)),
+      );
+      expect(
+        tooltip.message,
+        formatClockTime(
+          DateTime.fromMillisecondsSinceEpoch((harness.startEpoch + 45) * 1000),
+          is24Hour: is24Hour,
+          includeSeconds: true,
+        ),
+      );
+      expect(seeks, isEmpty);
+    });
+  }
+
   testWidgets('pointer seek and desktop key routing remain intact', (tester) async {
     final seeks = <int>[];
     final focusNode = FocusNode();
@@ -211,6 +327,10 @@ Future<({int startEpoch, FakeSyncPlayer player})> _pumpTimeline(
   required List<int> seeks,
   required int currentOffset,
   int rangeEndOffset = 120,
+  int rangeStartOffset = 0,
+  LiveTvProgram? program,
+  FakeSyncPlayer? existingPlayer,
+  bool is24Hour = true,
   bool isAtLiveEdge = false,
   bool enabled = true,
   bool provideSeekCallback = true,
@@ -220,14 +340,14 @@ Future<({int startEpoch, FakeSyncPlayer player})> _pumpTimeline(
   int Function(int startEpoch, Duration position)? epochForPosition,
 }) async {
   final startEpoch = DateTime(2026, 1, 1, 12).millisecondsSinceEpoch ~/ 1000;
-  final player = FakeSyncPlayer(position: Duration(seconds: currentOffset));
-  addTearDown(player.dispose);
+  final player = existingPlayer ?? FakeSyncPlayer(position: Duration(seconds: currentOffset));
+  if (existingPlayer == null) addTearDown(player.dispose);
 
   await tester.pumpWidget(
     TranslationProvider(
       child: MaterialApp(
         home: MediaQuery(
-          data: const MediaQueryData(alwaysUse24HourFormat: true),
+          data: MediaQueryData(alwaysUse24HourFormat: is24Hour),
           child: Scaffold(
             backgroundColor: Colors.black,
             body: Center(
@@ -235,9 +355,10 @@ Future<({int startEpoch, FakeSyncPlayer player})> _pumpTimeline(
                 width: 400,
                 child: LiveTimelineBar(
                   player: player,
+                  program: program,
                   captureBuffer: CaptureBuffer(
                     startedAt: startEpoch.toDouble(),
-                    seekStartSeconds: 0,
+                    seekStartSeconds: rangeStartOffset.toDouble(),
                     seekEndSeconds: rangeEndOffset.toDouble(),
                   ),
                   epochForPosition: (position) =>
