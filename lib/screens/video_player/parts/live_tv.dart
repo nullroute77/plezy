@@ -108,6 +108,7 @@ extension _VideoPlayerLiveTvMethods on VideoPlayerScreenState {
     if (_shuttingDown && state != 'stopped') return;
     final requestSession = _live.session;
     if (requestSession == null) return;
+    if (state != 'stopped') unawaited(_refreshCurrentLiveProgram());
     final requestGeneration = _live.timelineGeneration;
     final requestStreamGeneration = _live.streamGeneration;
     // For live TV, player position/duration are unreliable (often 0). Use
@@ -157,6 +158,36 @@ extension _VideoPlayerLiveTvMethods on VideoPlayerScreenState {
     } catch (e) {
       appLogger.d('Live timeline update failed', error: e);
     }
+  }
+
+  Future<void> _refreshCurrentLiveProgram() async {
+    final args = widget.live;
+    if (args == null || !mounted || _shuttingDown) return;
+    final channels = args.channels;
+    final channel = channels != null && _live.channelIndex >= 0 && _live.channelIndex < channels.length
+        ? channels[_live.channelIndex]
+        : args.channel;
+    final servers = context.read<MultiServerProvider>();
+    final server = liveTvServerInfoForChannel(servers, channel);
+    final client = server == null ? null : servers.getClientForServer(ServerId(server.serverId));
+    if (client is! PlexClient) return;
+    final now = DateTime.now();
+    final changed = await _live.refreshCurrentProgram(now.millisecondsSinceEpoch ~/ 1000, () async {
+      final programs = await client.liveTv.fetchSchedule(from: now, to: now.add(const Duration(seconds: 1)));
+      final epoch = DateTime.now().millisecondsSinceEpoch ~/ 1000;
+      final program = programs
+          .where(
+            (p) =>
+                liveTvProgramMatchesChannel(p, channel) &&
+                p.beginsAt != null &&
+                p.endsAt != null &&
+                p.beginsAt! <= epoch &&
+                epoch < p.endsAt!,
+          )
+          .firstOrNull;
+      return program;
+    });
+    if (changed && mounted && !_shuttingDown) _setPlayerState(() {});
   }
 
   /// Release a session that started but was never adopted (unmount or

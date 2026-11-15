@@ -4,6 +4,8 @@ import 'package:intl/date_symbol_data_local.dart';
 import 'package:plezy/i18n/strings.g.dart';
 import 'package:plezy/media/ids.dart';
 import 'package:plezy/media/media_item.dart';
+import 'package:plezy/models/livetv_program.dart';
+import 'package:plezy/utils/formatters.dart';
 import 'package:plezy/services/jellyfin_mappers.dart';
 import 'package:plezy/watch_together/providers/watch_together_provider.dart';
 import 'package:plezy/widgets/video_controls/widgets/video_controls_header.dart';
@@ -15,6 +17,36 @@ void main() {
   setUpAll(() async {
     LocaleSettings.setLocaleSync(AppLocale.en);
     await initializeDateFormatting('en');
+  });
+
+  testWidgets('live header keeps channel and program together with duration underneath at both widths', (tester) async {
+    for (final style in VideoHeaderStyle.values) {
+      for (final width in [900.0, 240.0]) {
+        await _pumpHeader(
+          tester,
+          metadata: _mappedItem({'Id': 'channel', 'Name': 'Channel 4', 'Type': 'TvChannel'}),
+          style: style,
+          width: width,
+          liveProgram: LiveTvProgram(title: 'Evening News', beginsAt: 1000, endsAt: 2800),
+        );
+        final title = find.text('Channel 4 · Evening News');
+        final duration = find.text(formatDurationTextual(1800000));
+        expect(title, findsOneWidget);
+        expect(duration, findsOneWidget);
+        expect(tester.getTopLeft(duration).dy, greaterThan(tester.getTopLeft(title).dy));
+        expect(tester.widget<Text>(title).overflow, TextOverflow.ellipsis);
+        expect(tester.takeException(), isNull);
+      }
+    }
+    await _pumpHeader(
+      tester,
+      metadata: _mappedItem({'Id': 'channel', 'Name': 'Channel 4', 'Type': 'TvChannel'}),
+      style: VideoHeaderStyle.multiLine,
+      liveProgram: LiveTvProgram(title: 'Next Program', beginsAt: 2800, endsAt: 6400),
+    );
+    expect(find.textContaining('Evening News'), findsNothing);
+    expect(find.text('Channel 4 · Next Program'), findsOneWidget);
+    expect(find.text(formatDurationTextual(3600000)), findsOneWidget);
   });
 
   testWidgets('title-less mapped movie builds with localized fallback in both layouts', (tester) async {
@@ -81,7 +113,13 @@ MediaItem _mappedItem(Map<String, dynamic> json) {
   )!;
 }
 
-Future<void> _pumpHeader(WidgetTester tester, {required MediaItem metadata, required VideoHeaderStyle style}) async {
+Future<void> _pumpHeader(
+  WidgetTester tester, {
+  required MediaItem metadata,
+  required VideoHeaderStyle style,
+  LiveTvProgram? liveProgram,
+  double width = 900,
+}) async {
   final watchTogether = WatchTogetherProvider();
   addTearDown(watchTogether.dispose);
 
@@ -93,8 +131,14 @@ Future<void> _pumpHeader(WidgetTester tester, {required MediaItem metadata, requ
           home: Scaffold(
             backgroundColor: Colors.black,
             body: SizedBox(
-              width: 900,
-              child: VideoControlsHeader(metadata: metadata, style: style, onBack: () {}),
+              width: width,
+              child: VideoControlsHeader(
+                metadata: metadata,
+                style: style,
+                liveProgram: liveProgram,
+                showClock: false,
+                onBack: () {},
+              ),
             ),
           ),
         ),

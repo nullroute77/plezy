@@ -4,6 +4,7 @@ import 'package:material_symbols_icons/symbols.dart';
 import '../../media/media_item.dart';
 import '../../mpv/mpv.dart';
 import '../../models/livetv_capture_buffer.dart';
+import '../../models/livetv_program.dart';
 import '../../media/media_source_info.dart';
 import '../../services/scrub_preview_source.dart';
 import '../../utils/desktop_window_padding.dart';
@@ -63,6 +64,7 @@ class MobileVideoControls extends StatefulWidget {
   final bool isLive;
 
   final String? liveChannelName;
+  final LiveTvProgram? liveProgram;
 
   // Live TV time-shift
   final CaptureBuffer? captureBuffer;
@@ -113,6 +115,7 @@ class MobileVideoControls extends StatefulWidget {
     this.thumbnailDataBuilder,
     this.isLive = false,
     this.liveChannelName,
+    this.liveProgram,
     this.captureBuffer,
     this.isAtLiveEdge = true,
     this.liveEpochForPosition,
@@ -323,6 +326,7 @@ class _MobileVideoControlsState extends State<MobileVideoControls> with SingleTi
       child: Padding(
         padding: const EdgeInsets.all(16),
         child: VideoControlsHeader(
+          liveProgram: widget.isLive ? widget.liveProgram : null,
           metadata: widget.metadata,
           style: VideoHeaderStyle.multiLine,
           onCancelAutoHide: widget.onCancelAutoHide,
@@ -402,6 +406,7 @@ class _MobileVideoControlsState extends State<MobileVideoControls> with SingleTi
           builder: (context) => LiveTimelineBar(
             player: widget.player,
             captureBuffer: widget.captureBuffer!,
+            program: widget.liveProgram,
             epochForPosition: widget.liveEpochForPosition!,
             isAtLiveEdge: widget.isAtLiveEdge,
             onSeekEnd: widget.onLiveSeek,

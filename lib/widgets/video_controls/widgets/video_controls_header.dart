@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import 'package:plezy/utils/formatters.dart';
 
 import '../../../media/media_item.dart';
+import '../../../models/livetv_program.dart';
 import '../../../i18n/strings.g.dart';
 import '../../../watch_together/widgets/watch_together_overlay.dart';
 import '../../../watch_together/providers/watch_together_provider.dart';
@@ -25,6 +26,7 @@ enum VideoHeaderStyle {
 class VideoControlsHeader extends StatelessWidget {
   final MediaItem metadata;
   final VideoHeaderStyle style;
+  final LiveTvProgram? liveProgram;
 
   /// Optional trailing widget (e.g., track/chapter controls)
   final Widget? trailing;
@@ -43,6 +45,7 @@ class VideoControlsHeader extends StatelessWidget {
     super.key,
     required this.metadata,
     this.style = VideoHeaderStyle.multiLine,
+    this.liveProgram,
     this.trailing,
     this.onBack,
     this.onCancelAutoHide,
@@ -58,7 +61,9 @@ class VideoControlsHeader extends StatelessWidget {
         AppBarBackButton(style: BackButtonStyle.video, onPressed: onBack ?? () => Navigator.of(context).pop(true)),
         const SizedBox(width: 16),
         Expanded(
-          child: style == VideoHeaderStyle.singleLine
+          child: liveProgram != null && (liveProgram!.title.trim().isNotEmpty || liveProgram!.durationMs != null)
+              ? _buildMultiLineTitle(itemTitle, live: liveProgram)
+              : style == VideoHeaderStyle.singleLine
               ? _buildSingleLineTitle(itemTitle)
               : _buildMultiLineTitle(itemTitle),
         ),
@@ -106,24 +111,29 @@ class VideoControlsHeader extends StatelessWidget {
     );
   }
 
-  Widget _buildMultiLineTitle(String itemTitle) {
+  Widget _buildMultiLineTitle(String itemTitle, {LiveTvProgram? live}) {
     final List<String> secondLineParts = [];
+    final series = live?.grandparentTitle?.trim();
+    final programTitle = series?.isNotEmpty == true ? series : live?.title.trim();
 
-    if (metadata.parentIndex != null && metadata.index != null) {
+    if (live == null && metadata.parentIndex != null && metadata.index != null) {
       secondLineParts.add('S${metadata.parentIndex}');
       secondLineParts.add('E${metadata.index}');
       secondLineParts.add(itemTitle);
     }
 
-    if (metadata.durationMs != null) {
-      secondLineParts.add(formatDurationTextual(metadata.durationMs!));
+    final duration = live == null ? metadata.durationMs : live.durationMs;
+    if (duration != null && (live == null || duration > 0)) {
+      secondLineParts.add(formatDurationTextual(duration));
     }
 
     return Column(
       crossAxisAlignment: .start,
       children: [
         Text(
-          metadata.grandparentTitle ?? itemTitle,
+          live == null
+              ? metadata.grandparentTitle ?? itemTitle
+              : toBulletedString([itemTitle, if (programTitle?.isNotEmpty == true) programTitle!]),
           style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: .bold),
           maxLines: 1,
           overflow: .ellipsis,

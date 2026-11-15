@@ -40,6 +40,7 @@ extension _PlexVideoControlsNavigationMethods on _PlexVideoControlsState {
         hasFirstFrame: widget.hasFirstFrame,
         thumbnailDataBuilder: widget.thumbnailDataBuilder,
         liveChannelName: widget.liveChannelName,
+        liveProgram: widget.liveProgram,
         captureBuffer: widget.captureBuffer,
         isAtLiveEdge: widget.isAtLiveEdge,
         liveEpochForPosition: widget.liveEpochForPosition,

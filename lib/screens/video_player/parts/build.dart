@@ -328,6 +328,7 @@ extension _VideoPlayerBuildMethods on VideoPlayerScreenState {
                         thumbnailDataBuilder: _scrubPreviewSource?.isAvailable == true ? _getThumbnailData : null,
                         isLive: widget.isLive,
                         liveChannelName: _live.channelName,
+                        liveProgram: widget.isLive ? _live.currentProgram : null,
                         captureBuffer: _live.captureBuffer,
                         isAtLiveEdge: _live.atLiveEdge,
                         liveEpochForPosition: widget.isLive ? _liveEpochForPosition : null,

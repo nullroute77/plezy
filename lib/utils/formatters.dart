@@ -1,6 +1,7 @@
 import 'package:duration/duration.dart';
 import 'package:duration/locale.dart';
 import 'package:intl/intl.dart';
+
 import '../i18n/app_locale_utils.dart';
 import '../i18n/strings.g.dart';
 
@@ -141,9 +142,11 @@ DurationLocale _getDurationLocale() {
 
 /// Formats a [DateTime] as a clock time string, respecting the system 24-hour preference.
 /// Uses `DateFormat.Hm` for 24-hour format and `DateFormat.jm` for 12-hour format.
-String formatClockTime(DateTime time, {required bool is24Hour}) {
+String formatClockTime(DateTime time, {required bool is24Hour, bool includeSeconds = false}) {
   final locale = LocaleSettings.currentLocale.intlLocaleName;
-  final formatter = is24Hour ? DateFormat.Hm(locale) : DateFormat.jm(locale);
+  final formatter = is24Hour
+      ? (includeSeconds ? DateFormat.Hms(locale) : DateFormat.Hm(locale))
+      : (includeSeconds ? DateFormat.jms(locale) : DateFormat.jm(locale));
   return formatter.format(time);
 }
 

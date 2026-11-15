@@ -18,11 +18,13 @@ import 'package:material_symbols_icons/symbols.dart';
 import 'package:rate_limiter/rate_limiter.dart';
 import 'package:flutter/services.dart'
     show LogicalKeyboardKey, PhysicalKeyboardKey, KeyEvent, KeyDownEvent, KeyUpEvent, KeyRepeatEvent, HardwareKeyboard;
+
 import '../../services/fullscreen_state_manager.dart';
 import '../../services/macos_window_service.dart';
 import '../../services/pip_service.dart';
 import '../../services/playback_initialization_types.dart';
 import '../../services/playback_subtitle_resolver.dart';
+
 import 'package:window_manager/window_manager.dart';
 
 import '../../mixins/listenable_bindings_mixin.dart';
@@ -38,6 +40,7 @@ import '../../media/media_backend.dart';
 import '../../media/media_item.dart';
 import '../../media/stepped_seek.dart';
 import '../../models/livetv_capture_buffer.dart';
+import '../../models/livetv_program.dart';
 import '../../providers/multi_server_provider.dart';
 import '../../media/media_source_info.dart';
 import '../../models/transcode_quality_preset.dart';
@@ -85,6 +88,7 @@ import 'widgets/performance_overlay/performance_overlay.dart';
 import '../rasterized_gradient.dart';
 import 'mobile_video_controls.dart';
 import 'desktop_video_controls.dart';
+
 import 'package:provider/provider.dart';
 
 import '../../models/shader_preset.dart';
@@ -654,6 +658,7 @@ class PlexVideoControls extends StatefulWidget {
 
   /// Channel name for live TV display
   final String? liveChannelName;
+  final LiveTvProgram? liveProgram;
 
   /// Capture buffer for live TV time-shift (null = no time-shift support)
   final CaptureBuffer? captureBuffer;
@@ -751,6 +756,7 @@ class PlexVideoControls extends StatefulWidget {
     this.thumbnailDataBuilder,
     this.isLive = false,
     this.liveChannelName,
+    this.liveProgram,
     this.captureBuffer,
     this.isAtLiveEdge = true,
     this.liveEpochForPosition,
@@ -1354,6 +1360,7 @@ class _PlexVideoControlsState extends State<PlexVideoControls>
                                                       thumbnailDataBuilder: widget.thumbnailDataBuilder,
                                                       isLive: widget.isLive,
                                                       liveChannelName: widget.liveChannelName,
+                                                      liveProgram: widget.liveProgram,
                                                       captureBuffer: widget.captureBuffer,
                                                       isAtLiveEdge: widget.isAtLiveEdge,
                                                       liveEpochForPosition: widget.liveEpochForPosition,
