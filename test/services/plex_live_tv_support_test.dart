@@ -512,6 +512,39 @@ void main() {
     expect(operations.single.program?.guid, 'plex://episode/6a5860d74ec32227cf90b41d');
   });
 
+  test('a failed playback guide read leaves the active Plex endpoint alone', () async {
+    final requests = <Uri>[];
+    final client = PlexClient.forTesting(
+      config: PlexConfig(
+        baseUrl: 'https://plex.example.com',
+        token: 'tok',
+        clientIdentifier: 'client',
+        product: 'Plezy',
+        version: '1',
+        machineIdentifier: 'machine-1',
+      ),
+      serverId: ServerId('machine-1'),
+      profileScopeId: buildPlexProfileScopeId(serverId: ServerId('machine-1'), profileId: 'profile-a'),
+      httpClient: MockClient((request) async {
+        requests.add(request.url);
+        return http.Response('service unavailable', 503);
+      }),
+      prioritizedEndpoints: const ['https://plex.example.com', 'https://backup.example.com'],
+      endpointProbeHttpClientFactory: () => MockClient((request) async {
+        requests.add(request.url);
+        return jsonResponse({
+          'MediaContainer': {'machineIdentifier': 'machine-1'},
+        });
+      }),
+      epgProviders: const [(identifier: 'provider-a', gridEndpoint: '/provider-a/grid', id: '2')],
+    );
+    addTearDown(client.close);
+
+    expect(await client.getEpgGrid(beginsAt: 100, endsAt: 101, allowEndpointFailover: false), isEmpty);
+    expect(requests.map((uri) => (uri.host, uri.path)), [('plex.example.com', '/provider-a/grid')]);
+    expect(client.config.baseUrl, 'https://plex.example.com');
+  });
+
   test('EPG grid airings keep their subscription attributes', () async {
     // The grid tags subscribed airings itself — the signal the recording
     // indicator renders from (issue #2009 capture C).

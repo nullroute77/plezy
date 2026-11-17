@@ -296,9 +296,8 @@ mixin _PlexLiveTvClientMethods on _PlexClientInternals implements LiveTvSupport,
     return programs;
   }
 
-  /// Get guide/program data for channels (EPG grid data)
-  /// Discovers grid endpoints from /media/providers on first call and queries all providers
-  Future<List<LiveTvProgram>> getEpgGrid({int? beginsAt, int? endsAt}) async {
+  /// Get guide data from the grid endpoints discovered during initialization.
+  Future<List<LiveTvProgram>> getEpgGrid({int? beginsAt, int? endsAt, bool allowEndpointFailover = true}) async {
     final providers = await _discoverEpgProviders();
     if (providers.isEmpty) return [];
 
@@ -311,7 +310,11 @@ mixin _PlexLiveTvClientMethods on _PlexClientInternals implements LiveTvSupport,
     for (final provider in providers) {
       try {
         final programs = await _wrapListApiCall<LiveTvProgram>(
-          () => _http.get(provider.gridEndpoint, queryParameters: queryParams),
+          () => _http.get(
+            provider.gridEndpoint,
+            queryParameters: queryParams,
+            allowEndpointFailover: allowEndpointFailover,
+          ),
           (response) => _parseEpgGridResponse(response, provider.identifier),
           'Failed to get EPG grid from ${provider.identifier}',
         );

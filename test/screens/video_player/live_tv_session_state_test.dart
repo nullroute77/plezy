@@ -51,24 +51,34 @@ void main() {
       expect(calls, 2);
     });
 
-    test('a pending guide request cannot adopt the previous channel after a zap', () async {
+    test('a channel change can refresh the guide while the old lookup is pending', () async {
       final state = LiveTvSessionState(null)..adoptSession(_FakeSession());
-      final response = Completer<LiveTvProgram?>();
+      final oldResponse = Completer<LiveTvProgram?>();
+      final oldRefresh = state.refreshCurrentProgram(105, () => oldResponse.future);
+
+      state.adoptSession(_FakeSession());
+      final newResponse = Completer<LiveTvProgram?>();
+      var newLookupStarted = false;
+      final newRefresh = state.refreshCurrentProgram(105, () {
+        newLookupStarted = true;
+        return newResponse.future;
+      });
+      expect(newLookupStarted, isTrue);
+
+      oldResponse.complete(LiveTvProgram(title: 'Old channel', beginsAt: 100, endsAt: 200));
+      expect(await oldRefresh, isFalse);
+      expect(state.currentProgram, isNull);
+
+      // Past the backoff time, only the new request's in-flight guard prevents a duplicate.
       var duplicate = false;
-      final pending = state.refreshCurrentProgram(105, () => response.future);
-      await state.refreshCurrentProgram(105, () async {
+      await state.refreshCurrentProgram(165, () async {
         duplicate = true;
         return null;
       });
-      state.adoptSession(_FakeSession());
-      response.complete(LiveTvProgram(title: 'Old channel', beginsAt: 100, endsAt: 200));
-      expect(await pending, isFalse);
       expect(duplicate, isFalse);
-      expect(state.currentProgram, isNull);
-      await state.refreshCurrentProgram(
-        105,
-        () async => LiveTvProgram(title: 'New channel', beginsAt: 100, endsAt: 200),
-      );
+
+      newResponse.complete(LiveTvProgram(title: 'New channel', beginsAt: 100, endsAt: 200));
+      expect(await newRefresh, isTrue);
       expect(state.currentProgram!.title, 'New channel');
     });
   });

@@ -52,17 +52,17 @@ class LiveTvSessionState {
 
   /// Only the currently airing guide entry; never selected from playback time.
   LiveTvProgram? currentProgram;
-  bool _refreshingProgram = false;
+  LiveTvPlaybackSession? _programRefreshOwner;
   int _retryProgramAt = 0;
 
   /// [fetch] supplies the airing current when its request completes.
   Future<bool> refreshCurrentProgram(int nowEpoch, Future<LiveTvProgram?> Function() fetch) async {
     final owner = session;
-    if (owner == null || _refreshingProgram) return false;
+    if (owner == null || identical(_programRefreshOwner, owner)) return false;
     final current = currentProgram;
     if (current?.durationMs != null && current!.beginsAt! <= nowEpoch && nowEpoch < current.endsAt!) return false;
     if (current == null && nowEpoch < _retryProgramAt) return false;
-    _refreshingProgram = true;
+    _programRefreshOwner = owner;
     _retryProgramAt = nowEpoch + 60; // Back off only when guide data is missing.
     currentProgram = null;
     try {
@@ -73,7 +73,7 @@ class LiveTvSessionState {
     } catch (_) {
       return identical(owner, session) && current != null;
     } finally {
-      _refreshingProgram = false;
+      if (identical(_programRefreshOwner, owner)) _programRefreshOwner = null;
     }
   }
 

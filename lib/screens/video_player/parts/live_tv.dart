@@ -167,13 +167,18 @@ extension _VideoPlayerLiveTvMethods on VideoPlayerScreenState {
     final channel = channels != null && _live.channelIndex >= 0 && _live.channelIndex < channels.length
         ? channels[_live.channelIndex]
         : args.channel;
-    final servers = context.read<MultiServerProvider>();
-    final server = liveTvServerInfoForChannel(servers, channel);
-    final client = server == null ? null : servers.getClientForServer(ServerId(server.serverId));
-    if (client is! PlexClient) return;
-    final now = DateTime.now();
-    final changed = await _live.refreshCurrentProgram(now.millisecondsSinceEpoch ~/ 1000, () async {
-      final programs = await client.liveTv.fetchSchedule(from: now, to: now.add(const Duration(seconds: 1)));
+    final nowEpoch = DateTime.now().millisecondsSinceEpoch ~/ 1000;
+    final changed = await _live.refreshCurrentProgram(nowEpoch, () async {
+      final servers = context.read<MultiServerProvider>();
+      final server = liveTvServerInfoForChannel(servers, channel);
+      final client = server == null ? null : servers.getClientForServer(ServerId(server.serverId));
+      if (client is! PlexClient) return null;
+      final programs = await client.getEpgGrid(
+        beginsAt: nowEpoch,
+        endsAt: nowEpoch + 1,
+        // Guide data is optional and must not move the active session's endpoint.
+        allowEndpointFailover: false,
+      );
       final epoch = DateTime.now().millisecondsSinceEpoch ~/ 1000;
       final program = programs
           .where(
