@@ -230,11 +230,13 @@ void main() {
     expect((painter as dynamic).positionFraction, 0);
     final gesture = await tester.startGesture(tester.getCenter(paint));
     await tester.pump();
+    expect((tester.widget<CustomPaint>(paint).painter as dynamic).positionFraction, greaterThan(0));
     await _pumpTimeline(
       tester,
       seeks: seeks,
       currentOffset: 0,
       existingPlayer: harness.player,
+      rangeEndOffset: 420,
       program: LiveTvProgram(title: 'Next', beginsAt: start + 300, endsAt: start + 600),
     );
     await gesture.up();
