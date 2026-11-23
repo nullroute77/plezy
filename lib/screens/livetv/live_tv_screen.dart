@@ -16,7 +16,9 @@ import '../../models/livetv_dvr.dart';
 import '../../models/livetv_program.dart';
 import '../../mixins/refreshable.dart';
 import '../../mixins/tab_navigation_mixin.dart';
+import '../../profiles/active_profile_provider.dart';
 import '../../providers/multi_server_provider.dart';
+import '../../services/plex_client.dart';
 import '../../services/settings_service.dart';
 import '../../widgets/settings_builder.dart';
 import '../../utils/app_logger.dart';
@@ -92,8 +94,8 @@ class _LiveTvScreenState extends State<LiveTvScreen>
   /// servers sharing an account-scoped store.
   final Map<String, String> _favoriteStoreBySource = {};
   Future<void>? _channelsLoadFuture;
-  int _favoritesLoadGeneration = 0;
   Future<void>? _favoritesLoadFuture;
+  bool Function()? _favoritesSessionIsCurrent;
   final SerialFutureQueue _favoritesMutationQueue = SerialFutureQueue();
 
   /// True while [_favoriteChannels] holds an authoritative set. A refresh keeps the previous set live until the new
@@ -372,6 +374,7 @@ class _LiveTvScreenState extends State<LiveTvScreen>
       final favoriteScopeByLiveServer = <String, _FavoriteScope>{};
       final liveServerKeyByChannel = <String, String>{};
       final favoriteStoreBySource = <String, String>{};
+      final favoritesSessionIsCurrent = _captureFavoritesSession(multiServer);
 
       appLogger.d(
         'Live TV DVRs: ${liveTvServers.map((s) => '${s.serverId}/${s.dvrKey} lineup=${s.lineup}').join(', ')}',
@@ -466,6 +469,11 @@ class _LiveTvScreenState extends State<LiveTvScreen>
 
       setState(() {
         _channels = allChannels;
+        if (_favoritesSessionIsCurrent?.call() == false) {
+          _favoriteChannels = [];
+          _refreshFavoriteKeys();
+          _favoritesLoaded = false;
+        }
         _favoriteScopeByLiveServer
           ..clear()
           ..addAll(favoriteScopeByLiveServer);
@@ -480,8 +488,10 @@ class _LiveTvScreenState extends State<LiveTvScreen>
 
       _refreshVisibleTabs(multiServer);
 
-      // Load favorites by backend store: Plex is cloud/account-scoped, Jellyfin per server.
-      final favoritesLoad = _loadFavorites(multiServer);
+      // Read after any in-flight write so a refresh sees the saved list.
+      _favoritesSessionIsCurrent = favoritesSessionIsCurrent;
+      _favoritesWritable = false;
+      final favoritesLoad = _favoritesMutationQueue.run(() => _loadFavorites(multiServer, favoritesSessionIsCurrent));
       _favoritesLoadFuture = favoritesLoad;
       unawaited(
         favoritesLoad.whenComplete(() {
@@ -507,8 +517,56 @@ class _LiveTvScreenState extends State<LiveTvScreen>
     }
   }
 
-  Future<void> _loadFavorites(MultiServerProvider multiServer) async {
-    final loadGeneration = ++_favoritesLoadGeneration;
+  bool Function() _captureFavoritesSession(MultiServerProvider multiServer) {
+    // Plex can rebind the same client instance in place. The profile
+    // generation also catches a switch before replacement tokens are applied.
+    final profile = context.read<ActiveProfileProvider?>();
+    final generation = profile?.committedIdentityGeneration;
+    (MediaServerClient?, Object?, String?) sessionFor(ServerId id) {
+      final client = multiServer.getClientForServer(id);
+      return (
+        client,
+        client is PlexClient ? client.favoritesSessionId : client?.authenticationSessionId,
+        client?.liveTv.favoriteStoreKey,
+      );
+    }
+
+    final sessions = <ServerId, (MediaServerClient?, Object?, String?)>{};
+    final liveServerKeys = <String>{};
+    for (final server in multiServer.liveTvServers) {
+      final id = ServerId(server.serverId);
+      sessions[id] = sessionFor(id);
+      liveServerKeys.add(_liveServerScopeKey(server));
+    }
+    return () {
+      if (!mounted || profile?.isBinding == true || profile?.committedIdentityGeneration != generation) return false;
+      return setEquals(liveServerKeys, multiServer.liveTvServers.map(_liveServerScopeKey).toSet()) &&
+          sessions.entries.every((entry) => sessionFor(entry.key) == entry.value);
+    };
+  }
+
+  void _reloadStaleFavorites(bool Function() staleSession) {
+    if (!mounted || !identical(_favoritesSessionIsCurrent, staleSession)) return;
+    final profile = context.read<ActiveProfileProvider?>();
+    setState(() {
+      _favoritesSessionIsCurrent = null;
+      _favoritesWritable = false;
+      _favoritesLoaded = false;
+      _favoriteChannels = [];
+      _refreshFavoriteKeys();
+    });
+    unawaited(() async {
+      await profile?.awaitBindingSettle();
+      await _channelsLoadFuture;
+      if (mounted && _favoritesSessionIsCurrent == null) await _loadChannels();
+    }());
+  }
+
+  Future<void> _loadFavorites(MultiServerProvider multiServer, bool Function() sessionIsCurrent) async {
+    if (!sessionIsCurrent()) {
+      _reloadStaleFavorites(sessionIsCurrent);
+      return;
+    }
     _favoritesWritable = false;
     final previousStoreBySource = Map<String, String>.of(_favoriteStoreBySource);
     final scopeByLiveServer = Map<String, _FavoriteScope>.of(_favoriteScopeByLiveServer);
@@ -524,17 +582,24 @@ class _LiveTvScreenState extends State<LiveTvScreen>
       multiServer,
       resolveClient: multiServer.getClientForServer,
       dedupeByServerId: false,
+      isCurrent: sessionIsCurrent,
       body: (client, serverInfo) async {
         final liveTv = client.liveTv;
         final storeKey = liveTv.favoriteStoreKey;
         final liveServerKey = _liveServerScopeKey(serverInfo);
 
         final source = await liveTv.buildFavoriteChannelSource(lineup: serverInfo.lineup);
+        if (!sessionIsCurrent()) return;
         scopeByLiveServer[liveServerKey] = (source: source, storeKey: storeKey, mode: liveTv.favoritePersistenceMode);
         storeBySource[source] = storeKey;
         if (successfulStores.contains(storeKey)) return;
 
-        final serverFavorites = await liveTv.fetchFavoriteChannels();
+        final serverFavorites = await liveTv.fetchFavoriteChannels(
+          checkCurrent: () {
+            if (!sessionIsCurrent()) throw StateError('Favorites session changed');
+          },
+        );
+        if (!sessionIsCurrent()) return;
         successfulStores.add(storeKey);
         failedStores.remove(storeKey);
         for (final favorite in serverFavorites) {
@@ -543,6 +608,7 @@ class _LiveTvScreenState extends State<LiveTvScreen>
         }
       },
       onError: (client, serverInfo, error, stackTrace) {
+        if (!sessionIsCurrent()) return;
         final storeKey = client.liveTv.favoriteStoreKey;
         if (!successfulStores.contains(storeKey)) failedStores.add(storeKey);
         appLogger.e('Failed to load favorite channels for $storeKey', error: error, stackTrace: stackTrace);
@@ -559,7 +625,10 @@ class _LiveTvScreenState extends State<LiveTvScreen>
       }
     }
 
-    if (!mounted || loadGeneration != _favoritesLoadGeneration) return;
+    if (!sessionIsCurrent()) {
+      _reloadStaleFavorites(sessionIsCurrent);
+      return;
+    }
     setState(() {
       _favoriteScopeByLiveServer
         ..clear()
@@ -596,7 +665,7 @@ class _LiveTvScreenState extends State<LiveTvScreen>
     });
   }
 
-  void _toggleFavorite(LiveTvChannel channel) {
+  void _toggleFavorite(LiveTvChannel channel, bool Function()? sessionIsCurrent) {
     _enqueueFavoriteMutation(() {
       final source = _sourceForChannel(channel);
       final favoriteKey = favoriteChannelKey(source, channel.key);
@@ -611,26 +680,36 @@ class _LiveTvScreenState extends State<LiveTvScreen>
         }
         _refreshFavoriteKeys();
       });
-    });
+    }, sessionIsCurrent: sessionIsCurrent);
   }
 
-  void _enqueueFavoriteMutation(VoidCallback mutation) {
+  void _enqueueFavoriteMutation(VoidCallback mutation, {required bool Function()? sessionIsCurrent}) {
     final pendingLoad = _favoritesLoadFuture;
     unawaited(
       _favoritesMutationQueue
           .run(() async {
             if (pendingLoad != null) await pendingLoad;
-            if (!mounted) return;
+            if (!mounted || sessionIsCurrent == null) return;
+            if (!sessionIsCurrent()) {
+              _reloadStaleFavorites(sessionIsCurrent);
+              return;
+            }
             if (!_favoritesWritable) {
               showErrorSnackBar(context, t.liveTv.favoritesLoadFailed);
               return;
             }
             mutation();
-            await _persistFavorites();
+            try {
+              await _persistFavorites(() {
+                if (!sessionIsCurrent()) throw StateError('Favorites session changed');
+              });
+            } finally {
+              if (!sessionIsCurrent()) _reloadStaleFavorites(sessionIsCurrent);
+            }
           })
           .catchError((Object error, StackTrace stackTrace) {
             appLogger.e('Failed to mutate favorite channels', error: error, stackTrace: stackTrace);
-            if (mounted) {
+            if (mounted && sessionIsCurrent?.call() == true) {
               showErrorSnackBar(context, t.liveTv.favoritesUpdateFailed);
             }
           }),
@@ -675,6 +754,7 @@ class _LiveTvScreenState extends State<LiveTvScreen>
 
   void _showReorderFavorites() {
     final channelMap = {for (final c in _channels) _favoriteKeyForChannel(c): c};
+    final sessionIsCurrent = _favoritesSessionIsCurrent;
 
     OverlaySheetController.showAdaptive(
       context,
@@ -689,7 +769,7 @@ class _LiveTvScreenState extends State<LiveTvScreen>
               _favoriteChannels = reordered;
               _refreshFavoriteKeys();
             });
-          });
+          }, sessionIsCurrent: sessionIsCurrent);
         },
         onRemove: (removed) {
           _enqueueFavoriteMutation(() {
@@ -697,13 +777,13 @@ class _LiveTvScreenState extends State<LiveTvScreen>
               _favoriteChannels = _favoriteChannels.where((f) => f.stableKey != removed.stableKey).toList();
               _refreshFavoriteKeys();
             });
-          });
+          }, sessionIsCurrent: sessionIsCurrent);
         },
       ),
     );
   }
 
-  Future<void> _persistFavorites() async {
+  Future<void> _persistFavorites(void Function() checkCurrent) async {
     final multiServer = context.read<MultiServerProvider>();
     final byStore = <String, List<FavoriteChannel>>{};
     for (final favorite in _favoriteChannels) {
@@ -717,14 +797,16 @@ class _LiveTvScreenState extends State<LiveTvScreen>
       final client = multiServer.getClientForServer(ServerId(serverInfo.serverId));
       if (client == null) continue;
       final scope = _favoriteScopeByLiveServer[_liveServerScopeKey(serverInfo)];
-      if (scope == null || !writtenStores.add(scope.storeKey)) continue;
+      if (scope == null || scope.storeKey != client.liveTv.favoriteStoreKey || !writtenStores.add(scope.storeKey)) {
+        continue;
+      }
       final storeChannels = byStore[scope.storeKey] ?? const <FavoriteChannel>[];
       final channels = switch (scope.mode) {
         FavoriteChannelPersistenceMode.sharedFullList => storeChannels,
         FavoriteChannelPersistenceMode.serverSlice =>
           storeChannels.where((favorite) => favorite.source == scope.source).toList(),
       };
-      writes.add(client.liveTv.setFavoriteChannels(channels));
+      writes.add(client.liveTv.setFavoriteChannels(channels, checkCurrent: checkCurrent));
     }
     await Future.wait(writes);
   }
@@ -832,6 +914,7 @@ class _LiveTvScreenState extends State<LiveTvScreen>
   }
 
   Widget _buildTabContent(LiveTvTab tab, List<LiveTvChannel> guideChannels) {
+    final sessionIsCurrent = _favoritesSessionIsCurrent;
     return switch (tab) {
       LiveTvTab.guide =>
         guideChannels.isEmpty && _channels.isNotEmpty
@@ -850,7 +933,7 @@ class _LiveTvScreenState extends State<LiveTvScreen>
                 key: _guideTabKey,
                 channels: guideChannels,
                 isFavoriteChannel: _isFavoriteChannel,
-                onToggleFavorite: _toggleFavorite,
+                onToggleFavorite: (channel) => _toggleFavorite(channel, sessionIsCurrent),
                 onNavigateUp: focusTabBar,
                 onBack: onTabBarBack,
               ),

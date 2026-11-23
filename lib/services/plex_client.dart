@@ -420,6 +420,7 @@ class PlexClient
   /// Server identifier - all PlexMetadataDto items created by this client are tagged with this
   @override
   final ServerId serverId;
+  @override
   PlexProfileScopeId profileScopeId;
 
   /// [PlexAccountConnection.id] of the plex.tv account this client is bound
@@ -433,6 +434,20 @@ class PlexClient
   /// credentials: it rejects a Home or shared user's server [config] token.
   @override
   String? plexAccountToken;
+
+  /// Active user's plex.tv token from binding, separate from the PMS token
+  /// and the owning account's token.
+  String? _plexProfileToken;
+  @override
+  String? get plexProfileToken => _plexProfileToken;
+  set plexProfileToken(String? token) {
+    if (token != null) LogRedactionManager.registerToken(token);
+    _plexProfileToken = token;
+  }
+
+  /// Survives PMS-only token rotation while favorites use the same cloud credential.
+  Object _favoritesSessionId = Object();
+  Object get favoritesSessionId => _favoritesSessionId;
 
   Object _authenticationSessionId = Object();
 
@@ -3408,7 +3423,11 @@ class PlexClient
   /// data scoped to the previous profile cannot leak into the new one. Token
   /// headers, cache scope, and provider state are committed together, and a
   /// newer overlapping update invalidates an older completion.
-  Future<bool> applyProfileUpdate({required String newToken, required PlexProfileScopeId newProfileScopeId}) async {
+  Future<bool> applyProfileUpdate({
+    required String newToken,
+    required PlexProfileScopeId newProfileScopeId,
+    String? newProfileToken,
+  }) async {
     final generation = ++_profileUpdateGeneration;
     final candidateHeaders = Map<String, String>.unmodifiable(config.copyWith(token: newToken).headers);
     try {
@@ -3434,9 +3453,14 @@ class PlexClient
       }
       if (generation != _profileUpdateGeneration) return false;
 
-      final authenticationChanged = config.token != newToken || profileScopeId != newProfileScopeId;
+      final profileChanged = profileScopeId != newProfileScopeId;
+      final authenticationChanged = profileChanged || config.token != newToken;
+      if (profileChanged || (plexProfileToken ?? config.token) != (newProfileToken ?? newToken)) {
+        _favoritesSessionId = Object();
+      }
       config = config.copyWith(token: newToken);
       profileScopeId = newProfileScopeId;
+      plexProfileToken = newProfileToken;
       _http.defaultHeaders = Map.of(config.headers);
       LogRedactionManager.registerToken(newToken);
       _commitMediaProviders(providers);

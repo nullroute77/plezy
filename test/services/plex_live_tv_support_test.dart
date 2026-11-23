@@ -94,6 +94,112 @@ void main() {
     expect(a.liveTv.favoriteStoreKey, isNot(b.liveTv.favoriteStoreKey));
   });
 
+  test('favorite add and remove use the active Home cloud token and round-trip per profile', () async {
+    const source = 'server://machine-1/provider-a';
+    final adminFavorite = FavoriteChannel(source: source, id: 'admin-favorite');
+    final homeFavorite = FavoriteChannel(source: source, id: 'home-favorite');
+    final lists = <String, List<dynamic>>{
+      'admin-cloud': [adminFavorite.toJson()],
+      'home-cloud': [],
+    };
+    final client =
+        makeClient((request) async {
+            final token = request.headers['x-plex-token'];
+            if (request.url.host == 'plex.example.com') {
+              expect(token, endsWith('-pms'));
+              return jsonResponse({
+                'MediaContainer': {'machineIdentifier': 'machine-1'},
+              });
+            }
+            expect(request.url.host, 'epg.provider.plex.tv');
+            expect(request.url.path, '/settings/favoriteChannels');
+            expect(lists, contains(token));
+            if (request.method == 'PUT') {
+              lists[token!] = jsonDecode(request.body) as List<dynamic>;
+              return http.Response('', 204);
+            }
+            expect(request.method, 'GET');
+            return jsonResponse({
+              'MediaContainer': {'FavoriteChannel': lists[token]},
+            });
+          }, token: 'admin-pms')
+          ..plexAccountId = 'owning-account'
+          ..plexAccountToken = 'admin-cloud'
+          ..plexProfileToken = 'admin-cloud';
+    addTearDown(client.close);
+
+    final adminScope = client.profileScopeId;
+    final adminStore = client.liveTv.favoriteStoreKey;
+    final adminSession = client.favoritesSessionId;
+    expect((await client.liveTv.fetchFavoriteChannels()).map((favorite) => favorite.id), [adminFavorite.id]);
+    final secondAdminFavorite = FavoriteChannel(source: source, id: 'another-admin-favorite');
+    await client.liveTv.setFavoriteChannels([adminFavorite, secondAdminFavorite]);
+    expect((await client.liveTv.fetchFavoriteChannels()).map((favorite) => favorite.id), [
+      adminFavorite.id,
+      secondAdminFavorite.id,
+    ]);
+    await client.liveTv.setFavoriteChannels([adminFavorite]);
+
+    final homeScope = buildPlexProfileScopeId(serverId: client.serverId, profileId: 'home-profile');
+    expect(
+      await client.applyProfileUpdate(
+        newToken: 'home-pms',
+        newProfileScopeId: homeScope,
+        newProfileToken: 'home-cloud',
+      ),
+      isTrue,
+    );
+    final homeStore = client.liveTv.favoriteStoreKey;
+    final homeSession = client.favoritesSessionId;
+    expect(homeStore, isNot(adminStore));
+    expect(homeSession, isNot(same(adminSession)));
+    expect(await client.liveTv.fetchFavoriteChannels(), isEmpty);
+    await client.liveTv.setFavoriteChannels([homeFavorite]);
+    expect((await client.liveTv.fetchFavoriteChannels()).map((favorite) => favorite.id), [homeFavorite.id]);
+
+    expect(
+      await client.applyProfileUpdate(
+        newToken: 'rotated-pms',
+        newProfileScopeId: homeScope,
+        newProfileToken: 'home-cloud',
+      ),
+      isTrue,
+    );
+    expect(client.liveTv.favoriteStoreKey, homeStore);
+    expect(client.favoritesSessionId, same(homeSession));
+    await client.liveTv.setFavoriteChannels([]);
+    expect(await client.liveTv.fetchFavoriteChannels(), isEmpty);
+    expect(
+      await client.applyProfileUpdate(
+        newToken: 'admin-pms',
+        newProfileScopeId: adminScope,
+        newProfileToken: 'admin-cloud',
+      ),
+      isTrue,
+    );
+    expect(client.liveTv.favoriteStoreKey, adminStore);
+    expect(client.favoritesSessionId, isNot(same(adminSession)));
+    expect((await client.liveTv.fetchFavoriteChannels()).map((favorite) => favorite.id), [adminFavorite.id]);
+  });
+
+  test('a rejected Home favorites request never retries with the owning account token', () async {
+    final requests = <String>[];
+    final client =
+        makeClient((request) async {
+            requests.add(request.method);
+            expect(request.headers['x-plex-token'], 'home-cloud');
+            return http.Response('forbidden', 403);
+          }, token: 'home-pms')
+          ..plexAccountToken = 'admin-cloud'
+          ..plexProfileToken = 'home-cloud';
+    addTearDown(client.close);
+
+    final forbidden = throwsA(isA<MediaServerHttpException>().having((error) => error.statusCode, 'statusCode', 403));
+    await expectLater(client.liveTv.fetchFavoriteChannels(), forbidden);
+    await expectLater(client.liveTv.setFavoriteChannels([]), forbidden);
+    expect(requests, ['GET', 'PUT']);
+  });
+
   test('a failing plex.tv favorites read never fails the media server over', () async {
     final requests = <Uri>[];
     final client = PlexClient.forTesting(

@@ -146,6 +146,121 @@ void main() {
 
     expect(find.byIcon(Symbols.star_rounded), findsOneWidget);
     expect(_guideChannels(tester).map((channel) => channel.key), ['channel-a']);
+    final guide = tester.widget<GuideTab>(find.byType(GuideTab));
+    guide.onToggleFavorite!(guide.channels.single);
+    await tester.pumpAndSettle();
+    expect(find.text(t.liveTv.favoritesLoadFailed), findsOneWidget);
+    expect(harness.liveTv.writes, isEmpty);
+  });
+
+  testWidgets('a queued favorite toggle is dropped when the client switches profiles during the read', (tester) async {
+    final settings = await SettingsService.getInstance();
+    await settings.write(SettingsService.liveTvDefaultFavorites, false);
+    final harness = await _pumpLiveTvScreen(tester);
+    addTearDown(() async {
+      await tester.pumpWidget(const SizedBox.shrink());
+      harness.dispose();
+    });
+    final guide = tester.widget<GuideTab>(find.byType(GuideTab));
+    final channel = guide.channels.single;
+    guide.onToggleFavorite!(channel);
+    await tester.pump();
+
+    final client = harness.provider.getClientForServer(ServerId('server-a'))! as _FakeMediaServerClient;
+    client.authenticationSessionId = Object();
+    harness.liveTv.favorites.complete([FavoriteChannel(id: channel.key, source: channel.favoriteSource!)]);
+    await tester.pumpAndSettle();
+
+    expect(harness.liveTv.writes, isEmpty);
+    harness.liveTv.favorites.complete([]);
+    await tester.pumpAndSettle();
+    final currentGuide = tester.widget<GuideTab>(find.byType(GuideTab));
+    final currentChannel = currentGuide.channels.single;
+    expect(currentGuide.isFavoriteChannel!(currentChannel), isFalse);
+    currentGuide.onToggleFavorite!(currentChannel);
+    await tester.pumpAndSettle();
+    expect(harness.liveTv.writes.single.single.id, currentChannel.key);
+  });
+
+  testWidgets('a queued favorite toggle does not use the profile that replaced an in-flight write', (tester) async {
+    final settings = await SettingsService.getInstance();
+    await settings.write(SettingsService.liveTvDefaultFavorites, false);
+    final harness = await _pumpLiveTvScreen(tester);
+    addTearDown(() async {
+      await tester.pumpWidget(const SizedBox.shrink());
+      harness.dispose();
+    });
+    harness.liveTv.favorites.complete([]);
+    await tester.pumpAndSettle();
+
+    final guide = tester.widget<GuideTab>(find.byType(GuideTab));
+    final channel = guide.channels.single;
+    final write = Completer<void>();
+    harness.liveTv.pendingWrite = write.future;
+    guide.onToggleFavorite!(channel);
+    await tester.pump();
+    expect(harness.liveTv.writes.single.single.id, channel.key);
+    guide.onToggleFavorite!(channel);
+    await tester.pump();
+
+    final client = harness.provider.getClientForServer(ServerId('server-a'))! as _FakeMediaServerClient;
+    client.authenticationSessionId = Object();
+    write.complete();
+    await tester.pumpAndSettle();
+    expect(harness.liveTv.writes, hasLength(1));
+  });
+
+  testWidgets('removing the DVR drops a toggle even when its client is still registered', (tester) async {
+    final settings = await SettingsService.getInstance();
+    await settings.write(SettingsService.liveTvDefaultFavorites, false);
+    final harness = await _pumpLiveTvScreen(tester);
+    addTearDown(() async {
+      await tester.pumpWidget(const SizedBox.shrink());
+      harness.dispose();
+    });
+    harness.liveTv.favorites.complete([]);
+    await tester.pumpAndSettle();
+
+    final guide = tester.widget<GuideTab>(find.byType(GuideTab));
+    harness.provider.debugSetLiveTvServersForTesting([]);
+    expect(harness.provider.getClientForServer(ServerId('server-a')), isNotNull);
+    guide.onToggleFavorite!(guide.channels.single);
+    await tester.pumpAndSettle();
+
+    expect(harness.liveTv.writes, isEmpty);
+    expect(find.text(t.liveTv.noDvr), findsOneWidget);
+  });
+
+  testWidgets('a single pending write reloads favorites after the client switches profiles', (tester) async {
+    final settings = await SettingsService.getInstance();
+    await settings.write(SettingsService.liveTvDefaultFavorites, false);
+    final harness = await _pumpLiveTvScreen(tester);
+    addTearDown(() async {
+      await tester.pumpWidget(const SizedBox.shrink());
+      harness.dispose();
+    });
+    harness.liveTv.favorites.complete([]);
+    await tester.pumpAndSettle();
+
+    var guide = tester.widget<GuideTab>(find.byType(GuideTab));
+    final channel = guide.channels.single;
+    final write = Completer<void>();
+    harness.liveTv.pendingWrite = write.future;
+    guide.onToggleFavorite!(channel);
+    await tester.pump();
+    guide = tester.widget<GuideTab>(find.byType(GuideTab));
+    expect(guide.isFavoriteChannel!(channel), isTrue);
+
+    final client = harness.provider.getClientForServer(ServerId('server-a'))! as _FakeMediaServerClient;
+    client.authenticationSessionId = Object();
+    write.complete();
+    await tester.pumpAndSettle();
+    harness.liveTv.favorites.complete([]);
+    await tester.pumpAndSettle();
+
+    guide = tester.widget<GuideTab>(find.byType(GuideTab));
+    expect(guide.isFavoriteChannel!(guide.channels.single), isFalse);
+    expect(harness.liveTv.writes, hasLength(1));
   });
   testWidgets('favorite failure keeps favorites loaded from healthy stores', (tester) async {
     final failedLiveTv = _FakeLiveTvSupport(serverId: 'server-a', storeKey: 'store-a');
@@ -361,6 +476,9 @@ class _FakeMediaServerClient implements MediaServerClient {
   final ServerId serverId;
 
   @override
+  Object authenticationSessionId = Object();
+
+  @override
   String? get serverName => 'Server ${serverId.value}';
 
   @override
@@ -435,12 +553,14 @@ class _FakeLiveTvSupport implements LiveTvSupport {
 
   final List<Object> writeFailures = [];
   final List<List<FavoriteChannel>> writes = [];
+  Future<void>? pendingWrite;
 
   @override
   Future<void> setFavoriteChannels(List<FavoriteChannel> channels, {void Function()? checkCurrent}) async {
     checkCurrent?.call();
     writes.add(List.of(channels));
     if (writeFailures.isNotEmpty) throw writeFailures.removeAt(0);
+    await pendingWrite;
   }
 
   @override
