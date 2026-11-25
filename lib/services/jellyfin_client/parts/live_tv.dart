@@ -71,6 +71,8 @@ mixin _JellyfinLiveTvMethods on _JellyfinClientInternals {
 
   LiveTvProgram _programFromJson(Map<String, dynamic> json) {
     final id = json['Id'] as String?;
+    final name = json['Name'] as String?;
+    final seriesName = json['SeriesName'] as String?;
 
     final tags = json['ImageTags'];
     String? primaryTag;
@@ -94,13 +96,16 @@ mixin _JellyfinLiveTvMethods on _JellyfinClientInternals {
       // The program id doubles as the recording seed: getSubscriptionTemplate
       // feeds it to /LiveTv/Timers/Defaults?programId=.
       guid: id,
-      title: json['Name'] as String? ?? t.liveTv.unknownProgram,
+      title: name ?? t.liveTv.unknownProgram,
+      programTitle: name ?? seriesName ?? t.liveTv.unknownProgram,
+      episodeTitle: json['EpisodeTitle'] as String?,
       summary: json['Overview'] as String?,
+      contentRating: json['OfficialRating'] as String?,
       type: 'episode',
       year: (json['ProductionYear'] as num?)?.toInt(),
       beginsAt: jellyfinIsoToEpochSeconds(json['StartDate'] as String?),
       endsAt: jellyfinIsoToEpochSeconds(json['EndDate'] as String?),
-      grandparentTitle: json['SeriesName'] as String?,
+      grandparentTitle: seriesName,
       parentTitle: json['SeasonName'] as String?,
       index: (json['IndexNumber'] as num?)?.toInt(),
       parentIndex: (json['ParentIndexNumber'] as num?)?.toInt(),

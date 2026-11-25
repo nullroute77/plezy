@@ -8,7 +8,12 @@ class LiveTvProgram {
   final String? ratingKey;
   final String? guid;
   final String title;
+
+  /// Broadcast title and episode subtitle as supplied by the guide provider.
+  final String? programTitle;
+  final String? episodeTitle;
   final String? summary;
+  final String? contentRating;
   final String? type;
   final int? year;
   final int? beginsAt; // epoch seconds
@@ -41,7 +46,10 @@ class LiveTvProgram {
     this.ratingKey,
     this.guid,
     required this.title,
+    this.programTitle,
+    this.episodeTitle,
     this.summary,
+    this.contentRating,
     this.type,
     this.year,
     this.beginsAt,
@@ -91,17 +99,23 @@ class LiveTvProgram {
       return hasOverride ? (fromMedia ?? fromJson) : (fromJson ?? fromMedia);
     }
 
+    final title = json['title'] as String?;
+    final series = json['grandparentTitle'] as String?;
+    final seriesTitle = _guideText(series);
     return LiveTvProgram(
       key: json['key'] as String?,
       ratingKey: json['ratingKey'] as String?,
       guid: json['guid'] as String?,
-      title: json['title'] as String? ?? t.liveTv.unknownProgram,
+      title: title ?? t.liveTv.unknownProgram,
+      programTitle: seriesTitle ?? title ?? t.liveTv.unknownProgram,
+      episodeTitle: seriesTitle == null ? null : title,
       summary: json['summary'] as String?,
+      contentRating: pickString('contentRating'),
       type: json['type'] as String?,
       year: flexibleInt(json['year']),
       beginsAt: pickInt('beginsAt'),
       endsAt: pickInt('endsAt'),
-      grandparentTitle: json['grandparentTitle'] as String?,
+      grandparentTitle: series,
       parentTitle: json['parentTitle'] as String?,
       index: flexibleInt(json['index']),
       parentIndex: flexibleInt(json['parentIndex']),
@@ -123,7 +137,10 @@ class LiveTvProgram {
       ratingKey: ratingKey,
       guid: guid,
       title: title,
+      programTitle: programTitle,
+      episodeTitle: episodeTitle,
       summary: summary,
+      contentRating: contentRating,
       type: type,
       year: year,
       beginsAt: beginsAt,
@@ -187,5 +204,19 @@ class LiveTvProgram {
       return '$grandparentTitle - $seasonEpisode - $title';
     }
     return title;
+  }
+
+  String get guideTitle =>
+      _guideText(programTitle) ?? _guideText(grandparentTitle) ?? _guideText(title) ?? t.liveTv.unknownProgram;
+
+  String? get guideSubtitle =>
+      _guideText(episodeTitle ?? (programTitle == null && _guideText(grandparentTitle) != null ? title : null));
+
+  static final _episodePlaceholder = RegExp(r'^episode\s+[0-9]+$', caseSensitive: false);
+
+  static String? _guideText(String? value) {
+    final text = value?.trim();
+    if (text == null || text.isEmpty || _episodePlaceholder.hasMatch(text)) return null;
+    return text;
   }
 }
