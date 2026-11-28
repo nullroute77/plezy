@@ -14,6 +14,7 @@ import '../media/library_genre.dart';
 import '../media/library_first_character.dart';
 import '../media/library_query.dart';
 import '../media/live_tv_support.dart';
+import '../media/live_tv_timeline.dart';
 import '../media/lyrics.dart';
 import '../media/media_backend.dart';
 import '../media/media_hub.dart';

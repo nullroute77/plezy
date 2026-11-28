@@ -509,6 +509,9 @@ class _LiveMediaSessionPlayer implements Player {
   PlayerState get state => _state;
 
   @override
+  Duration get currentPosition => state.position;
+
+  @override
   PlayerStreams get streams => emptyPlayerStreams();
 
   @override

@@ -3925,6 +3925,24 @@ class Translations$liveTv$en {
 	/// en: 'Unknown Program'
 	String get unknownProgram => 'Unknown Program';
 
+	/// en: 'Live program (playback may be outside this program)'
+	String get timelineLiveProgram => 'Live program (playback may be outside this program)';
+
+	/// en: 'Buffer timeline'
+	String get timelineBuffer => 'Buffer timeline';
+
+	/// en: 'Timeline unavailable'
+	String get timelineUnavailable => 'Timeline unavailable';
+
+	/// en: 'Estimated playback'
+	String get timelineEstimated => 'Estimated playback';
+
+	/// en: 'Pending seek'
+	String get timelinePending => 'Pending seek';
+
+	/// en: 'Schedule may be outdated'
+	String get timelineStale => 'Schedule may be outdated';
+
 	/// en: 'Unknown'
 	String get unknownHub => 'Unknown';
 
@@ -9595,6 +9613,12 @@ extension on Translations {
 			'liveTv.noPrograms' => 'No program data available',
 			'liveTv.liveStreamFailed' => 'Live stream failed',
 			'liveTv.unknownProgram' => 'Unknown Program',
+			'liveTv.timelineLiveProgram' => 'Live program (playback may be outside this program)',
+			'liveTv.timelineBuffer' => 'Buffer timeline',
+			'liveTv.timelineUnavailable' => 'Timeline unavailable',
+			'liveTv.timelineEstimated' => 'Estimated playback',
+			'liveTv.timelinePending' => 'Pending seek',
+			'liveTv.timelineStale' => 'Schedule may be outdated',
 			'liveTv.unknownHub' => 'Unknown',
 			'liveTv.unknownError' => 'Unknown error',
 			'liveTv.channelNumber' => ({required Object number}) => 'Channel ${number}',
@@ -9656,14 +9680,14 @@ extension on Translations {
 			'liveTv.processRecordingRules' => 'Re-evaluate rules',
 			'liveTv.recordingInProgress' => 'Recording now',
 			'liveTv.recordingsCount' => ({required Object count}) => '${count} scheduled',
+			_ => null,
+		} ?? switch (path) {
 			'liveTv.editRule' => 'Edit rule',
 			'liveTv.editRuleAction' => 'Edit',
 			'liveTv.recordingRuleUpdated' => 'Recording rule updated',
 			'liveTv.guideReloadRequested' => 'Guide refresh requested',
 			'liveTv.guideReloadFailed' => 'Couldn\'t refresh the guide',
 			'liveTv.rulesProcessRequested' => 'Rule re-evaluation requested',
-			_ => null,
-		} ?? switch (path) {
 			'liveTv.rulesProcessFailed' => 'Couldn\'t re-evaluate recording rules',
 			'liveTv.recordShow' => 'Record show',
 			'liveTv.recordSettings.startEarly' => 'Start early (seconds)',
@@ -10170,14 +10194,14 @@ extension on Translations {
 			'performanceOverlay.dvSampleAverage' => 'DV Sample Avg',
 			'performanceOverlay.maxLuma' => 'Max Luma',
 			'performanceOverlay.minLuma' => 'Min Luma',
+			_ => null,
+		} ?? switch (path) {
 			'performanceOverlay.maxCll' => 'MaxCLL',
 			'performanceOverlay.maxFall' => 'MaxFALL',
 			'performanceOverlay.cacheUsed' => 'Cache Used',
 			'performanceOverlay.cacheLimit' => 'Cache Limit',
 			'performanceOverlay.speed' => 'Speed',
 			'performanceOverlay.player' => 'Player',
-			_ => null,
-		} ?? switch (path) {
 			'performanceOverlay.playMethod' => 'Play Method',
 			'performanceOverlay.memory' => 'Memory',
 			'performanceOverlay.uiFps' => 'UI FPS',
