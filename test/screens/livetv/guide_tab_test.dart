@@ -8,6 +8,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:intl/date_symbol_data_local.dart';
 import 'package:material_symbols_icons/symbols.dart';
+import 'package:plezy/focus/card_focus_scope.dart';
 import 'package:plezy/focus/input_mode_tracker.dart';
 import 'package:plezy/i18n/strings.g.dart';
 import 'package:plezy/media/ids.dart';
@@ -26,6 +27,7 @@ import 'package:plezy/services/multi_server_manager.dart';
 import 'package:plezy/theme/mono_theme.dart';
 import 'package:plezy/utils/platform_detector.dart';
 import 'package:plezy/widgets/app_icon.dart';
+import 'package:plezy/widgets/optimized_media_image.dart';
 import 'package:provider/provider.dart';
 
 import '../../test_helpers/multi_server_fixtures.dart';
@@ -666,6 +668,48 @@ void main() {
     });
   }
 
+  testWidgets('channel logos use the poster outline on hover and keep their original colors on focus', (tester) async {
+    final harness = _GuideHarness.oneServer(
+      channels: [LiveTvChannel(key: 'channel-a', callSign: 'A', serverId: 'server-a', thumb: '/channel-logo.png')],
+    );
+    addTearDown(harness.dispose);
+    await harness.pump(tester, palette: MonoPalette.light);
+    await harness.completeInitialEmpty(tester);
+
+    final logo = find.byType(OptimizedMediaImage);
+    final border = find.ancestor(of: logo, matching: find.byType(CardFocusBorder));
+    final animatedBorder = find.descendant(of: border, matching: find.byType(AnimatedContainer));
+    final ink = find.ancestor(of: logo, matching: find.byType(InkWell));
+    final surface = find.descendant(of: border, matching: find.byType(Material));
+    final normalSurface = tester.widget<Material>(surface).color;
+    final colorScheme = Theme.of(tester.element(logo)).colorScheme;
+    Color outlineColor() {
+      final decoration = tester.widget<AnimatedContainer>(animatedBorder).foregroundDecoration! as BoxDecoration;
+      return (decoration.border! as Border).top.color;
+    }
+
+    expect(outlineColor(), Colors.transparent);
+    expect(tester.widget<OptimizedMediaImage>(logo).logoToneTarget, isNull);
+    final mouse = await tester.createGesture(kind: PointerDeviceKind.mouse);
+    await mouse.addPointer(location: tester.getCenter(logo));
+    await tester.pumpAndSettle();
+
+    expect(outlineColor(), colorScheme.primary);
+    expect(tester.widget<InkWell>(ink).hoverColor, Colors.transparent);
+    expect(tester.widget<Material>(surface).color, normalSurface);
+    expect(find.ancestor(of: logo, matching: find.byType(AnimatedOpacity)), findsNothing);
+    expect(tester.widget<OptimizedMediaImage>(logo).logoToneTarget, isNull);
+
+    await mouse.removePointer();
+    await tester.pumpAndSettle();
+    expect(outlineColor(), Colors.transparent);
+
+    await _focusGrid(tester);
+    expect(outlineColor(), colorScheme.primary);
+    expect(tester.widget<Material>(surface).color, normalSurface);
+    expect(tester.widget<OptimizedMediaImage>(logo).logoToneTarget, isNull);
+  });
+
   testWidgets('TV panel follows card hover and keyboard focus while cards keep title-only metadata', (tester) async {
     TvDetectionService.debugSetAppleTVOverride(true);
     final now = DateTime(2026, 11, 24, 20, 17);
@@ -744,7 +788,10 @@ Finder _focusedCellFinder(WidgetTester tester) {
 
 void _expectFocusedChannel(WidgetTester tester, String callSign) {
   expect(
-    find.ancestor(of: find.text(callSign), matching: _focusedCellFinder(tester)),
+    find.ancestor(
+      of: find.text(callSign),
+      matching: find.byWidgetPredicate((widget) => widget is CardFocusScope && widget.showFocus),
+    ),
     findsOneWidget,
     reason: 'expected focused channel $callSign',
   );
@@ -782,7 +829,8 @@ Future<void> _pumpMenuTransition(WidgetTester tester) async {
 final class _GuideHarness {
   _GuideHarness._({required this.serverA, required this.serverB, required this.provider, required this.channels});
 
-  factory _GuideHarness.oneServer() => _GuideHarness._create(includeServerB: false);
+  factory _GuideHarness.oneServer({List<LiveTvChannel>? channels}) =>
+      _GuideHarness._create(includeServerB: false, channels: channels);
 
   factory _GuideHarness.twoServers() => _GuideHarness._create(includeServerB: true);
 
@@ -821,6 +869,7 @@ final class _GuideHarness {
     WidgetTester tester, {
     void Function(LiveTvChannel)? onToggleFavorite,
     Size size = const Size(1280, 720),
+    MonoPalette palette = MonoPalette.dark,
   }) async {
     tester.view.devicePixelRatio = 1;
     tester.view.physicalSize = size;
@@ -835,7 +884,7 @@ final class _GuideHarness {
           child: ChangeNotifierProvider<MultiServerProvider>.value(
             value: provider,
             child: MaterialApp(
-              theme: monoTheme(MonoPalette.dark),
+              theme: monoTheme(palette),
               home: Scaffold(
                 body: GuideTab(channels: channels, onToggleFavorite: onToggleFavorite),
               ),
@@ -908,6 +957,9 @@ final class _FakeMediaServerClient implements MediaServerClient {
 
   @override
   ServerCapabilities get capabilities => const ServerCapabilities(liveTv: true);
+
+  @override
+  String thumbnailUrl(String? path, {int? width, int? height, bool cover = true}) => '';
 
   @override
   dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);

@@ -9,6 +9,7 @@ import 'package:flutter/services.dart';
 import 'package:material_symbols_icons/symbols.dart';
 import 'package:provider/provider.dart';
 
+import '../../../focus/card_focus_scope.dart';
 import '../../../focus/dpad_navigator.dart';
 import '../../../focus/dpad_select_long_press_controller.dart';
 import '../../../focus/focus_theme.dart';
@@ -32,7 +33,6 @@ import '../../../utils/formatters.dart';
 import '../../../utils/live_tv_grouping.dart';
 import '../../../utils/live_tv_matching.dart';
 import '../../../utils/platform_detector.dart';
-import '../../../utils/tone_mapped_logo_image.dart';
 import '../../../widgets/app_icon.dart';
 import '../../../widgets/app_menu.dart';
 import '../../../widgets/clickable_cursor.dart';
@@ -1736,7 +1736,6 @@ class GuideTabState extends State<GuideTab>
           channelColumnWidth: _channelColumnWidth,
           channelThumb: channel.thumb,
           client: client,
-          channel: channel,
           theme: theme,
           onTap: () => tuneChannel(channel),
           onLongPress: widget.onToggleFavorite != null ? () => widget.onToggleFavorite!(channel) : null,
@@ -2034,7 +2033,6 @@ class _ChannelCell extends StatefulWidget {
   final double channelColumnWidth;
   final String? channelThumb;
   final MediaServerClient? client;
-  final LiveTvChannel channel;
   final ThemeData theme;
   final VoidCallback onTap;
   final VoidCallback? onLongPress;
@@ -2047,7 +2045,6 @@ class _ChannelCell extends StatefulWidget {
     required this.channelColumnWidth,
     required this.channelThumb,
     required this.client,
-    required this.channel,
     required this.theme,
     required this.onTap,
     this.onLongPress,
@@ -2065,65 +2062,51 @@ class _ChannelCellState extends State<_ChannelCell> {
 
   @override
   Widget build(BuildContext context) {
-    final theme = widget.theme;
     final tk = tokens(context);
-    final showAction = _hovered || widget.isFocused;
-    final radius = BorderRadius.circular(widget.isFocused ? tk.radiusSm : tk.radiusXs);
-    // Inverted focus card, matching the program-block cursor.
-    final contentColor = widget.isFocused ? theme.colorScheme.onPrimary : theme.colorScheme.onSurface;
+    final radius = BorderRadius.circular(tk.radiusSm);
 
-    return MouseRegion(
-      cursor: SystemMouseCursors.click,
-      onEnter: (_) => setState(() => _hovered = true),
-      onExit: (_) => setState(() => _hovered = false),
-      child: GestureDetector(
-        onSecondaryTap: widget.onLongPress,
-        child: SizedBox(
-          height: widget.rowHeight,
-          child: Padding(
-            padding: EdgeInsets.only(right: tk.groupGap, bottom: tk.groupGap),
+    return SizedBox(
+      height: widget.rowHeight,
+      child: Padding(
+        padding: EdgeInsets.only(right: tk.groupGap, bottom: tk.groupGap),
+        child: CardFocusScope(
+          showFocus: _hovered || widget.isFocused,
+          child: CardFocusBorder(
+            borderRadius: tk.radiusSm,
+            // Keep the poster-style stroke visible at the viewport edge.
+            strokeAlign: BorderSide.strokeAlignInside,
             child: Material(
-              color: widget.isFocused ? theme.colorScheme.primary : tk.surface,
+              color: tk.surface,
               shape: RoundedRectangleBorder(borderRadius: radius),
               child: InkWell(
                 borderRadius: radius,
                 canRequestFocus: false,
+                mouseCursor: SystemMouseCursors.click,
+                hoverColor: Colors.transparent,
+                onHover: (hovered) => setState(() => _hovered = hovered),
                 onTap: widget.onTap,
                 onLongPress: widget.onLongPress,
+                onSecondaryTap: widget.onLongPress,
                 child: Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 8),
                   child: Stack(
                     alignment: .center,
                     children: [
-                      AnimatedOpacity(
-                        opacity: showAction ? 0.3 : 1.0,
-                        duration: FocusTheme.getAnimationDuration(context),
-                        child: widget.channelThumb != null && widget.client != null
-                            ? OptimizedMediaImage.thumb(
-                                client: widget.client!,
-                                imagePath: widget.channelThumb,
-                                width: widget.channelColumnWidth - 16,
-                                height: widget.rowHeight - 16,
-                                fit: BoxFit.contain,
-                                logoToneTarget: logoToneTargetFor(
-                                  surface: widget.isFocused ? theme.colorScheme.primary : tk.surface,
-                                  foreground: widget.isFocused
-                                      ? theme.colorScheme.onPrimary
-                                      : theme.colorScheme.onSurface,
-                                ),
-                              )
-                            : widget.fallbackBuilder(),
-                      ),
-                      if (showAction) AppIcon(Symbols.play_arrow_rounded, size: 32, color: contentColor),
+                      if (widget.channelThumb != null && widget.client != null)
+                        OptimizedMediaImage.thumb(
+                          client: widget.client!,
+                          imagePath: widget.channelThumb,
+                          width: widget.channelColumnWidth - 16,
+                          height: widget.rowHeight - 16,
+                          fit: BoxFit.contain,
+                        )
+                      else
+                        widget.fallbackBuilder(),
                       if (widget.isFavorite)
                         Positioned(
                           top: 2,
                           right: 0,
-                          child: AppIcon(
-                            Symbols.star_rounded,
-                            size: 14,
-                            color: widget.isFocused ? theme.colorScheme.onPrimary : theme.colorScheme.primary,
-                          ),
+                          child: AppIcon(Symbols.star_rounded, size: 14, color: widget.theme.colorScheme.primary),
                         ),
                     ],
                   ),

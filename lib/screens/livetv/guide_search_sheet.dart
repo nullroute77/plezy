@@ -16,7 +16,6 @@ import '../../services/companion_remote/companion_remote_receiver.dart';
 import '../../utils/app_logger.dart';
 import '../../utils/formatters.dart';
 import '../../utils/live_tv_matching.dart';
-import '../../utils/tone_mapped_logo_image.dart';
 import '../../widgets/app_icon.dart';
 import '../../widgets/bottom_sheet_header.dart';
 import '../../widgets/focusable_list_tile.dart';
@@ -295,17 +294,7 @@ class _GuideSearchSheetState extends State<GuideSearchSheet> with ControllerDisp
         width: 40,
         height: 40,
         child: channel.thumb != null && client != null
-            ? OptimizedMediaImage.thumb(
-                client: client,
-                imagePath: channel.thumb,
-                width: 40,
-                height: 40,
-                fit: .contain,
-                logoToneTarget: logoToneTargetFor(
-                  surface: Theme.of(context).colorScheme.surface,
-                  foreground: Theme.of(context).colorScheme.onSurface,
-                ),
-              )
+            ? OptimizedMediaImage.thumb(client: client, imagePath: channel.thumb, width: 40, height: 40, fit: .contain)
             : Center(
                 child: AppIcon(Symbols.live_tv_rounded, fill: 1, color: Theme.of(context).colorScheme.onSurfaceVariant),
               ),
