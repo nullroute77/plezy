@@ -133,5 +133,38 @@ void main() {
 
       expect(programs.single.summary, 'Headlines and weather.');
     });
+
+    test('$name maps guide episode titles, numbers and ratings without changing the recording seed', () async {
+      const titles = ['', 'Episode 2000', '  2000  ', 'Part 2', 'Episode 2000: Heat Day'];
+      final client = makeClient(
+        handler: (_) async => jsonResponse({
+          'Items': [
+            for (final (index, title) in titles.indexed)
+              {
+                'Id': 'p-$index',
+                'Name': 'Cooking Contest',
+                'SeriesName': 'Original Series Name',
+                'EpisodeTitle': title,
+                'ParentIndexNumber': 1,
+                'IndexNumber': 9,
+                'OfficialRating': 'TV-PG',
+                'StartDate': '2026-08-20T19:00:00Z',
+                'EndDate': '2026-08-20T19:30:00Z',
+              },
+            {'Id': 'missing-title', 'SeriesName': 'Cooking Contest'},
+          ],
+        }),
+      );
+      addTearDown(client.close);
+      final programs = await client.liveTv.fetchSchedule();
+      expect(programs.map((p) => p.guideTitle), everyElement('Cooking Contest'));
+      expect(programs.map((p) => p.guideSubtitle), [null, null, '2000', 'Part 2', 'Episode 2000: Heat Day', null]);
+      expect(programs.first.guid, 'p-0');
+      expect(programs.first.grandparentTitle, 'Original Series Name');
+      expect(programs.first.parentIndex, 1);
+      expect(programs.first.index, 9);
+      expect(programs.first.contentRating, 'TV-PG');
+      expect(programs.first.durationMinutes, 30);
+    });
   }
 }

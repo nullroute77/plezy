@@ -900,6 +900,7 @@ void main() {
         expect(switchTokens.last, accountToken);
         expect(prepared.manager.refreshCalls, 1);
         expect(prepared.manager.lastConnection?.servers.single.accessToken, 'server-token');
+        expect(prepared.manager.lastProfileToken, 'fresh-user-token');
         expect((await profileConnections.get(prepared.profileId, 'plex.account'))?.userToken, 'fresh-user-token');
       },
     );
@@ -929,6 +930,7 @@ void main() {
       await pumpUntil(() async => prepared.manager.refreshCalls == 2);
       expect(prepared.manager.lastConnection?.servers.single.accessToken, 'server-token');
       expect(prepared.manager.lastProfileId, prepared.profileId);
+      expect(prepared.manager.lastProfileToken, 'home-user-token');
 
       // And the refreshed metadata was persisted onto the stored account row.
       final account = await connections.getPlexAccount('plex.account');
@@ -1637,16 +1639,19 @@ class _CapturingMultiServerManager extends MultiServerManager {
   int refreshCalls = 0;
   PlexAccountConnection? lastConnection;
   String? lastProfileId;
+  String? lastProfileToken;
 
   @override
   Future<Set<String>> refreshTokensForProfile(
     PlexAccountConnection connection, {
     required String profileId,
+    String? profileToken,
     Duration timeout = MediaServerTimeouts.perServerConnect,
   }) async {
     refreshCalls++;
     lastConnection = connection;
     lastProfileId = profileId;
+    lastProfileToken = profileToken;
     return connection.servers.map((server) => server.clientIdentifier).toSet();
   }
 }
@@ -1658,6 +1663,7 @@ class _AuthRejectingPlexManager extends MultiServerManager {
   Future<Set<String>> refreshTokensForProfile(
     PlexAccountConnection connection, {
     required String profileId,
+    String? profileToken,
     Duration timeout = MediaServerTimeouts.perServerConnect,
   }) async {
     for (final server in connection.servers) {
@@ -1685,6 +1691,7 @@ class _SweptAuthRejectingPlexManager extends MultiServerManager {
   Future<Set<String>> refreshTokensForProfile(
     PlexAccountConnection connection, {
     required String profileId,
+    String? profileToken,
     Duration timeout = MediaServerTimeouts.perServerConnect,
   }) async {
     for (final server in connection.servers) {
@@ -1702,6 +1709,7 @@ class _FailingPlexMultiServerManager extends MultiServerManager {
   Future<Set<String>> refreshTokensForProfile(
     PlexAccountConnection connection, {
     required String profileId,
+    String? profileToken,
     Duration timeout = MediaServerTimeouts.perServerConnect,
   }) async {
     refreshCalls++;
@@ -1719,6 +1727,7 @@ class _RecordingPlexManager extends MultiServerManager {
   Future<Set<String>> refreshTokensForProfile(
     PlexAccountConnection connection, {
     required String profileId,
+    String? profileToken,
     Duration timeout = MediaServerTimeouts.perServerConnect,
   }) async {
     calls++;
@@ -1739,6 +1748,7 @@ class _BlockingMixedMultiServerManager extends MultiServerManager {
   Future<Set<String>> refreshTokensForProfile(
     PlexAccountConnection connection, {
     required String profileId,
+    String? profileToken,
     Duration timeout = MediaServerTimeouts.perServerConnect,
   }) async {
     if (!plexStarted.isCompleted) plexStarted.complete();
@@ -1803,11 +1813,13 @@ class _ControlledConnectManager extends MultiServerManager {
   Future<Set<String>> refreshTokensForProfile(
     PlexAccountConnection connection, {
     required String profileId,
+    String? profileToken,
     Duration timeout = MediaServerTimeouts.perServerConnect,
   }) {
     return super.refreshTokensForProfile(
       connection.copyWith(servers: [for (final server in connection.servers) _GatedPlexServer(server, this)]),
       profileId: profileId,
+      profileToken: profileToken,
       timeout: timeout,
     );
   }

@@ -469,12 +469,14 @@ void main() {
           ),
         ]),
         profileId: 'new-profile',
+        profileToken: 'new-profile-cloud-token',
       );
 
       expect(bound, {'server-1'});
       expect(manager.isServerOnline(ServerId('server-1')), isTrue);
       expect(manager.authErrorServerIds, isNot(contains('server-1')));
       expect(client.config.token, 'new-token');
+      expect(client.plexProfileToken, 'new-profile-cloud-token');
       expect(client.profileScopeId, buildPlexProfileScopeId(serverId: ServerId('server-1'), profileId: 'new-profile'));
       // Live TV favorites are keyed by the owning account, not the device.
       expect(client.plexAccountId, 'account-1');
@@ -1191,7 +1193,11 @@ void main() {
       );
       final manager = newManager(offlineRetryDelays: const [Duration.zero, Duration.zero, Duration.zero]);
       expect(
-        await manager.refreshTokensForProfile(_plexAccount('waking-account', [server]), profileId: 'profile-a'),
+        await manager.refreshTokensForProfile(
+          _plexAccount('waking-account', [server]),
+          profileId: 'profile-a',
+          profileToken: 'waking-profile-cloud-token',
+        ),
         isEmpty,
       );
 
@@ -1200,7 +1206,8 @@ void main() {
       await online.timeout(const Duration(seconds: 5));
 
       expect(server.discoveryCalls, 3);
-      expect(manager.getClient(ServerId('waking-server')), isNotNull);
+      final client = manager.getClient(ServerId('waking-server')) as PlexClient;
+      expect(client.plexProfileToken, 'waking-profile-cloud-token');
       await pumpEventQueue();
       expect(server.discoveryCalls, 3, reason: 'nothing is left to retry once the server is online');
     });

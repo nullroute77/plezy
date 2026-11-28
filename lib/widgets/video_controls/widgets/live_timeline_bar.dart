@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 
 import '../../../i18n/strings.g.dart';
 import '../../../models/livetv_capture_buffer.dart';
+import '../../../media/live_tv_support.dart';
 import '../../../mpv/mpv.dart';
 import '../../../focus/card_focus_scope.dart';
 import '../../../focus/focusable_wrapper.dart';
@@ -20,6 +21,9 @@ import 'player_focus_disc.dart';
 class LiveTimelineBar extends StatefulWidget {
   final Player player;
   final CaptureBuffer captureBuffer;
+
+  /// Timing from the tuned session; only boundaries inside the buffer are drawn.
+  final LiveProgramInfo program;
   final int Function(Duration position) epochForPosition;
   final bool isAtLiveEdge;
   final ValueChanged<int>? onSeekEnd;
@@ -33,6 +37,7 @@ class LiveTimelineBar extends StatefulWidget {
     super.key,
     required this.player,
     required this.captureBuffer,
+    this.program = LiveProgramInfo.none,
     required this.epochForPosition,
     this.isAtLiveEdge = true,
     this.onSeekEnd,
@@ -118,6 +123,19 @@ class _LiveTimelineBarState extends State<LiveTimelineBar> {
     return ((epoch - _rangeStart) / range).clamp(0.0, 1.0);
   }
 
+  ({double? start, double? end}) get _programFractions {
+    final start = widget.program.beginsAt;
+    final durationMs = widget.program.durationMs;
+    if (!_hasSeekableRange || start == null || start <= 0 || durationMs == null || durationMs <= 0) {
+      return (start: null, end: null);
+    }
+
+    // Unlike the playhead, off-screen boundaries must not clamp to an edge.
+    double? fraction(num epoch) =>
+        epoch < _rangeStart || epoch > _rangeEnd ? null : (epoch - _rangeStart) / (_rangeEnd - _rangeStart);
+    return (start: fraction(start), end: fraction(start + durationMs / 1000));
+  }
+
   int _fractionToEpoch(double fraction) {
     final range = _rangeEnd - _rangeStart;
     return (_rangeStart + (fraction * range).round()).clamp(_rangeStart, _rangeEnd);
@@ -181,6 +199,7 @@ class _LiveTimelineBarState extends State<LiveTimelineBar> {
 
   Widget _buildSlider(int displayPos) {
     final positionFraction = _epochToFraction(displayPos);
+    final programFractions = _programFractions;
     final normalizedDisplayPos = _normalizedEpoch(displayPos);
     final semanticsEnabled = widget.enabled && widget.onSeekEnd != null && _hasSeekableRange;
     final canIncrease = semanticsEnabled && normalizedDisplayPos < _rangeEnd;
@@ -237,6 +256,8 @@ class _LiveTimelineBarState extends State<LiveTimelineBar> {
                     child: CustomPaint(
                       painter: _LiveTimelinePainter(
                         positionFraction: positionFraction,
+                        programStartFraction: programFractions.start,
+                        programEndFraction: programFractions.end,
                         showFocusKnob: CardFocusScope.maybeOf(context) ?? false,
                       ),
                     ),
@@ -282,11 +303,18 @@ class _LiveTimelineBarState extends State<LiveTimelineBar> {
 
 class _LiveTimelinePainter extends CustomPainter {
   final double positionFraction;
+  final double? programStartFraction;
+  final double? programEndFraction;
 
   /// D-pad focus: draw the shared focus knob instead of the handle (#2383).
   final bool showFocusKnob;
 
-  _LiveTimelinePainter({required this.positionFraction, required this.showFocusKnob});
+  _LiveTimelinePainter({
+    required this.positionFraction,
+    required this.showFocusKnob,
+    required this.programStartFraction,
+    required this.programEndFraction,
+  });
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -314,6 +342,14 @@ class _LiveTimelinePainter extends CustomPainter {
       );
     }
 
+    // Slim white chapter-style ticks distinguish program bounds from the red
+    // playhead. Paint before the thumb/focus knob so it stays prominent.
+    final boundaryPaint = Paint()..color = Colors.white70;
+    for (final fraction in [programStartFraction, programEndFraction]) {
+      if (fraction == null) continue;
+      canvas.drawRect(Rect.fromCenter(center: Offset(fraction * w, trackY), width: 2, height: 12), boundaryPaint);
+    }
+
     if (showFocusKnob) {
       paintPlayerFocusKnob(canvas, Offset(posX, trackY));
       return;
@@ -333,5 +369,8 @@ class _LiveTimelinePainter extends CustomPainter {
 
   @override
   bool shouldRepaint(covariant _LiveTimelinePainter oldDelegate) =>
-      positionFraction != oldDelegate.positionFraction || showFocusKnob != oldDelegate.showFocusKnob;
+      positionFraction != oldDelegate.positionFraction ||
+      showFocusKnob != oldDelegate.showFocusKnob ||
+      programStartFraction != oldDelegate.programStartFraction ||
+      programEndFraction != oldDelegate.programEndFraction;
 }

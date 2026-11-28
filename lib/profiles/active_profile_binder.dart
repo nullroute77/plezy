@@ -783,6 +783,7 @@ class ActiveProfileBinder {
           _reconcileWhenFetchLands(
             fetchOutcome: fetchOutcome,
             account: account,
+            userToken: token,
             profileId: profileId,
             profileLabel: profileLabel,
             generation: generation,
@@ -949,7 +950,11 @@ class ActiveProfileBinder {
     }
     final stopwatch = Stopwatch()..start();
     final updatedConn = account.copyWith(servers: servers);
-    final boundIds = await serverManager.refreshTokensForProfile(updatedConn, profileId: profileId);
+    final boundIds = await serverManager.refreshTokensForProfile(
+      updatedConn,
+      profileId: profileId,
+      profileToken: userToken,
+    );
     appLogger.i(
       'ActiveProfileBinder: bound ${boundIds.length}/${servers.length} Plex servers for $profileLabel',
       error: {'elapsedMs': stopwatch.elapsedMilliseconds},
@@ -1070,6 +1075,7 @@ class ActiveProfileBinder {
   void _reconcileWhenFetchLands({
     required Future<_FetchOutcome> fetchOutcome,
     required PlexAccountConnection account,
+    required String userToken,
     required String profileId,
     required String profileLabel,
     required int generation,
@@ -1082,6 +1088,7 @@ class ActiveProfileBinder {
         await _applyResourceRefresh(
           settled,
           account: account,
+          userToken: userToken,
           profileId: profileId,
           profileLabel: profileLabel,
           generation: generation,
@@ -1117,6 +1124,7 @@ class ActiveProfileBinder {
     await _applyResourceRefresh(
       settled,
       account: account,
+      userToken: bound.token,
       profileId: bound.profileId,
       profileLabel: bound.profileLabel,
       generation: bound.generation,
@@ -1131,6 +1139,7 @@ class ActiveProfileBinder {
   Future<void> _applyResourceRefresh(
     _FetchOutcome settled, {
     required PlexAccountConnection account,
+    required String userToken,
     required String profileId,
     required String profileLabel,
     required int generation,
@@ -1188,7 +1197,11 @@ class ActiveProfileBinder {
     // offline. Newly-online expected servers are promoted into the visibility
     // filter by MultiServerProvider when the status emission this triggers
     // lands.
-    await serverManager.refreshTokensForProfile(account.copyWith(servers: fresh), profileId: profileId);
+    await serverManager.refreshTokensForProfile(
+      account.copyWith(servers: fresh),
+      profileId: profileId,
+      profileToken: userToken,
+    );
   }
 
   Future<_ProfileBindResult> _bindMediaBrowser(

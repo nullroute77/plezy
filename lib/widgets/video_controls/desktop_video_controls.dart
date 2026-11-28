@@ -19,6 +19,7 @@ import '../../utils/platform_detector.dart';
 import '../../utils/formatters.dart';
 import '../../i18n/strings.g.dart';
 import '../../models/livetv_capture_buffer.dart';
+import '../../media/live_tv_support.dart';
 import 'models/track_controls_state.dart';
 import 'player_chrome_controller.dart';
 import 'widgets/content_strip.dart';
@@ -78,6 +79,7 @@ class DesktopVideoControls extends StatefulWidget {
 
   // Live TV time-shift
   final CaptureBuffer? captureBuffer;
+  final LiveProgramInfo liveProgram;
   final bool isAtLiveEdge;
   final int Function(Duration position)? liveEpochForPosition;
   final ValueChanged<int>? onLiveSeek;
@@ -143,6 +145,7 @@ class DesktopVideoControls extends StatefulWidget {
     this.thumbnailDataBuilder,
     this.liveChannelName,
     this.captureBuffer,
+    this.liveProgram = LiveProgramInfo.none,
     this.isAtLiveEdge = true,
     this.liveEpochForPosition,
     this.onLiveSeek,
@@ -731,6 +734,7 @@ class DesktopVideoControlsState extends State<DesktopVideoControls> {
             LiveTimelineBar(
               player: widget.player,
               captureBuffer: widget.captureBuffer!,
+              program: widget.liveProgram,
               epochForPosition: widget.liveEpochForPosition!,
               isAtLiveEdge: widget.isAtLiveEdge,
               onSeekEnd: widget.onLiveSeek,

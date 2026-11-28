@@ -101,6 +101,18 @@ void main() {
   });
 
   group('LiveTvSessionState.adoptSession', () {
+    test('channel changes replace program timing, including a session without metadata', () {
+      final state = LiveTvSessionState(null);
+      const first = LiveProgramInfo(id: 'channel-a', beginsAt: 1000, durationMs: 60000);
+      const second = LiveProgramInfo(id: 'channel-b', beginsAt: 2000, durationMs: 120000);
+      state.adoptSession(_FakeSession(program: first));
+      expect(state.session!.program, same(first));
+      state.adoptSession(_FakeSession(program: second));
+      expect(state.session!.program, same(second));
+      state.adoptSession(_FakeSession());
+      expect(state.session!.program, same(LiveProgramInfo.none));
+    });
+
     test('resets the subtitle selection because stream ids are tune-scoped', () {
       final state = LiveTvSessionState(null);
       state.selectedSubtitle = _track(id: 92, languageCode: 'fin');
@@ -380,6 +392,8 @@ void main() {
 }
 
 class _FakeSession implements LiveTvPlaybackSession {
+  _FakeSession({this.program = LiveProgramInfo.none});
+
   @override
   LiveTvBackgroundPolicy get backgroundPolicy => LiveTvBackgroundPolicy.retainSession;
 
@@ -390,7 +404,7 @@ class _FakeSession implements LiveTvPlaybackSession {
   bool get canTimeShift => false;
 
   @override
-  LiveProgramInfo get program => LiveProgramInfo.none;
+  final LiveProgramInfo program;
 
   @override
   List<MediaSubtitleTrack> get subtitleTracks => const [];

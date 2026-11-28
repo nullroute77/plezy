@@ -18,6 +18,10 @@ mixin _PlexLiveTvClientMethods on _PlexClientInternals implements LiveTvSupport,
   PlexConfig get config;
 
   String? get plexAccountId;
+  String? get plexProfileToken;
+  PlexProfileScopeId get profileScopeId;
+
+  Map<String, String> get _favoriteChannelHeaders => {..._providerVersionHeader, 'X-Plex-Token': ?plexProfileToken};
 
   List<PlexEpgProvider> get _providerEpg;
 
@@ -854,13 +858,15 @@ mixin _PlexLiveTvClientMethods on _PlexClientInternals implements LiveTvSupport,
   /// Get favorite channels from the Plex cloud.
   @override
   Future<List<FavoriteChannel>> fetchFavoriteChannels({bool migrate = true, void Function()? checkCurrent}) async {
+    checkCurrent?.call();
     // A plex.tv failure says nothing about this media server's endpoints, so
     // it must not walk (or exhaust) the server's failover list.
     final response = await _http.get(
       _favoriteChannelsUrl,
-      headers: _providerVersionHeader,
+      headers: _favoriteChannelHeaders,
       allowEndpointFailover: false,
     );
+    checkCurrent?.call();
     _throwIfFailed(response);
     final container = _getMediaContainer(response);
     if (container == null) {
@@ -883,7 +889,7 @@ mixin _PlexLiveTvClientMethods on _PlexClientInternals implements LiveTvSupport,
         () => _http.put(
           _favoriteChannelsUrl,
           body: channels.map((c) => c.toJson()).toList(),
-          headers: _providerVersionHeader,
+          headers: _favoriteChannelHeaders,
         ),
       );
     } catch (e, stackTrace) {
@@ -928,12 +934,10 @@ mixin _PlexLiveTvClientMethods on _PlexClientInternals implements LiveTvSupport,
     );
   }
 
-  /// The favorites list lives on plex.tv, one per account, while
-  /// X-Plex-Client-Identifier is shared by every account on the install.
-  /// Keying by it merged accounts: only one account's list was read, and
-  /// every account's favorites were written into it.
+  /// Deduplicate the cloud list across DVRs for one bound account and profile.
   @override
-  String get favoriteStoreKey => 'plex:${plexAccountId ?? config.clientIdentifier}';
+  String get favoriteStoreKey =>
+      'plex:${Uri.encodeComponent(plexAccountId ?? config.clientIdentifier)}:${Uri.encodeComponent(profileScopeId.profileId)}';
 
   @override
   FavoriteChannelPersistenceMode get favoritePersistenceMode => FavoriteChannelPersistenceMode.sharedFullList;
