@@ -154,10 +154,9 @@ class MultiServerManager {
   final Map<String, String> _clientIdByServer = {};
   final Map<String, PlexProfileScopeId> _plexScopeByServer = {};
 
-  /// Per-server owning [PlexAccountConnection]: its id and plex.tv token. The
-  /// clientIdentifier above is device-wide, so the id is what tells two
-  /// accounts' servers apart (see [PlexClient.plexAccountId]).
-  final Map<String, ({String id, String token})> _plexAccountByServer = {};
+  /// Owning account identity and the bound user's cloud token, retained for
+  /// reconnects. The device-wide clientIdentifier cannot distinguish accounts.
+  final Map<String, ({String id, String token, String? profileToken})> _plexAccountByServer = {};
 
   String? _resolveClientIdentifier(ServerId serverId) => _clientIdByServer[serverId];
 
@@ -171,10 +170,11 @@ class MultiServerManager {
     required String clientIdentifier,
     required String accountId,
     required String accountToken,
+    String? profileToken,
     PlexProfileScopeId? scope,
   }) {
     _clientIdByServer[serverId] = clientIdentifier;
-    _plexAccountByServer[serverId] = (id: accountId, token: accountToken);
+    _plexAccountByServer[serverId] = (id: accountId, token: accountToken, profileToken: profileToken);
     _plexServers[serverId] = server;
     if (scope != null) _plexScopeByServer[serverId] = scope;
     final client = _clients[serverId];
@@ -501,6 +501,7 @@ class MultiServerManager {
     required PlexProfileScopeId profileScopeId,
   }) async {
     final serverId = server.clientIdentifier;
+    final account = _plexAccountByServer[serverId];
     final stopwatch = Stopwatch()..start();
 
     // Get storage and load cached endpoint for this server
@@ -552,10 +553,10 @@ class MultiServerManager {
       onAllEndpointsExhausted: () => _onServerEndpointsExhausted(ServerId(serverId)),
       seedTranscoderVideoSupport: observedTranscoderVideo,
     );
-    final account = _plexAccountByServer[serverId];
     client
       ..plexAccountId = account?.id
-      ..plexAccountToken = account?.token;
+      ..plexAccountToken = account?.token
+      ..plexProfileToken = account?.profileToken;
 
     // Save the initial endpoint (relay is refused — see _savePreferredEndpoint)
     await _savePreferredEndpoint(ServerId(serverId), storage, baseUrl, capturedServer: server);
@@ -736,6 +737,7 @@ class MultiServerManager {
   Future<Set<String>> refreshTokensForProfile(
     PlexAccountConnection connection, {
     required String profileId,
+    String? profileToken,
     Duration timeout = MediaServerTimeouts.perServerConnect,
   }) async {
     final accountId = connection.id;
@@ -757,6 +759,7 @@ class MultiServerManager {
           final applied = await existing.applyProfileUpdate(
             newToken: server.accessToken,
             newProfileScopeId: profileScopeId,
+            newProfileToken: profileToken,
           );
           if (!applied || isStale() || !identical(_clients[serverId], existing)) return;
 
@@ -766,6 +769,7 @@ class MultiServerManager {
             clientIdentifier: connection.clientIdentifier,
             accountId: connection.id,
             accountToken: connection.accountToken,
+            profileToken: profileToken,
             scope: profileScopeId,
           );
           _refusedServers.remove(serverId);
@@ -797,6 +801,7 @@ class MultiServerManager {
         clientIdentifier: connection.clientIdentifier,
         accountId: connection.id,
         accountToken: connection.accountToken,
+        profileToken: profileToken,
         scope: profileScopeId,
       );
       try {
